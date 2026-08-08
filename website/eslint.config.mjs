@@ -39,6 +39,9 @@ const eslintConfig = defineConfig([
       // vinext's beta Link runtime crashes after production bundling. Native
       // document navigation is the intentional compatibility path for now.
       "@next/next/no-html-link-for-pages": "off",
+      // Artwork is pre-sized and compressed at build time; avoiding next/image
+      // also keeps the Cloudflare deployment free of an Images binding.
+      "@next/next/no-img-element": "off",
     },
   },
 ]);

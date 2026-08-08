@@ -33,6 +33,20 @@ export default function StartPage() {
             <div><span>运行要求</span><strong>BROWSER ONLY</strong></div>
           </div>
         </div>
+        <figure className="page-shell chapter-cover">
+          <img
+            src="/art/journey-dawn.webp"
+            alt=""
+            width="1440"
+            height="810"
+            loading="lazy"
+            decoding="async"
+          />
+          <figcaption>
+            <span>PATH / CORE 001</span>
+            <strong>先看见闭环，再走进细节。</strong>
+          </figcaption>
+        </figure>
       </header>
 
       <section className="page-shell content-section two-column">

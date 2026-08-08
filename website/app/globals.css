@@ -225,9 +225,61 @@ code { font-size: .88em; }
 .hero-facts strong { font-family: var(--font-mono); font-size: 15px; }
 .hero-facts span { color: var(--muted); font-size: 12px; }
 
-.hero-system {
+.hero-visual {
+  position: relative;
+  min-width: 0;
+}
+.hero-art {
   position: relative;
   overflow: hidden;
+  height: 265px;
+  margin: 0;
+  border: 1px solid rgb(21 32 25 / 28%);
+  border-radius: var(--radius-lg);
+  background: var(--moss-dark);
+  box-shadow: var(--shadow);
+}
+.hero-art::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background:
+    linear-gradient(180deg, transparent 32%, rgb(10 18 24 / 84%) 100%),
+    linear-gradient(90deg, rgb(20 50 39 / 24%), transparent 55%);
+}
+.hero-art img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center 42%;
+}
+.hero-art figcaption {
+  position: absolute;
+  z-index: 1;
+  right: 22px;
+  bottom: 22px;
+  left: 22px;
+  display: grid;
+  gap: 5px;
+  color: white;
+}
+.hero-art figcaption span,
+.chapter-cover figcaption span {
+  color: var(--slime);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: .12em;
+}
+.hero-art figcaption strong { max-width: 330px; font-size: 17px; line-height: 1.35; }
+
+.hero-system {
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+  width: calc(100% - 32px);
+  margin: -24px auto 0;
   padding: 20px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-lg);
@@ -363,6 +415,33 @@ code { font-size: .88em; }
 .intro-meta { display: grid; gap: 10px; padding: 18px 0 5px; border-top: 1px solid var(--line-strong); }
 .intro-meta div { display: flex; justify-content: space-between; gap: 24px; color: var(--muted); font-size: 12px; }
 .intro-meta strong { color: var(--ink); font-family: var(--font-mono); }
+.chapter-cover {
+  position: relative;
+  overflow: hidden;
+  height: clamp(220px, 30vw, 360px);
+  margin-top: 44px;
+  border: 1px solid rgb(21 32 25 / 30%);
+  border-radius: var(--radius-lg);
+  background: var(--moss-dark);
+  box-shadow: var(--shadow);
+}
+.chapter-cover::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(90deg, rgb(13 27 33 / 90%) 0%, rgb(13 27 33 / 40%) 48%, transparent 78%);
+}
+.chapter-cover img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: center 46%; }
+.chapter-cover figcaption {
+  position: absolute;
+  z-index: 1;
+  bottom: clamp(24px, 4vw, 46px);
+  left: clamp(24px, 4vw, 46px);
+  display: grid;
+  gap: 8px;
+  color: white;
+}
+.chapter-cover figcaption strong { max-width: 520px; font-size: clamp(22px, 3vw, 38px); letter-spacing: -.035em; line-height: 1.15; }
 
 .content-section { padding-block: 70px 100px; }
 .two-column { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(280px, .58fr); gap: 70px; align-items: start; }
@@ -424,7 +503,8 @@ code { font-size: .88em; }
   .site-header-inner { grid-template-columns: 1fr auto; }
   .site-header nav { display: none; }
   .hero { grid-template-columns: 1fr; padding-block: 70px; }
-  .hero-system { width: min(560px, 100%); }
+  .hero-visual { width: min(640px, 100%); }
+  .hero-visual .hero-system { width: calc(100% - 32px); }
   .statement-grid { grid-template-columns: 1fr; gap: 22px; }
   .intent-grid { grid-template-columns: repeat(2, 1fr); }
   .intent-card:nth-child(n) { grid-column: span 1; }
@@ -447,7 +527,9 @@ code { font-size: .88em; }
   .hero-facts { display: grid; grid-template-columns: repeat(3, 1fr); }
   .hero-facts li { min-width: 0; padding-inline: 12px; }
   .hero-facts span { font-size: 10px; }
-  .hero-system { padding: 14px; border-radius: 22px; }
+  .hero-art { height: 235px; border-radius: 22px; }
+  .hero-art figcaption { right: 18px; bottom: 18px; left: 18px; }
+  .hero-system { width: calc(100% - 18px); padding: 14px; border-radius: 22px; }
   .sample-chip { right: 22px; }
   .statement-grid { padding-block: 46px; }
   .intent-section { padding-block: 72px; }
@@ -456,6 +538,8 @@ code { font-size: .88em; }
   .intent-card { min-height: 220px; }
   .featured-lesson { margin-bottom: 72px; padding: 25px; }
   .page-intro { padding-block: 56px 36px; }
+  .chapter-cover { height: 220px; margin-top: 32px; border-radius: 22px; }
+  .chapter-cover figcaption { right: 22px; bottom: 22px; left: 22px; }
   .route-card { grid-template-columns: 36px 1fr; }
   .route-card > span:last-child { display: none; }
   .source-card { grid-template-columns: 1fr auto; }

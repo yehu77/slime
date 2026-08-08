@@ -148,6 +148,59 @@
   transition: width 240ms ease;
 }
 
+.journey-cover {
+  background: var(--journey-ink);
+  border: 1px solid #31443a;
+  border-radius: 0.8rem;
+  box-shadow: 0 24px 64px rgb(23 37 29 / 14%);
+  height: clamp(210px, 28vw, 350px);
+  margin: 0 0 1.25rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.journey-cover::after {
+  background: linear-gradient(90deg, rgb(12 19 31 / 90%) 0%, rgb(12 19 31 / 36%) 48%, transparent 78%);
+  content: "";
+  inset: 0;
+  position: absolute;
+}
+
+.journey-cover img {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 48%;
+  width: 100%;
+}
+
+.journey-cover figcaption {
+  bottom: clamp(1.25rem, 3vw, 2.5rem);
+  color: #fff;
+  display: grid;
+  gap: 0.4rem;
+  left: clamp(1.25rem, 3vw, 2.5rem);
+  position: absolute;
+  z-index: 1;
+}
+
+.journey-cover figcaption span {
+  color: #b8f34b;
+  font-family: var(--journey-mono);
+  font-size: 0.62rem;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+}
+
+.journey-cover figcaption strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.35rem, 3vw, 2.45rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.12;
+  max-width: 620px;
+}
+
 .journey-notice {
   align-items: flex-start;
   background: var(--journey-yellow-soft);
@@ -1874,6 +1927,16 @@ button.journey-time-block {
 @media (max-width: 560px) {
   .journey-experience-header h1 {
     font-size: 2.2rem;
+  }
+
+  .journey-cover {
+    height: 210px;
+  }
+
+  .journey-cover figcaption {
+    bottom: 1.1rem;
+    left: 1.1rem;
+    right: 1.1rem;
   }
 
   .journey-overview ol {

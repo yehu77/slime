@@ -463,6 +463,21 @@ export function JourneyExperience() {
         </div>
       </header>
 
+      <figure className="journey-cover">
+        <img
+          src="/art/sample-console.webp"
+          alt=""
+          width="1440"
+          height="810"
+          loading="lazy"
+          decoding="async"
+        />
+        <figcaption>
+          <span>TRACE / SAMPLE A0</span>
+          <strong>同一条 Sample，在系统边界上逐步改变。</strong>
+        </figcaption>
+      </figure>
+
       <div className="journey-notice">
         <strong>受控示例</strong>
         <span>{runtimeFixture.teaching_values_notice}</span>

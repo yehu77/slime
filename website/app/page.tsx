@@ -37,27 +37,45 @@ export default function Home() {
           </ul>
         </div>
 
-        <div className="hero-system" aria-label="slime 训练闭环概览">
-          <div className="system-caption">
-            <span className="status-dot" />
-            <span>LIVE MENTAL MODEL</span>
-            <span>01 / 06</span>
-          </div>
-          <ol className="loop-list">
-            {loop.map(([number, title, copy], index) => (
-              <li className={index === 0 ? "is-active" : ""} key={title}>
-                <span className="loop-number">{number}</span>
-                <span className="loop-node">
-                  <strong>{title}</strong>
-                  <small>{copy}</small>
-                </span>
-                <span className="loop-arrow" aria-hidden="true">↓</span>
-              </li>
-            ))}
-          </ol>
-          <div className="sample-chip">
-            <span>Sample</span>
-            <code>status=PENDING</code>
+        <div className="hero-visual">
+          <figure className="hero-art">
+            <img
+              src="/art/lab-console.webp"
+              alt=""
+              width="1440"
+              height="810"
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
+            />
+            <figcaption>
+              <span>OBSERVATION DECK / 001</span>
+              <strong>从一次 rollout，看见整个训练系统。</strong>
+            </figcaption>
+          </figure>
+
+          <div className="hero-system" aria-label="slime 训练闭环概览">
+            <div className="system-caption">
+              <span className="status-dot" />
+              <span>LIVE MENTAL MODEL</span>
+              <span>01 / 06</span>
+            </div>
+            <ol className="loop-list">
+              {loop.map(([number, title, copy], index) => (
+                <li className={index === 0 ? "is-active" : ""} key={title}>
+                  <span className="loop-number">{number}</span>
+                  <span className="loop-node">
+                    <strong>{title}</strong>
+                    <small>{copy}</small>
+                  </span>
+                  <span className="loop-arrow" aria-hidden="true">↓</span>
+                </li>
+              ))}
+            </ol>
+            <div className="sample-chip">
+              <span>Sample</span>
+              <code>status=PENDING</code>
+            </div>
           </div>
         </div>
       </section>
