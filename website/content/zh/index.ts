@@ -7,7 +7,7 @@ export {
   sampleJourneyOverview,
 } from "./lessons/sample-journey";
 export { learningIntents, siteCopy } from "./site";
-export { prerequisiteCheck, startRouteCopy } from "./start";
+export { foundationReview, startRouteCopy } from "./start";
 export type {
   AssessmentQuestion,
   ChoiceOption,

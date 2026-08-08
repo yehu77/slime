@@ -1,8 +1,8 @@
 import type { PrerequisiteQuestion } from "./types";
 
-export const prerequisiteCheck = {
-  title: "开始前，花一分钟检查四个先修概念",
-  description: "不计分、不阻断。答错只会告诉你先补哪个概念。",
+export const foundationReview = {
+  title: "学完后，再检查四个基础概念",
+  description: "这是可选回顾，不影响课程完成状态。答错时，我们会指出适合复习的术语。",
   questions: [
     {
       id: "pre-1",
@@ -15,8 +15,8 @@ export const prerequisiteCheck = {
       ],
       correctOptionId: "independent",
       feedback: {
-        ready: "很好。第二幕会把这个直觉用于同组候选的独立身份。",
-        review: "先记住：deepcopy 的目标是避免可变字段彼此 alias。课程会在分组阶段再次演示。",
+        ready: "很好。第二幕把这个直觉用于同组候选的独立身份。",
+        review: "deepcopy 的目标是避免可变字段彼此 alias；可以回看第二幕的分组过程。",
       },
       reviewLink: { label: "查看同组候选", href: "/glossary#prompt-group" },
     },
@@ -31,8 +31,8 @@ export const prerequisiteCheck = {
       ],
       correctOptionId: "response",
       feedback: {
-        ready: "正确。第三幕会把 response_length、loss_mask 和 rollout_log_probs 放到同一坐标系。",
-        review: "本课只需要一个直觉：动作的 log-prob 按 response 位置记录。",
+        ready: "正确。第三幕把 response_length、loss_mask 和 rollout_log_probs 放到同一坐标系。",
+        review: "关键直觉是：动作的 log-prob 按 response 位置记录；可以回看第三幕。",
       },
       reviewLink: { label: "查看 rollout log-prob", href: "/glossary#rollout-log-prob" },
     },
@@ -47,7 +47,7 @@ export const prerequisiteCheck = {
       ],
       correctOptionId: "two",
       feedback: {
-        ready: "正确：4 ÷ 2 = 2。第五幕会继续区分 prompt group、逻辑 rollout 与物理记录。",
+        ready: "正确：4 ÷ 2 = 2。第五幕进一步区分了 prompt group、逻辑 rollout 与物理记录。",
         review: "把 global batch size 暂时理解为每个 training step 消费的逻辑 rollout 数。",
       },
       reviewLink: { label: "查看 training step", href: "/glossary#training-step" },
@@ -64,7 +64,7 @@ export const prerequisiteCheck = {
       correctOptionId: "no",
       feedback: {
         ready: "正确。reward 评价结果，loss_mask 决定哪些 response 位置可训练。",
-        review: "先不要把 reward 和 mask 合并成一个概念；首课开场会用两条相同 reward 的 Sample 对比。",
+        review: "不要把 reward 和 mask 合并成一个概念；课程中的 Sample 对比展示了两者的区别。",
       },
       reviewLink: { label: "查看 loss mask", href: "/glossary#loss-mask" },
     },
@@ -72,9 +72,44 @@ export const prerequisiteCheck = {
 } as const;
 
 export const startRouteCopy = {
-  title: "先看清闭环，再决定深入哪一层",
+  eyebrow: "第一次认识 slime",
+  title: "slime 到底是做什么的？",
+  answer: "它把模型的尝试、评价与学习连成一条流水线。",
   summary:
-    "90 秒建立角色顺序，随后用 25–30 分钟跟完一条 Sample；无需 GPU，也不会连接真实训练后端。",
-  reassurance: "先修自测不计分。你可以直接进入课程，并在遇到陌生词时回到术语表。",
-  primaryCta: { label: "进入一条 Sample 的旅程", href: "/learn/sample-journey" },
+    "slime 不是一个新模型。它是一套训练框架，负责组织“让模型回答、判断回答好不好、再用结果更新模型”这套可以反复运行的循环。",
+  loop: [
+    { number: "1", title: "生成回答", description: "让模型尝试完成一批任务" },
+    { number: "2", title: "评价回答", description: "判断结果好不好，并整理反馈" },
+    { number: "3", title: "更新模型", description: "用反馈训练模型，再开始下一轮" },
+  ],
+  facts: ["先懂整体", "无需 GPU", "首课约 25–30 分钟"],
+  primaryCta: {
+    label: "看一条回答怎样变成一次模型更新",
+    href: "/learn/sample-journey",
+  },
+  imageCaption: "你会跟着一条训练记录，看它怎样获得回答、评分，并最终推动模型更新。",
+  phases: [
+    {
+      id: "generate",
+      title: "生成",
+      plainDescription: "准备任务，并让模型产出候选回答",
+      stepIds: ["overview-dataset", "overview-group", "overview-generate"],
+    },
+    {
+      id: "evaluate",
+      title: "评价与整理",
+      plainDescription: "给结果打分，再把记录整理成训练能使用的批次",
+      stepIds: ["overview-reward", "overview-convert"],
+    },
+    {
+      id: "learn",
+      title: "训练与继续",
+      plainDescription: "更新模型，并把新版本交给下一轮生成",
+      stepIds: ["overview-train", "overview-sync"],
+    },
+  ],
+  sampleExplanation: {
+    title: "这门首课只追踪一个主角：Sample",
+    body: "先把 Sample 理解成“一条正在被处理的训练记录”。它起初只有题目，随后逐渐得到候选回答、评分和训练信息。课程会在需要时解释每个新术语。",
+  },
 } as const;

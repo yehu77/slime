@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 
-export type PrerequisiteQuestion = {
+export type ConceptReviewQuestion = {
   id: string;
   prompt: string;
   options: string[];
@@ -11,7 +11,13 @@ export type PrerequisiteQuestion = {
   feedback: string;
 };
 
-export function PrerequisiteCheck({ questions }: { questions: PrerequisiteQuestion[] }) {
+type ConceptReviewProps = {
+  title: string;
+  description: string;
+  questions: ConceptReviewQuestion[];
+};
+
+export function ConceptReview({ title, description, questions }: ConceptReviewProps) {
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const [submitted, setSubmitted] = useState(false);
 
@@ -21,13 +27,13 @@ export function PrerequisiteCheck({ questions }: { questions: PrerequisiteQuesti
   );
 
   return (
-    <section aria-labelledby="prerequisite-title">
+    <section aria-labelledby="concept-review-title">
       <div className="section-heading">
         <div>
-          <p className="section-kicker">Non-blocking check</p>
-          <h2 id="prerequisite-title">先修自测</h2>
+          <p className="section-kicker">可选基础回顾</p>
+          <h2 id="concept-review-title">{title}</h2>
         </div>
-        <p>这不是考试。答案只留在当前页面，用来告诉你哪些术语值得先看一眼。</p>
+        <p>{description}</p>
       </div>
 
       <div className="check-shell">
@@ -53,7 +59,7 @@ export function PrerequisiteCheck({ questions }: { questions: PrerequisiteQuesti
             </div>
             {submitted && answers[question.id] !== question.answer ? (
               <p className="term-avoid">
-                建议先看 <a href={`/glossary#${question.termId}`}>对应术语</a>：{question.feedback}
+                建议复习 <a href={`/glossary#${question.termId}`}>对应术语</a>：{question.feedback}
               </p>
             ) : null}
           </fieldset>
@@ -66,9 +72,9 @@ export function PrerequisiteCheck({ questions }: { questions: PrerequisiteQuesti
           onClick={() => setSubmitted(true)}
           type="button"
         >
-          看看准备情况
+          检查我的理解
         </button>
-        <a className="button button-ghost" href="/learn/sample-journey">不测试，直接进入首课</a>
+        <a className="button button-ghost" href="/learn/sample-journey#overview">回到课程概览</a>
       </div>
 
       {submitted ? (
@@ -76,8 +82,8 @@ export function PrerequisiteCheck({ questions }: { questions: PrerequisiteQuesti
           <strong>{score} / {questions.length}</strong>
           <p>
             {score === questions.length
-              ? "基础概念已经够用，可以直接开始。"
-              : "你仍然可以直接开始；遇到术语时，课程会给出上下文解释。"}
+              ? "这四个基础概念已经掌握，可以继续探索源码和后续课程。"
+              : "这不会影响课程完成状态；可以根据每题提示回看术语或对应章节。"}
           </p>
         </div>
       ) : null}

@@ -3,8 +3,8 @@ import test from "node:test";
 
 const routes = [
   ["/", /把 slime 从训练脚本/],
-  ["/start", /先修自测/],
-  ["/learn/sample-journey", /一条 Sample 的旅程/],
+  ["/start", /slime 到底是做什么的/],
+  ["/learn/sample-journey", /学完后，再检查四个基础概念/],
   ["/glossary", /术语/],
   ["/source", /源码/],
 ];

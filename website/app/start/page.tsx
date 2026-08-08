@@ -1,86 +1,108 @@
 import type { Metadata } from "next";
-import { PrerequisiteCheck } from "../../components/start/PrerequisiteCheck";
 import { sampleJourneyOverview } from "../../content/zh";
-import { prerequisiteCheck, startRouteCopy } from "../../content/zh/start";
+import { startRouteCopy } from "../../content/zh/start";
 
 export const metadata: Metadata = {
   title: "开始学习",
-  description: "90 秒建立 slime 训练闭环，再进入一条 Sample 的完整旅程。",
+  description: "从生成、评价、训练三步认识 slime，再跟随一条 Sample 走完整个训练闭环。",
 };
 
 export default function StartPage() {
-  const questions = prerequisiteCheck.questions.map((question) => ({
-    id: question.id,
-    prompt: question.prompt,
-    options: question.options.map((option) => option.label),
-    answer: question.options.findIndex((option) => option.id === question.correctOptionId),
-    termId: question.reviewLink.href.replace("/glossary#", ""),
-    feedback: question.feedback.review,
-  }));
-
   return (
     <>
-      <header className="page-intro">
-        <div className="page-shell page-intro-grid">
-          <div>
-            <p className="eyebrow">START / 90-second model</p>
-            <h1>{startRouteCopy.title}</h1>
-            <p className="lead">{startRouteCopy.summary}</p>
+      <header className="beginner-hero">
+        <div className="page-shell beginner-hero-grid">
+          <div className="beginner-copy">
+            <p className="eyebrow">{startRouteCopy.eyebrow}</p>
+            <h1>
+              {startRouteCopy.title}
+              <span>{startRouteCopy.answer}</span>
+            </h1>
+            <p className="beginner-lead">{startRouteCopy.summary}</p>
+
+            <ol className="beginner-loop" aria-label="slime 最小训练循环">
+              {startRouteCopy.loop.map((step) => (
+                <li key={step.number}>
+                  <span>{step.number}</span>
+                  <div>
+                    <strong>{step.title}</strong>
+                    <small>{step.description}</small>
+                  </div>
+                </li>
+              ))}
+            </ol>
+
+            <div className="button-row beginner-actions">
+              <a className="button button-primary" href={startRouteCopy.primaryCta.href}>
+                {startRouteCopy.primaryCta.label} <span aria-hidden="true">→</span>
+              </a>
+            </div>
+
+            <ul className="beginner-facts" aria-label="课程说明">
+              {startRouteCopy.facts.map((fact) => <li key={fact}>{fact}</li>)}
+            </ul>
           </div>
-          <div className="intro-meta">
-            <div><span>默认路线</span><strong>CORE / 001</strong></div>
-            <div><span>先修</span><strong>PYTHON + RL</strong></div>
-            <div><span>运行要求</span><strong>BROWSER ONLY</strong></div>
-          </div>
+
+          <figure className="beginner-visual">
+            <img
+              src="/art/journey-dawn.webp"
+              alt=""
+              width="1440"
+              height="810"
+              loading="eager"
+              decoding="async"
+            />
+            <figcaption>{startRouteCopy.imageCaption}</figcaption>
+          </figure>
         </div>
-        <figure className="page-shell chapter-cover">
-          <img
-            src="/art/journey-dawn.webp"
-            alt=""
-            width="1440"
-            height="810"
-            loading="lazy"
-            decoding="async"
-          />
-          <figcaption>
-            <span>PATH / CORE 001</span>
-            <strong>先看见闭环，再走进细节。</strong>
-          </figcaption>
-        </figure>
       </header>
 
-      <section className="page-shell content-section two-column">
-        <div className="prose">
-          <p className="section-kicker">The loop before the details</p>
-          <h2>先把七个角色放对位置</h2>
+      <section className="page-shell beginner-detail">
+        <header className="beginner-detail-heading">
+          <p className="section-kicker">从三步到具体系统</p>
+          <h2>三步展开后，才会看到七个具体角色</h2>
           <p>
-            下面只回答“谁把什么交给谁”。暂时不要背参数；首课会让同一条 Sample 在这些边界上逐步变化。
+            这些名字来自 slime 的真实工作流，但你现在不需要记住它们。先看清它们分别属于“生成、评价、训练”中的哪一步就够了。
           </p>
-          <div className="route-grid" aria-label="slime 七段闭环">
-            {sampleJourneyOverview.steps.map((step) => (
-              <div className="route-card" key={step.id}>
-                <span>{String(step.order).padStart(2, "0")}</span>
-                <div><strong>{step.actor}</strong><small>{step.action}</small></div>
-                <span aria-hidden="true">↓</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <aside className="aside-card">
-          <p className="section-kicker">Keep this invariant</p>
-          <h2>Sample 是跨系统协议</h2>
-          <p>
-            它不只是模型回答的容器。身份、token 对齐、训练掩码、reward、状态和权重版本共同决定 trainer 怎样解释它。
-          </p>
-          <div className="notice"><strong>无需 GPU：</strong>本路线使用固定教学 fixture，不会发起真实训练。</div>
-          <div className="button-row">
-            <a className="button button-primary button-small" href="/learn/sample-journey">进入完整首课 ↗</a>
-          </div>
-        </aside>
-      </section>
+        </header>
 
-      <section className="page-shell content-section">
-        <PrerequisiteCheck questions={questions} />
+        <div className="phase-grid" aria-label="slime 七个角色按三个阶段分组">
+          {startRouteCopy.phases.map((phase, phaseIndex) => (
+            <section className={`phase-card is-${phase.id}`} key={phase.id}>
+              <header>
+                <span>{phaseIndex + 1}</span>
+                <div>
+                  <h3>{phase.title}</h3>
+                  <p>{phase.plainDescription}</p>
+                </div>
+              </header>
+              <ol>
+                {sampleJourneyOverview.steps
+                  .filter((step) => phase.stepIds.some((stepId) => stepId === step.id))
+                  .map((step) => (
+                    <li key={step.id}>
+                      <span>{String(step.order).padStart(2, "0")}</span>
+                      <div>
+                        <strong>{step.actor}</strong>
+                        <small>{step.action}</small>
+                      </div>
+                    </li>
+                  ))}
+              </ol>
+            </section>
+          ))}
+        </div>
+
+        <aside className="beginner-lesson-note">
+          <span aria-hidden="true">一条记录</span>
+          <div>
+            <h2>{startRouteCopy.sampleExplanation.title}</h2>
+            <p>{startRouteCopy.sampleExplanation.body}</p>
+          </div>
+          <a className="button button-primary button-small" href={startRouteCopy.primaryCta.href}>
+            开始首课 <span aria-hidden="true">→</span>
+          </a>
+        </aside>
       </section>
     </>
   );

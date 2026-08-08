@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { LessonMetadataSchema } from "@/content/schema";
 import {
   glossaryTerms,
+  foundationReview,
   learningIntents,
-  prerequisiteCheck,
   sampleJourneyLesson,
   sampleJourneyMessages,
   siteCopy,
@@ -21,8 +21,8 @@ const actIds = new Set(sampleJourneyLesson.acts.map((act) => act.id));
 const questionIds = new Set(
   sampleJourneyLesson.assessment.questions.map((question) => question.id),
 );
-const prerequisiteIds = new Set(
-  prerequisiteCheck.questions.map((question) => question.id),
+const foundationReviewIds = new Set(
+  foundationReview.questions.map((question) => question.id),
 );
 
 describe("M1 lesson content contract", () => {
@@ -112,7 +112,7 @@ describe("M1 lesson content contract", () => {
       expect(term.sourceRefIds.every((id) => sourceIds.has(id))).toBe(true);
       expect(
         term.usedBy.every(
-          (id) => actIds.has(id) || questionIds.has(id) || prerequisiteIds.has(id),
+          (id) => actIds.has(id) || questionIds.has(id) || foundationReviewIds.has(id),
         ),
       ).toBe(true);
     }
@@ -121,7 +121,7 @@ describe("M1 lesson content contract", () => {
         expect(actIds.has(question.returnTo.actId)).toBe(true);
       }
     }
-    for (const question of prerequisiteCheck.questions) {
+    for (const question of foundationReview.questions) {
       const glossaryId = question.reviewLink.href.replace("/glossary#", "");
       expect(glossaryIds.has(glossaryId)).toBe(true);
     }
