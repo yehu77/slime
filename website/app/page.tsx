@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { learningIntents, siteCopy } from "../content/zh";
 
 export const metadata: Metadata = {
@@ -24,12 +23,12 @@ export default function Home() {
           <h1>{siteCopy.headline}</h1>
           <p className="hero-lead">{siteCopy.summary}</p>
           <div className="button-row">
-            <Link className="button button-primary" href={siteCopy.primaryCta.href}>
+            <a className="button button-primary" href={siteCopy.primaryCta.href}>
               {siteCopy.primaryCta.label} <span aria-hidden="true">↗</span>
-            </Link>
-            <Link className="button button-ghost" href={siteCopy.lessonCta.href}>
+            </a>
+            <a className="button button-ghost" href={siteCopy.lessonCta.href}>
               {siteCopy.lessonCta.label}
-            </Link>
+            </a>
           </div>
           <ul className="hero-facts" aria-label="课程特点">
             <li><strong>30 min</strong><span>完整首课</span></li>
@@ -100,14 +99,14 @@ export default function Home() {
               </>
             );
             return (
-              <Link
+              <a
                 className={`intent-card ${ready ? "" : "is-planned"}`}
                 href={intent.href}
                 key={intent.id}
                 aria-label={`${intent.title}：${intent.cta}`}
               >
                 {content}
-              </Link>
+              </a>
             );
           })}
         </div>
@@ -128,7 +127,7 @@ export default function Home() {
         </div>
         <div className="featured-action">
           <span className="duration">25–30 分钟</span>
-          <Link className="circle-link" href="/learn/sample-journey" aria-label="进入一条 Sample 的旅程">↗</Link>
+          <a className="circle-link" href="/learn/sample-journey" aria-label="进入一条 Sample 的旅程">↗</a>
         </div>
       </section>
     </>

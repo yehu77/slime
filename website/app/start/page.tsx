@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { PrerequisiteCheck } from "../../components/start/PrerequisiteCheck";
 import { sampleJourneyOverview } from "../../content/zh";
 import { prerequisiteCheck, startRouteCopy } from "../../content/zh/start";
@@ -61,7 +60,7 @@ export default function StartPage() {
           </p>
           <div className="notice"><strong>无需 GPU：</strong>本路线使用固定教学 fixture，不会发起真实训练。</div>
           <div className="button-row">
-            <Link className="button button-primary button-small" href="/learn/sample-journey">进入完整首课 ↗</Link>
+            <a className="button button-primary button-small" href="/learn/sample-journey">进入完整首课 ↗</a>
           </div>
         </aside>
       </section>

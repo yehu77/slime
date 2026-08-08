@@ -35,6 +35,11 @@ const eslintConfig = defineConfig([
         version: "detect",
       },
     },
+    rules: {
+      // vinext's beta Link runtime crashes after production bundling. Native
+      // document navigation is the intentional compatibility path for now.
+      "@next/next/no-html-link-for-pages": "off",
+    },
   },
 ]);
 
