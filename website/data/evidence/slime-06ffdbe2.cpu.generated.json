@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "kind": "cpu-contract-tests",
+  "baseline_commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+  "generated_on": "2026-08-08",
+  "environment": {
+    "platform": "darwin-arm64",
+    "python": "3.12.13",
+    "pytest": "9.1.1",
+    "torch": "2.13.0",
+    "num_gpus": 0
+  },
+  "command": "python -m pytest tests/test_sample.py tests/test_dp_schedule.py",
+  "test_files": [
+    "tests/test_sample.py",
+    "tests/test_dp_schedule.py"
+  ],
+  "result": {
+    "status": "passed",
+    "passed": 21,
+    "failed": 0,
+    "duration_seconds": 1.12
+  }
+}

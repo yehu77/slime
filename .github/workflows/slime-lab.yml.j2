@@ -1,0 +1,73 @@
+name: slime Lab
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - '.github/workflows/slime-lab.yml'
+      - '.github/workflows/slime-lab.yml.j2'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - '.github/workflows/slime-lab.yml'
+      - '.github/workflows/slime-lab.yml.j2'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: website
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install website dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Run domain and content tests
+        run: npm test
+
+      - name: Check content safety
+        run: npm run check:safety
+
+      - name: Check fixed source anchors
+        run: npm run check:sources
+
+      - name: Build Cloudflare Worker output
+        run: npm run build
+
+      - name: Test rendered routes
+        run: npm run test:rendered

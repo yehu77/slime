@@ -1,0 +1,246 @@
+{
+  "anchors": [
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 293,
+      "id": "actor.consume-rollout-data",
+      "path": "slime/backends/megatron_utils/actor.py",
+      "snippet_sha256": "5f37a5b4e03597e6b2e8f692ae89a121e528bf94b91038a8e054a4f41e749ab5",
+      "start_line": 239,
+      "symbol": "MegatronTrainRayActor._get_rollout_data",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/backends/megatron_utils/actor.py#L239-L293"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 543,
+      "id": "actor.train",
+      "path": "slime/backends/megatron_utils/actor.py",
+      "snippet_sha256": "90c7b32b535025ea63306965af9421841f413328fbd9f37ed51333138fa256ae",
+      "start_line": 418,
+      "symbol": "MegatronTrainRayActor.train_actor",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/backends/megatron_utils/actor.py#L418-L543"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 632,
+      "id": "actor.update-weights",
+      "path": "slime/backends/megatron_utils/actor.py",
+      "snippet_sha256": "0b4690d9d27be5aca449654f9a8789bed84b56e35fadce70dc001c81ecde567b",
+      "start_line": 571,
+      "symbol": "MegatronTrainRayActor.update_weights",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/backends/megatron_utils/actor.py#L571-L632"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 273,
+      "id": "dataset.construct-sample",
+      "path": "slime/utils/data.py",
+      "snippet_sha256": "b1b7116d2caac42bf197b68c25896f841c65097faa7eb673b6e4e727867f2be8",
+      "start_line": 203,
+      "symbol": "Dataset.__init__",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/data.py#L203-L273"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 68,
+      "id": "dataset.read-file",
+      "path": "slime/utils/data.py",
+      "snippet_sha256": "4e4e8022d6086f3ff84f9da76a58e75a14df52782b1aab5dc8efd3cb7da4517a",
+      "start_line": 25,
+      "symbol": "read_file",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/data.py#L25-L68"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 76,
+      "id": "loop.async",
+      "path": "train_async.py",
+      "snippet_sha256": "ce3f52b3d061d360c22583dff894eeb0cd0403322dc566f5b39c9aa467f2f0e8",
+      "start_line": 10,
+      "symbol": "train",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/train_async.py#L10-L76"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 94,
+      "id": "loop.sync",
+      "path": "train.py",
+      "snippet_sha256": "390bc6174ebc191fc37da604b9852d65f11580f361ef23bb9b5eed8423d77008",
+      "start_line": 9,
+      "symbol": "train",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/train.py#L9-L94"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 826,
+      "id": "rollout.convert-train-data",
+      "path": "slime/ray/rollout.py",
+      "snippet_sha256": "1b8acba3857ece8a798877aa93c9e7bcfdc110a0560c1b692ce5bd6efedcb945",
+      "start_line": 712,
+      "symbol": "RolloutManager._convert_samples_to_train_data",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/ray/rollout.py#L712-L826"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 118,
+      "id": "rollout.datasource-get-samples",
+      "path": "slime/rollout/data_source.py",
+      "snippet_sha256": "4882846f0ef825667ae623de526956bd9b6b45a2c9229a77cc16c563b499502a",
+      "start_line": 90,
+      "symbol": "RolloutDataSource.get_samples",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/rollout/data_source.py#L90-L118"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 219,
+      "id": "rollout.generate",
+      "path": "slime/rollout/sglang_rollout.py",
+      "snippet_sha256": "3b52990cf03d8b743d26ac6ef53ab7047c30b6f5eae5afd8e47bed663cd11180",
+      "start_line": 152,
+      "symbol": "generate",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/rollout/sglang_rollout.py#L152-L219"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 287,
+      "id": "rollout.generate-and-rm",
+      "path": "slime/rollout/sglang_rollout.py",
+      "snippet_sha256": "6b24558788ceb74d3610d66ab1e9e9e62067b4bd34935d165a742362900e4481",
+      "start_line": 223,
+      "symbol": "generate_and_rm",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/rollout/sglang_rollout.py#L223-L287"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 468,
+      "id": "rollout.generate-async",
+      "path": "slime/rollout/sglang_rollout.py",
+      "snippet_sha256": "38ba307d31fc4cd4c5bd6d3a3d84a02c50fbf528ffc05a476f694327043f4368",
+      "start_line": 372,
+      "symbol": "generate_rollout_async",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/rollout/sglang_rollout.py#L372-L468"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 664,
+      "id": "rollout.get-data",
+      "path": "slime/ray/rollout.py",
+      "snippet_sha256": "4b2ba37faf64a71b2a9051954cec1f2bfc6ec4aeeccdbfb6ab5b3a39f26a5c47",
+      "start_line": 634,
+      "symbol": "RolloutManager._get_rollout_data",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/ray/rollout.py#L634-L664"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 567,
+      "id": "rollout.manager-generate",
+      "path": "slime/ray/rollout.py",
+      "snippet_sha256": "028a096e57866df9772cf14c19efce19992d822968ad302768306e2b0c05ef72",
+      "start_line": 553,
+      "symbol": "RolloutManager.generate",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/ray/rollout.py#L553-L567"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 710,
+      "id": "rollout.post-process-rewards",
+      "path": "slime/ray/rollout.py",
+      "snippet_sha256": "400397990c8ae46a667664bf51162ff35a395dc3638ab4860f019bbf42439d92",
+      "start_line": 685,
+      "symbol": "RolloutManager._post_process_rewards",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/ray/rollout.py#L685-L710"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 898,
+      "id": "rollout.split-train-data",
+      "path": "slime/ray/rollout.py",
+      "snippet_sha256": "70a380f1aa64668af6e7fc887e1357b4d667e0be3dfec61463db96caa09fc780",
+      "start_line": 831,
+      "symbol": "RolloutManager._split_train_data_by_dp",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/ray/rollout.py#L831-L898"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 314,
+      "id": "sample.append-response-tokens",
+      "path": "slime/utils/types.py",
+      "snippet_sha256": "29a3540820a6cec27b146d0d490271be7a2851787e2dc6927fa978855f45677b",
+      "start_line": 253,
+      "symbol": "Sample.append_response_tokens",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L253-L314"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 416,
+      "id": "sample.apply-meta-info",
+      "path": "slime/utils/types.py",
+      "snippet_sha256": "f2871cdbcb79132f8ad088845a4addb94c2703b341515957d1ab6b93ab72198f",
+      "start_line": 316,
+      "symbol": "Sample._apply_meta_info",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L316-L416"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 443,
+      "id": "sample.dataclass",
+      "path": "slime/utils/types.py",
+      "snippet_sha256": "464d0fb132d6487d2c4122c0bf4487e7636093ba8e4b55d4edae3285e1aeced1",
+      "start_line": 94,
+      "symbol": "Sample",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L94-L443"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 209,
+      "id": "schedule.build-dp-schedule",
+      "path": "slime/utils/dp_schedule.py",
+      "snippet_sha256": "d8c4e49a11d0425c93c25825ee451d9b7457c2276f394a058f2caff33fd68083",
+      "start_line": 82,
+      "symbol": "build_dp_schedule",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/dp_schedule.py#L82-L209"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 287,
+      "id": "test.dp-schedule-contract",
+      "path": "tests/test_dp_schedule.py",
+      "snippet_sha256": "834e5ac94e8948e074644388899525fca775c55efcdb30d9791ea881bd31443d",
+      "start_line": 253,
+      "symbol": "test_rollout_grouping_keeps_samples_together",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/tests/test_dp_schedule.py#L253-L287"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 147,
+      "id": "test.sample-contract",
+      "path": "tests/test_sample.py",
+      "snippet_sha256": "fca8e5a53e2ee8bcaacb860bdb918cbbbc293ebe8ed2bd55148a280c9b0096cb",
+      "start_line": 101,
+      "symbol": "test_round_trip_preserves_every_field",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/tests/test_sample.py#L101-L147"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 206,
+      "id": "test.sample-status",
+      "path": "tests/test_sample.py",
+      "snippet_sha256": "583bc8473a72fe337b434d1fc3bb479b3002ed477e17dba37f208efe76b624f0",
+      "start_line": 195,
+      "symbol": "test_status_mapping_for_each_finish_reason",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/tests/test_sample.py#L195-L206"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 241,
+      "id": "test.sample-weight-version",
+      "path": "tests/test_sample.py",
+      "snippet_sha256": "48a4574727583d8e28d6818ba6311aa29bf2fc871be9e831f01327e3319915d8",
+      "start_line": 226,
+      "symbol": "test_weight_version_is_appended_when_present",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/tests/test_sample.py#L226-L241"
+    }
+  ],
+  "baseline_commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+  "schema_version": 1
+}

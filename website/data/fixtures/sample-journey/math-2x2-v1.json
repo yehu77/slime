@@ -1,0 +1,382 @@
+{
+  "schema_version": "sample-journey/1",
+  "fixture_id": "math-2x2-v1",
+  "slime_ref": {
+    "tag": "v0.3.1",
+    "describe": "v0.3.1-1-g06ffdbe2",
+    "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e"
+  },
+  "copy_namespace": "sample-journey",
+  "teaching_values_notice_key": "sample-journey.notice.teaching-values",
+  "config": {
+    "rollout_batch_size": 2,
+    "n_samples_per_prompt": 2,
+    "global_batch_size": 2,
+    "num_steps_per_rollout": 2,
+    "dp_size": 1,
+    "micro_batch_size": 2,
+    "use_dynamic_batch_size": false,
+    "advantage_estimator": "grpo",
+    "rewards_normalization": true,
+    "grpo_std_normalization": false,
+    "prompt_key": "text",
+    "label_key": "label",
+    "metadata_key": "metadata",
+    "apply_chat_template": false,
+    "partial_rollout": false,
+    "group_rm": false
+  },
+  "vocabulary": [
+    { "id": 11, "piece": "3" },
+    { "id": 12, "piece": " +" },
+    { "id": 13, "piece": " 2" },
+    { "id": 14, "piece": " =" },
+    { "id": 15, "piece": " ?" },
+    { "id": 16, "piece": "4" },
+    { "id": 17, "piece": " 3" },
+    { "id": 25, "piece": "5" },
+    { "id": 26, "piece": "6" },
+    { "id": 27, "piece": "7" },
+    { "id": 28, "piece": "8" }
+  ],
+  "initial_samples": {
+    "a0": {
+      "group_index": null,
+      "index": null,
+      "rollout_id": null,
+      "prompt": { "copy_key": "sample-journey.prompt.a" },
+      "tokens": [],
+      "response": "",
+      "response_length": 0,
+      "label": "5",
+      "reward": null,
+      "loss_mask": null,
+      "weight_versions": [],
+      "rollout_log_probs": null,
+      "remove_sample": false,
+      "status": "pending",
+      "metadata": {
+        "source_name": "storyboard_math",
+        "difficulty": "warmup"
+      },
+      "train_metadata": null,
+      "session_id": null
+    },
+    "a1": {
+      "group_index": null,
+      "index": null,
+      "rollout_id": null,
+      "prompt": { "copy_key": "sample-journey.prompt.a" },
+      "tokens": [],
+      "response": "",
+      "response_length": 0,
+      "label": "5",
+      "reward": null,
+      "loss_mask": null,
+      "weight_versions": [],
+      "rollout_log_probs": null,
+      "remove_sample": false,
+      "status": "pending",
+      "metadata": {
+        "source_name": "storyboard_math",
+        "difficulty": "warmup"
+      },
+      "train_metadata": null,
+      "session_id": null
+    },
+    "b0": {
+      "group_index": null,
+      "index": null,
+      "rollout_id": null,
+      "prompt": { "copy_key": "sample-journey.prompt.b" },
+      "tokens": [],
+      "response": "",
+      "response_length": 0,
+      "label": "7",
+      "reward": null,
+      "loss_mask": null,
+      "weight_versions": [],
+      "rollout_log_probs": null,
+      "remove_sample": false,
+      "status": "pending",
+      "metadata": {
+        "source_name": "storyboard_math",
+        "difficulty": "warmup"
+      },
+      "train_metadata": null,
+      "session_id": null
+    },
+    "b1": {
+      "group_index": null,
+      "index": null,
+      "rollout_id": null,
+      "prompt": { "copy_key": "sample-journey.prompt.b" },
+      "tokens": [],
+      "response": "",
+      "response_length": 0,
+      "label": "7",
+      "reward": null,
+      "loss_mask": null,
+      "weight_versions": [],
+      "rollout_log_probs": null,
+      "remove_sample": false,
+      "status": "pending",
+      "metadata": {
+        "source_name": "storyboard_math",
+        "difficulty": "warmup"
+      },
+      "train_metadata": null,
+      "session_id": null
+    }
+  },
+  "initial_derived": {
+    "train_data": null,
+    "schedule": null
+  },
+  "initial_system": {
+    "actor_version": "actor@0",
+    "rollout_version": "actor@0",
+    "actor_training_state": "idle",
+    "weights_published": true,
+    "next_cycle_ready": false,
+    "raw_samples_frozen": false
+  },
+  "groups": [
+    { "group_index": 0, "sample_ids": ["a0", "a1"] },
+    { "group_index": 1, "sample_ids": ["b0", "b1"] }
+  ],
+  "events": [
+    {
+      "id": "ready",
+      "phase": "ready",
+      "act": 1,
+      "actor": "dataset",
+      "sample_ids": ["a0", "a1", "b0", "b1"],
+      "sample_patches": [],
+      "title_key": "sample-journey.event.ready.title",
+      "narration_key": "sample-journey.event.ready.narration",
+      "transcript_key": "sample-journey.event.ready.transcript",
+      "source_ref_ids": ["sample.dataclass"]
+    },
+    {
+      "id": "group_built",
+      "phase": "group_built",
+      "act": 2,
+      "actor": "data_source",
+      "sample_ids": ["a0", "a1", "b0", "b1"],
+      "sample_patches": [
+        { "sample_id": "a0", "op": "replace", "path": "/group_index", "value": 0 },
+        { "sample_id": "a0", "op": "replace", "path": "/index", "value": 0 },
+        { "sample_id": "a1", "op": "replace", "path": "/group_index", "value": 0 },
+        { "sample_id": "a1", "op": "replace", "path": "/index", "value": 1 },
+        { "sample_id": "b0", "op": "replace", "path": "/group_index", "value": 1 },
+        { "sample_id": "b0", "op": "replace", "path": "/index", "value": 2 },
+        { "sample_id": "b1", "op": "replace", "path": "/group_index", "value": 1 },
+        { "sample_id": "b1", "op": "replace", "path": "/index", "value": 3 }
+      ],
+      "title_key": "sample-journey.event.group_built.title",
+      "narration_key": "sample-journey.event.group_built.narration",
+      "transcript_key": "sample-journey.event.group_built.transcript",
+      "source_ref_ids": ["rollout.datasource-get-samples"]
+    },
+    {
+      "id": "request_prepared",
+      "phase": "request_prepared",
+      "act": 3,
+      "actor": "router",
+      "sample_ids": ["a0", "a1", "b0", "b1"],
+      "sample_patches": [
+        { "sample_id": "a0", "op": "replace", "path": "/session_id", "value": "session-a0" },
+        { "sample_id": "a0", "op": "replace", "path": "/tokens", "value": [11, 12, 13, 14, 15] },
+        { "sample_id": "a1", "op": "replace", "path": "/session_id", "value": "session-a1" },
+        { "sample_id": "a1", "op": "replace", "path": "/tokens", "value": [11, 12, 13, 14, 15] },
+        { "sample_id": "b0", "op": "replace", "path": "/session_id", "value": "session-b0" },
+        { "sample_id": "b0", "op": "replace", "path": "/tokens", "value": [16, 12, 17, 14, 15] },
+        { "sample_id": "b1", "op": "replace", "path": "/session_id", "value": "session-b1" },
+        { "sample_id": "b1", "op": "replace", "path": "/tokens", "value": [16, 12, 17, 14, 15] }
+      ],
+      "title_key": "sample-journey.event.request_prepared.title",
+      "narration_key": "sample-journey.event.request_prepared.narration",
+      "transcript_key": "sample-journey.event.request_prepared.transcript",
+      "source_ref_ids": ["rollout.generate"]
+    },
+    {
+      "id": "generating",
+      "phase": "generating",
+      "act": 3,
+      "actor": "sglang",
+      "sample_ids": ["a0", "a1", "b0", "b1"],
+      "sample_patches": [
+        { "sample_id": "a0", "op": "replace", "path": "/tokens", "value": [11, 12, 13, 14, 15, 25] },
+        { "sample_id": "a0", "op": "replace", "path": "/response", "value": "5" },
+        { "sample_id": "a0", "op": "replace", "path": "/response_length", "value": 1 },
+        { "sample_id": "a0", "op": "replace", "path": "/loss_mask", "value": [1] },
+        { "sample_id": "a0", "op": "replace", "path": "/rollout_log_probs", "value": [-0.08] },
+        { "sample_id": "a1", "op": "replace", "path": "/tokens", "value": [11, 12, 13, 14, 15, 26] },
+        { "sample_id": "a1", "op": "replace", "path": "/response", "value": "6" },
+        { "sample_id": "a1", "op": "replace", "path": "/response_length", "value": 1 },
+        { "sample_id": "a1", "op": "replace", "path": "/loss_mask", "value": [1] },
+        { "sample_id": "a1", "op": "replace", "path": "/rollout_log_probs", "value": [-0.23] },
+        { "sample_id": "b0", "op": "replace", "path": "/tokens", "value": [16, 12, 17, 14, 15, 27] },
+        { "sample_id": "b0", "op": "replace", "path": "/response", "value": "7" },
+        { "sample_id": "b0", "op": "replace", "path": "/response_length", "value": 1 },
+        { "sample_id": "b0", "op": "replace", "path": "/loss_mask", "value": [1] },
+        { "sample_id": "b0", "op": "replace", "path": "/rollout_log_probs", "value": [-0.07] },
+        { "sample_id": "b1", "op": "replace", "path": "/tokens", "value": [16, 12, 17, 14, 15, 28] },
+        { "sample_id": "b1", "op": "replace", "path": "/response", "value": "8" },
+        { "sample_id": "b1", "op": "replace", "path": "/response_length", "value": 1 },
+        { "sample_id": "b1", "op": "replace", "path": "/loss_mask", "value": [1] },
+        { "sample_id": "b1", "op": "replace", "path": "/rollout_log_probs", "value": [-0.31] }
+      ],
+      "title_key": "sample-journey.event.generating.title",
+      "narration_key": "sample-journey.event.generating.narration",
+      "transcript_key": "sample-journey.event.generating.transcript",
+      "source_ref_ids": ["sample.append-response-tokens"]
+    },
+    {
+      "id": "terminal",
+      "phase": "terminal",
+      "act": 3,
+      "actor": "sglang",
+      "sample_ids": ["a0", "a1", "b0", "b1"],
+      "sample_patches": [
+        { "sample_id": "a0", "op": "replace", "path": "/status", "value": "completed" },
+        { "sample_id": "a0", "op": "replace", "path": "/weight_versions", "value": ["actor@0"] },
+        { "sample_id": "a1", "op": "replace", "path": "/status", "value": "completed" },
+        { "sample_id": "a1", "op": "replace", "path": "/weight_versions", "value": ["actor@0"] },
+        { "sample_id": "b0", "op": "replace", "path": "/status", "value": "completed" },
+        { "sample_id": "b0", "op": "replace", "path": "/weight_versions", "value": ["actor@0"] },
+        { "sample_id": "b1", "op": "replace", "path": "/status", "value": "completed" },
+        { "sample_id": "b1", "op": "replace", "path": "/weight_versions", "value": ["actor@0"] }
+      ],
+      "title_key": "sample-journey.event.terminal.title",
+      "narration_key": "sample-journey.event.terminal.narration",
+      "transcript_key": "sample-journey.event.terminal.transcript",
+      "source_ref_ids": ["sample.apply-meta-info"]
+    },
+    {
+      "id": "rewarded_collected",
+      "phase": "rewarded_collected",
+      "act": 4,
+      "actor": "reward",
+      "sample_ids": ["a0", "a1", "b0", "b1"],
+      "sample_patches": [
+        { "sample_id": "a0", "op": "replace", "path": "/reward", "value": 1 },
+        { "sample_id": "a1", "op": "replace", "path": "/reward", "value": 0 },
+        { "sample_id": "b0", "op": "replace", "path": "/reward", "value": 1 },
+        { "sample_id": "b1", "op": "replace", "path": "/reward", "value": 0 }
+      ],
+      "title_key": "sample-journey.event.rewarded_collected.title",
+      "narration_key": "sample-journey.event.rewarded_collected.narration",
+      "transcript_key": "sample-journey.event.rewarded_collected.transcript",
+      "source_ref_ids": ["rollout.generate-and-rm"]
+    },
+    {
+      "id": "train_data_built",
+      "phase": "train_data_built",
+      "act": 5,
+      "actor": "rollout_manager",
+      "sample_ids": ["a0", "a1", "b0", "b1"],
+      "sample_patches": [],
+      "derived_patch": {
+        "train_data": {
+          "sample_ids": ["a0", "a1", "b0", "b1"],
+          "tokens": [
+            [11, 12, 13, 14, 15, 25],
+            [11, 12, 13, 14, 15, 26],
+            [16, 12, 17, 14, 15, 27],
+            [16, 12, 17, 14, 15, 28]
+          ],
+          "response_lengths": [1, 1, 1, 1],
+          "raw_reward": [1, 0, 1, 0],
+          "rewards": [0.5, -0.5, 0.5, -0.5],
+          "truncated": [0, 0, 0, 0],
+          "sample_indices": [0, 1, 2, 3],
+          "rollout_ids": [0, 1, 2, 3],
+          "loss_masks": [[1], [1], [1], [1]],
+          "rollout_mask_sums": [1, 1, 1, 1]
+        }
+      },
+      "system_patch": { "raw_samples_frozen": true },
+      "title_key": "sample-journey.event.train_data_built.title",
+      "narration_key": "sample-journey.event.train_data_built.narration",
+      "transcript_key": "sample-journey.event.train_data_built.transcript",
+      "source_ref_ids": ["rollout.convert-train-data"]
+    },
+    {
+      "id": "scheduled",
+      "phase": "scheduled",
+      "act": 5,
+      "actor": "scheduler",
+      "sample_ids": ["a0", "a1", "b0", "b1"],
+      "sample_patches": [],
+      "derived_patch": {
+        "schedule": {
+          "steps": [
+            { "step_index": 0, "rollout_ids": [0, 1], "sample_ids": ["a0", "a1"] },
+            { "step_index": 1, "rollout_ids": [2, 3], "sample_ids": ["b0", "b1"] }
+          ],
+          "used_rollouts": 4,
+          "trimmed_rollouts": 0
+        }
+      },
+      "title_key": "sample-journey.event.scheduled.title",
+      "narration_key": "sample-journey.event.scheduled.narration",
+      "transcript_key": "sample-journey.event.scheduled.transcript",
+      "source_ref_ids": ["schedule.build-dp-schedule"]
+    },
+    {
+      "id": "trained",
+      "phase": "trained",
+      "act": 6,
+      "actor": "actor",
+      "sample_ids": ["a0", "a1", "b0", "b1"],
+      "sample_patches": [],
+      "system_patch": {
+        "actor_version": "actor@1",
+        "actor_training_state": "trained",
+        "weights_published": false
+      },
+      "title_key": "sample-journey.event.trained.title",
+      "narration_key": "sample-journey.event.trained.narration",
+      "transcript_key": "sample-journey.event.trained.transcript",
+      "source_ref_ids": ["actor.train"]
+    },
+    {
+      "id": "weights_synced",
+      "phase": "weights_synced",
+      "act": 7,
+      "actor": "weight_sync",
+      "sample_ids": ["a0", "a1", "b0", "b1"],
+      "sample_patches": [],
+      "system_patch": {
+        "rollout_version": "actor@1",
+        "weights_published": true
+      },
+      "title_key": "sample-journey.event.weights_synced.title",
+      "narration_key": "sample-journey.event.weights_synced.narration",
+      "transcript_key": "sample-journey.event.weights_synced.transcript",
+      "source_ref_ids": ["actor.update-weights"]
+    },
+    {
+      "id": "next_cycle_ready",
+      "phase": "next_cycle_ready",
+      "act": 7,
+      "actor": "data_source",
+      "sample_ids": ["a0", "a1", "b0", "b1"],
+      "sample_patches": [],
+      "system_patch": { "next_cycle_ready": true },
+      "title_key": "sample-journey.event.next_cycle_ready.title",
+      "narration_key": "sample-journey.event.next_cycle_ready.narration",
+      "transcript_key": "sample-journey.event.next_cycle_ready.transcript",
+      "source_ref_ids": ["loop.sync", "loop.async"]
+    }
+  ],
+  "expected": {
+    "prompt_groups": 2,
+    "logical_rollouts": 4,
+    "physical_samples": 4,
+    "train_steps": 2,
+    "trimmed_rollouts": 0
+  }
+}

@@ -193,3 +193,8 @@ glm/
 _examples_synced/
 .env
 .DS_Store
+.pnpm-store/
+
+# The Sites starter keeps a required Vite plugin under website/build/.
+!website/build/
+!website/build/**
