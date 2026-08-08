@@ -31,5 +31,10 @@ for (const [route, expected] of routes) {
     assert.match(html, /<html[^>]+lang="zh-CN"/i);
     assert.match(html, /<main[^>]+id="main-content"/i);
     assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
+    if (route === "/start") {
+      assert.match(html, /继续往下，看三步如何展开成七个角色/);
+      assert.match(html, /开始首课/);
+      assert.doesNotMatch(html, /看一条回答怎样变成一次模型更新/);
+    }
   });
 }

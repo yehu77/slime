@@ -84,7 +84,7 @@ export const startRouteCopy = {
   ],
   facts: ["先懂整体", "无需 GPU", "首课约 25–30 分钟"],
   primaryCta: {
-    label: "看一条回答怎样变成一次模型更新",
+    label: "开始首课",
     href: "/learn/sample-journey",
   },
   imageCaption: "你会跟着一条训练记录，看它怎样获得回答、评分，并最终推动模型更新。",

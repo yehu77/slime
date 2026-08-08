@@ -32,11 +32,10 @@ export default function StartPage() {
               ))}
             </ol>
 
-            <div className="button-row beginner-actions">
-              <a className="button button-primary" href={startRouteCopy.primaryCta.href}>
-                {startRouteCopy.primaryCta.label} <span aria-hidden="true">→</span>
-              </a>
-            </div>
+            <p className="beginner-scroll-cue">
+              继续往下，看三步如何展开成七个角色
+              <span aria-hidden="true">↓</span>
+            </p>
 
             <ul className="beginner-facts" aria-label="课程说明">
               {startRouteCopy.facts.map((fact) => <li key={fact}>{fact}</li>)}
@@ -100,7 +99,7 @@ export default function StartPage() {
             <p>{startRouteCopy.sampleExplanation.body}</p>
           </div>
           <a className="button button-primary button-small" href={startRouteCopy.primaryCta.href}>
-            开始首课 <span aria-hidden="true">→</span>
+            {startRouteCopy.primaryCta.label} <span aria-hidden="true">→</span>
           </a>
         </aside>
       </section>

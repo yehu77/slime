@@ -480,7 +480,16 @@ code { font-size: .88em; }
 }
 .beginner-loop strong { display: block; font-size: 14px; line-height: 1.35; }
 .beginner-loop small { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.5; }
-.beginner-actions { margin-top: 26px; }
+.beginner-scroll-cue {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  margin: 24px 0 0;
+  color: var(--moss);
+  font-size: 13px;
+  font-weight: 700;
+}
+.beginner-scroll-cue span { color: var(--line-strong); font-family: var(--font-mono); }
 .beginner-facts {
   display: flex;
   flex-wrap: wrap;
