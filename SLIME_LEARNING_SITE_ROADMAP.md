@@ -7,21 +7,21 @@
 | 项目项 | 当前值 |
 | --- | --- |
 | 文档状态 | Draft / Living document |
-| 当前阶段 | M1：第一个纵向切片（公网发布准备中，目标用户验收并行） |
+| 当前阶段 | M1：第一个纵向切片（已公网发布，进入内容深化与目标用户验收） |
 | 建立日期 | 2026-08-08 |
 | 最近更新 | 2026-08-08 |
 | slime 调研基线 | `v0.3.1-1-g06ffdbe2` |
 | 产品工作名 | `slime Lab` |
 | 当前共同维护者 | 项目发起人 + Codex |
-| 私有预览 | [slime Lab M1](https://slime-lab-sample-journey.qnybkyhzm52911.chatgpt.site)（owner-only） |
+| 公网网站 | [slime Lab](https://slime-lab.hunyu6792.workers.dev)（Cloudflare Workers） |
 | 公网源码 | [yehu77/slime](https://github.com/yehu77/slime)（个人 fork） |
-| 下一份产物 | Cloudflare Workers 公网地址 + M1 目标用户验收记录 |
+| 下一份产物 | 首课内容深化 + M1 目标用户验收记录 |
 
 ## 0. 当前焦点
 
-**现在：** M1 已按 [M1 Implementation Brief](./SLIME_LAB_M1_IMPLEMENTATION_BRIEF.md) 完成实现、自动 gate 与 owner-only 私有部署；项目发起人已批准公网发布，正在把源码推送到个人 GitHub fork 并接入 Cloudflare Workers。
+**现在：** M1 已按 [M1 Implementation Brief](./SLIME_LAB_M1_IMPLEMENTATION_BRIEF.md) 完成实现、自动 gate 与公网发布。源码以个人 GitHub fork 为唯一事实来源，`main` 由 Cloudflare Workers 自动构建并发布；接下来把主要精力转向课程内容与学习效果。
 
-**接下来：** 完成首个 `workers.dev` 公网部署并检查五个 route；随后继续目标用户学习、360 / 768 / 1280 多视口、触摸和完整键盘焦点流验收，按发现迭代后把首课从 `ready` 推进到 `verified`。
+**接下来：** 深化“一条 Sample 的旅程”的解释、练习与源码导读；同时继续目标用户学习、360 / 768 / 1280 多视口、触摸和完整键盘焦点流验收，按发现迭代后把首课从 `ready` 推进到 `verified`。
 
 **暂时不做：** 大规模铺课程、账号系统、真实在线训练、全量英文内容和高级 recipe explorer。
 
@@ -688,8 +688,8 @@ idea → researched → drafted → content-reviewed → technically-reviewed �
 - 视觉采用严谨系统教材为主、克制 slime 趣味为辅；
 - M1 只发布中文无前缀页面，未来英文使用 `/en/...`；
 - M1 页面固定为 `/`、`/start`、`/learn/sample-journey`、`/glossary`、`/source`；
-- M1 使用 Sites vinext starter、npm、React / TypeScript、typed content、静态 fixture 和本地进度；
-- M1 先完成 Sites 私有验收预览；公网生产采用个人 GitHub fork + Cloudflare Workers；
+- M1 使用 vinext、npm、React / TypeScript、typed content、静态 fixture 和本地进度；
+- GitHub fork + Cloudflare Workers 是唯一托管链路，不再维护其他托管集成；
 - `main` 作为公网生产分支，其他分支生成预览版本；首发使用免费 `workers.dev` 地址，独立域名以后再决定；
 - 托管迁移与内容框架迁移分开，M2 铺量前单独验证 Docusaurus + MDX，不阻塞 M1 公网发布。
 
@@ -716,15 +716,13 @@ idea → researched → drafted → content-reviewed → technically-reviewed �
 
 M0 已完成。[《一条 Sample 的旅程》storyboard](./SLIME_SAMPLE_JOURNEY_STORYBOARD.md)和 [M1 Implementation Brief](./SLIME_LAB_M1_IMPLEMENTATION_BRIEF.md)共同定义施工事实与边界。
 
-当前发布顺序：
+当前内容发布流程：
 
-1. 将已通过 gate 的 `website/` 和路线文档推送到 [yehu77/slime](https://github.com/yehu77/slime)；
-2. 在 Cloudflare Workers Builds 中连接该 fork，root directory 使用 `website`；
-3. `main` 执行生产发布，非生产分支只上传预览版本；
-4. 检查 `/`、`/start`、`/learn/sample-journey`、`/glossary`、`/source`；
-5. 继续目标用户验收与 M1 迭代。
-
-按照 `sites-building` 的施工约束，开始初始化后应连续完成可运行产品、构建验证和私有预览，不只留下 starter 骨架。
+1. 在 `website/` 完成内容或交互修改；
+2. 通过内容校验、测试、类型检查、lint、安全检查和生产构建；
+3. 将修改推送到 [yehu77/slime](https://github.com/yehu77/slime) 的 `main`；
+4. 由 Cloudflare Workers Builds 自动发布；
+5. 检查 `/`、`/start`、`/learn/sample-journey`、`/glossary`、`/source` 后记录验收结果。
 
 ## 22. 研究入口
 
@@ -768,9 +766,9 @@ M0 已完成。[《一条 Sample 的旅程》storyboard](./SLIME_SAMPLE_JOURNEY_
 | 2026-08-08 | 首课用一个固定 `math-2x2-v1` fixture 驱动全部交互 | 保证播放器、显微镜、Batch 与时间线数据一致且可测试 | 已确认 |
 | 2026-08-08 | UI 严格分离 raw Sample、derived train data 与 system state | 避免把组内中心化 reward、schedule 或新权重误认成 Sample 字段 | 内容正确性约束 |
 | 2026-08-08 | 采用 `slime Lab`、并列目标用户、`website/`、中文优先和严谨教材视觉 | 关闭 M0 的产品与项目边界歧义 | 已确认 |
-| 2026-08-08 | M1 用 Sites vinext starter 与 typed content，私有预览后再决定公开 | 适配强交互首课并控制 beta / MDX 与发布风险 | 已确认 |
+| 2026-08-08 | M1 用 vinext 与 typed content 实现强交互首课 | 适配首课的播放器、状态检查与本地进度 | 已确认 |
 | 2026-08-08 | M1 中文无前缀，未来英文使用 `/en/...` | 保持当前 URL 简洁，同时以稳定 ID 预留翻译 | 已确认 |
-| 2026-08-08 | 公网生产使用 `yehu77/slime` + Cloudflare Workers，私有 Sites 仅保留为过渡验收环境 | 让源码、预览和生产归项目发起人控制，并复用现有 Worker 构建 | 执行中 |
+| 2026-08-08 | 只保留 `yehu77/slime` + Cloudflare Workers，退出过渡托管项目与集成 | 让源码、构建和公网生产统一在项目发起人控制的单一链路 | 已确认 |
 | 2026-08-08 | 托管迁移先行，M2 前再单独验证 Docusaurus + MDX | 先解决访问问题，不把公开发布与框架重写绑在一起 | 已确认 |
 
 ## 24. 更新记录
@@ -780,3 +778,4 @@ M0 已完成。[《一条 Sample 的旅程》storyboard](./SLIME_SAMPLE_JOURNEY_
 - 2026-08-08：确认五项产品默认值，建立 M1 Implementation Brief，关闭 M0 并将当前阶段切换到 M1 初始化就绪。
 - 2026-08-08：完成 M1 网站、课程、固定源码证据与自动 gate，并发布 owner-only 私有预览；下一步是项目发起人的目标用户和多视口人工验收。
 - 2026-08-08：批准公网发布，确定 GitHub fork + Cloudflare Workers 架构并开始部署准备；独立域名与 M2 内容框架留待后续决策。
+- 2026-08-08：完成 Cloudflare Workers 公网发布；将 GitHub + Cloudflare 确认为唯一维护链路，移除过渡托管集成，工作重点转向课程内容。

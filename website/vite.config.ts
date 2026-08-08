@@ -1,6 +1,5 @@
 import vinext from "vinext";
 import { defineConfig } from "vite";
-import { sites } from "./build/sites-vite-plugin";
 
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
@@ -12,7 +11,7 @@ export default defineConfig(async ({ command }) => {
   process.env.WRANGLER_LOG_PATH ??= ".wrangler/logs";
   process.env.MINIFLARE_REGISTRY_PATH ??= ".wrangler/registry";
 
-  const plugins = [vinext(), sites()];
+  const plugins = [vinext()];
 
   // The production build always uses the Cloudflare plugin. Local content
   // preview stays in vinext's Node server because this project has no runtime

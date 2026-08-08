@@ -6,12 +6,12 @@
 
 | 项目项 | 当前值 |
 | --- | --- |
-| 文档状态 | `M1 public release approved / Cloudflare handoff in progress` |
+| 文档状态 | `M1 public release active / content validation in progress` |
 | 里程碑 | M1：第一个纵向切片 |
 | 产品工作名 | `slime Lab` |
 | 建立日期 | 2026-08-08 |
-| 目标发布物 | 已完成中文私有预览；正在发布免费公网 Workers 版本 |
-| 当前预览 | [slime Lab M1](https://slime-lab-sample-journey.qnybkyhzm52911.chatgpt.site)（owner-only） |
+| 目标发布物 | 已完成免费公网 Cloudflare Workers 版本 |
+| 公网网站 | [slime Lab M1](https://slime-lab.hunyu6792.workers.dev) |
 | 公网源码 | [yehu77/slime](https://github.com/yehu77/slime)（个人 fork） |
 | 项目位置 | 当前 slime 仓库的 `website/` |
 | slime 内容基线 | `v0.3.1-1-g06ffdbe2` / `06ffdbe22be068b52f9ed0fc318c473f7030197e` |
@@ -39,7 +39,7 @@ M1 不是“搭好导航和空页面”，而是第一个可从入口走到学�
 - M1 使用浏览器本地状态，不接账号、D1、R2 或其他数据库；
 - M1 不执行真实 SGLang / Megatron 训练；
 - 对外技术链接固定到上述 slime commit；
-- `website/` 是否长期留在上游仓库，可在 M1 私有预览验证后、正式公开或向上游提交前复议，不阻塞当前施工。
+- `website/` 是否长期留在 slime fork，可在 M1 目标用户验证后、向上游提交前复议，不阻塞当前施工。
 
 ## 2. 成功标准与边界
 
@@ -62,7 +62,7 @@ M1 不是“搭好导航和空页面”，而是第一个可从入口走到学�
 - 桌面、平板和移动端都能完成主要学习路径；
 - 键盘和 reduced-motion 模式不丢失信息；
 - 构建、内容校验和关键状态逻辑测试通过；
-- 交付一个私有 Sites 预览，公开发布由项目发起人另行决定。
+- 交付一个由 GitHub `main` 自动发布的公网 Cloudflare Workers 网站。
 
 ### 2.3 M1 不做
 
@@ -72,7 +72,7 @@ M1 不是“搭好导航和空页面”，而是第一个可从入口走到学�
 - 全量课程、全量术语、全仓库源码浏览；
 - 完整 partial / fully async / fan-out agent 分支；
 - 英文页面、暗色主题切换、站内全文搜索；
-- 对上游 slime 仓库提交或正式公共域名。
+- 对上游 slime 仓库提交或绑定独立域名。
 
 ## 3. M1 页面清单
 
@@ -138,13 +138,13 @@ M1 不创建博客、recipes、labs、correctness 等空路由。首页可以展
 - 默认不自动播放；尊重 `prefers-reduced-motion`；
 - 状态不能只用绿色 / 红色区分，必须有文字、图标或线型。
 
-视觉与主要文案稳定后，按 Sites 流程只发起一次专用 OG social card 生成；仅当结果不可用时重试一次。人工检查图中文字、品牌和实际页面是否一致，通过后保存为 `public/og.png`，并用请求 host 派生绝对 metadata URL；若仍不合格就省略 `og:image`，不发布通用 fallback。OG 接入完成后才执行最终 production build。
+视觉与主要文案稳定后生成一张专用 OG social card。人工检查图中文字、品牌和实际页面是否一致，通过后保存为 `public/og.png`，并用请求 host 派生绝对 metadata URL；若仍不合格就省略 `og:image`，不发布通用 fallback。OG 接入完成后才执行最终 production build。
 
 ## 5. 技术形态
 
 ### 5.1 初始化与运行平台
 
-M1 采用 Sites 的 vinext starter，并保留其 Cloudflare Worker-compatible ESM 构建方式：
+M1 采用 vinext + Vite，并以 Cloudflare Workers-compatible ESM 方式构建：
 
 - React + TypeScript；
 - vinext + Vite；
@@ -152,21 +152,17 @@ M1 采用 Sites 的 vinext starter，并保留其 Cloudflare Worker-compatible E
 - Vitest 用于不依赖浏览器的 reducer、schema、Batch 与 source-link 单元测试；
 - npm 与 starter lockfile；
 - Node.js `>= 22.13.0`；
-- `.openai/hosting.json` 中 `d1: null`、`r2: null`；
 - 不导入 authentication helper，不读取用户身份 header；
-- 完成后使用 Sites 生成私有预览。
+- GitHub fork 是源码事实源，Cloudflare Workers Builds 负责构建与公网发布。
 
-初始化时必须满足：
+项目结构必须满足：
 
-1. `website/` 是新的项目表面，但由父 slime 仓库版本控制；
-2. Sites initializer 只能运行一次；
-3. 在空 `website/` 中预建空 `.git` sentinel，阻止 initializer 创建嵌套仓库；从该目录调用 Sites 插件根的 `scripts/init-site.sh "$PWD"`，并以 finally / trap 语义在成功或失败后只用 `rmdir` 移除仍为空的 sentinel；
-4. 根 `.gitignore` 的 `build/` 会忽略 starter 必需的 `website/build/sites-vite-plugin.ts`，初始化时加入精确的 `!website/build/` 与 `!website/build/**` 例外并用 `git check-ignore` 验证；
-5. 网站 runtime、Cloudflare build 和托管代码不得 import `../slime`、Python 模块或父仓库脚本；
-6. 保留 starter 的 `sites()` Vite plugin 与 hosting 配置；
-7. 初始化完成后立即启动 dev preview，直到 build 与私有部署结束；
-8. 正式页面必须替换 starter skeleton、metadata、图标和预览标记；删除 `app/_sites-preview` 及 imports，替换 starter rendered test；
-9. 若成品不再使用 `react-loading-skeleton`，移除依赖并刷新 lockfile；同时移除 M1 不使用的 auth、D1 / Drizzle scaffold 与依赖，不让 starter 默认能力扩大产品范围。
+1. `website/` 由父 slime 仓库统一版本控制，不保留嵌套 `.git`；
+2. 网站 runtime、Cloudflare build 和托管代码不得 import `../slime`、Python 模块或父仓库脚本；
+3. `vite.config.ts` 仅保留产品运行和 Cloudflare 构建所需插件；
+4. `wrangler.jsonc` 是 Worker 名称、兼容日期和静态资源 binding 的配置事实源；
+5. 正式页面必须替换 starter skeleton、metadata、图标和预览标记，并覆盖 rendered route tests；
+6. 移除 M1 不使用的 auth、D1 / Drizzle scaffold 与依赖，不让模板默认能力扩大产品范围。
 
 ### 5.2 渲染与状态边界
 
@@ -500,7 +496,7 @@ used_by: []
 
 范围：
 
-- Sites initializer、父仓库集成、依赖与 dev preview；
+- vinext 项目、父仓库集成、依赖与 dev preview；
 - 移除 starter skeleton、preview metadata 和未使用的临时 UI；
 - `slime Lab` metadata、中文 `lang`、系统字体和视觉 tokens；
 - 五个 route shell、全局导航、404 / error boundary 基础；
@@ -543,7 +539,7 @@ used_by: []
 
 退出条件：完整用户路径从 `/` 进入课程，再进入术语或源码证据，不遇到空路由。
 
-### Batch E：硬化与私有预览
+### Batch E：硬化与公网发布
 
 范围：
 
@@ -551,11 +547,11 @@ used_by: []
 - 实现 360 / 768 / 1280 布局规则、键盘行为与 reduced-motion 等价视图；
 - 专用 OG card 与 metadata；
 - 在全部实现与 OG 接入完成后执行一次最终 production build；失败修复后重跑，不为阶段性检查重复构建；
-- 生成私有预览的多视口、键盘、触摸和焦点人工验收清单；
+- 生成公网版本的多视口、键盘、触摸和焦点人工验收清单；
 - 记录已知限制；
-- 部署私有 Sites preview。
+- 通过 GitHub + Cloudflare Workers 部署公网版本。
 
-退出条件：自动 gate 与最终 build 通过，用户可以打开稳定私有预览，并按清单完成人工学习和界面验收。未获用户明确授权时，不把浏览器截图、DOM 操作、点击或视觉回归伪装成自动通过项。
+退出条件：自动 gate 与最终 build 通过，用户可以打开稳定公网网站，并按清单完成人工学习和界面验收。未获用户明确授权时，不把浏览器截图、DOM 操作、点击或视觉回归伪装成自动通过项。
 
 ## 10. 自动测试矩阵
 
@@ -589,14 +585,14 @@ npm run build
 npm run test:rendered     # 复用已生成的 build，不再次触发 build
 ```
 
-starter 默认 `npm test` 会先 build；M1 应拆开该脚本，避免完整验证链重复构建。前四个 npm gate 可以在施工中反复运行；source、文案和 OG 冻结后执行一次最终 `npm run build`，只有修复真实失败时才重跑，`test:rendered` 复用该输出。浏览器截图、DOM 操作、点击、resize 和视觉回归属于单独的用户授权 QA 步骤，不在未请求时自动进行；360 / 768 / 1280、触摸和完整焦点流默认由项目发起人在私有预览按清单验收。
+模板默认 `npm test` 会先 build；M1 应拆开该脚本，避免完整验证链重复构建。前四个 npm gate 可以在施工中反复运行；source、文案和 OG 冻结后执行一次最终 `npm run build`，只有修复真实失败时才重跑，`test:rendered` 复用该输出。浏览器截图、DOM 操作、点击、resize 和视觉回归属于单独的用户授权 QA 步骤，不在未请求时自动进行；360 / 768 / 1280、触摸和完整焦点流默认由项目发起人在公网版本按清单验收。
 
 ## 11. 验收与发布门槛
 
 ### 11.1 工程门槛
 
 - [x] starter skeleton、starter title、preview marker 和通用 fallback 图标已移除；
-- [x] `.openai/hosting.json` 保持 `d1: null / r2: null`；
+- [x] `wrangler.jsonc` 与 Cloudflare Worker 构建配置一致；
 - [x] `website/` 由父仓库跟踪，没有嵌套 `.git`；
 - [x] production build 和自动测试通过；
 - [x] 五个 route 可渲染，所有内部链接有效；
@@ -605,7 +601,7 @@ starter 默认 `npm test` 会先 build；M1 应拆开该脚本，避免完整验
 - [x] localStorage 有版本、恢复和清除语义；
 - [x] 没有真实 GPU / network runtime 依赖；
 - [x] 无危险命令或未审查的复制粘贴说明；
-- [x] private Sites preview 部署成功。
+- [x] Cloudflare Workers 公网部署成功。
 
 ### 11.2 课程门槛
 
@@ -625,17 +621,15 @@ starter 默认 `npm test` 会先 build；M1 应拆开该脚本，避免完整验
 构建与托管顺序：
 
 1. 冻结站点源码与 OG，完成 required CPU evidence、站点自动 gate 和最终 build；
-2. 新站只调用一次 Sites `create_site`，将 `project_id` 写入 `website/.openai/hosting.json` 并复用返回的 source write credential；若此后改动任何 build-relevant source，重新 build；
-3. 不在 `website/` 创建嵌套 Git；在系统临时目录建立 deployment export repo，复制刚刚验证的站点源码并提交，用 branch-head SHA 标识这次 source；
-4. credential 只作为单条 push 的 HTTP authorization header 使用，不写入 remote URL、Git config、文档或日志；
-5. 使用 Sites hosting 插件根的 `scripts/package-site.sh` 打包 `website/`，保存一个与上述 commit SHA 对应的 version；
-6. 优先执行 private deployment 并轮询到成功或失败；若当前能力只能 shared / public，必须先取得项目发起人对实际访问级别的明确批准，不能自行扩大可见范围；
-7. 成功后打开 connector 返回的 deployed URL，并保留该 URL 作为 M1 预览入口。
+2. 将通过 gate 的源码提交到个人 GitHub fork；
+3. `main` push 触发 Cloudflare Workers Builds，执行 `npm run build` 与 `npx wrangler deploy`；
+4. 非生产分支只执行 `npx wrangler versions upload`，不改变线上 Active Deployment；
+5. 构建成功后检查公网 URL 和五个范围内 route，并记录对应 commit SHA 与验收结果。
 
 预览与学习验收顺序：
 
 1. 项目发起人先按“首页 → 首课 → source”路径和多视口 / 键盘清单完整走查；
-2. 私有预览再邀请至少 3 名、推荐 4 名目标用户，其中研究者与工程师各至少 1 名；
+2. 公网版本邀请至少 3 名、推荐 4 名目标用户，其中研究者与工程师各至少 1 名；
 3. 记录完成时间、错误模型、求助点、交互阻塞和章末结果；
 4. 修复 M1 blocker；
 5. 再共同决定是否公开、是否迁出当前仓库和是否开始 M2。
@@ -649,11 +643,11 @@ starter 默认 `npm test` 会先 build；M1 应拆开该脚本，避免完整验
 - 没有 P0 事实错误或 P1 阻断性可用性问题；
 - 错题反馈能准确返回对应幕。
 
-私有预览可以在目标用户测试前交付，但 M1 只有在上述门槛通过后才能标记为 `verified`。
+公网版本可以在目标用户测试前交付，但 M1 只有在上述门槛通过后才能标记为 `verified`。
 
 ### 11.4 公网生产补充决策（2026-08-08）
 
-项目发起人已明确批准公开发布。公网生产与原 Sites 私有验收预览分离：
+项目发起人已明确批准公开发布，并将 GitHub + Cloudflare Workers 设为唯一托管链路：
 
 - GitHub 事实源为个人 fork `yehu77/slime`，网站继续位于 `website/`；
 - Cloudflare Workers Builds 的 root directory 为 `website`；
@@ -661,13 +655,13 @@ starter 默认 `npm test` 会先 build；M1 应拆开该脚本，避免完整验
 - 非生产分支执行 `npx wrangler versions upload`，不改变线上 Active Deployment；
 - 首发使用免费 `workers.dev` 地址，不启用账号、D1、R2、Images 或其他付费能力；
 - 独立域名、Cloudflare Access 与长期仓库拆分以后再决定；
-- 公网 URL 真正成功部署前，课程状态仍保持 `ready`，不提前标记为 `published`。
+- 公网部署成功后课程可标记为 `published`；只有目标用户门槛通过后才标记为 `verified`。
 
 ## 12. 风险与预案
 
 | 风险 | 早期信号 | 预案 |
 | --- | --- | --- |
-| Sites 子目录形成嵌套 git | `website/.git` 存在 | 初始化整合时移除生成的嵌套边界，确认父仓库能看到全部文件 |
+| 网站子目录形成嵌套 git | `website/.git` 存在 | 移除嵌套边界，确认父仓库能看到全部文件 |
 | typed content 逐渐失控 | 文案复制到组件或 locale overlay 缺 key | Zod 校验 content IDs，M2 再独立验证 MDX，不把 loader 风险带进 M1 |
 | 四个交互状态漂移 | 同一 event 显示不同 reward / ID | 只允许 reducer 输出 snapshot，组件不复制 fixture 值 |
 | 内容范围膨胀 | 新增 M2/M3 机制分支 | 只显示链接或预告，进入 roadmap backlog |
@@ -684,8 +678,8 @@ starter 默认 `npm test` 会先 build；M1 应拆开该脚本，避免完整验
 | fixture、reducer、自动测试 | 负责 | 审核教学语义 |
 | 技术内容与 source refs | 初审并实现 | 根据真实使用经验复核 |
 | 视觉与响应式 | 实现并说明取舍 | 判断品牌气质 |
-| 私有预览 | 构建并部署 | 完整走查 |
-| 公开发布 / 仓库迁移 | 提供建议与执行方案 | 最终决定 |
+| 公网版本 | 构建、部署并验证 | 完整走查 |
+| 独立域名 / 仓库迁移 | 提供建议与执行方案 | 最终决定 |
 
 施工期间，每完成一个 batch 更新本文的 gate，不为可逆的小实现细节反复阻塞；任何影响用户、仓库边界或公开发布的决定继续共同确认。
 
@@ -699,7 +693,7 @@ starter 默认 `npm test` 会先 build；M1 应拆开该脚本，避免完整验
 - [x] 五页面清单与课程验收已由 storyboard 和本文锁定；
 - [x] slime baseline 与 source link 策略已锁定；
 - [x] 无账号 / DB / GPU 的 M1 边界已锁定；
-- [x] 运行 Sites initializer 并完成父仓库整合；
-- [x] 完成 Batch A–E 的实现与自动 gate，保持 dev preview 到私有部署结束。
+- [x] 完成 vinext 项目与父仓库整合；
+- [x] 完成 Batch A–E 的实现、自动 gate 与 Cloudflare Workers 公网部署。
 
 下一次施工从最后两项开始，不再重新讨论本 brief 已确认的默认值。
