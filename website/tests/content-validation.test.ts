@@ -75,6 +75,7 @@ describe("M1 lesson content contract", () => {
   });
 
   it("keeps the 90-second, seven-act, nine-question completion shape", () => {
+    expect(sampleJourneyLesson.opening.paragraphs).toHaveLength(3);
     expect(sampleJourneyLesson.overview90s.steps).toHaveLength(7);
     expect(
       sampleJourneyLesson.overview90s.steps.reduce(

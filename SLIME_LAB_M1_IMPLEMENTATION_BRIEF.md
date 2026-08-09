@@ -16,6 +16,7 @@
 | 项目位置 | 当前 slime 仓库的 `website/` |
 | slime 内容基线 | `v0.3.1-1-g06ffdbe2` / `06ffdbe22be068b52f9ed0fc318c473f7030197e` |
 | 产品与课程路线 | [slime 教学网站总体路线](./SLIME_LEARNING_SITE_ROADMAP.md) |
+| 内容文风 | [slime Lab 内容文风指南](./SLIME_LAB_CONTENT_STYLE_GUIDE.md) |
 | 首课事实源 | [《一条 Sample 的旅程》Storyboard](./SLIME_SAMPLE_JOURNEY_STORYBOARD.md) |
 
 ## 0. M1 的一句话结果
@@ -446,7 +447,7 @@ Codex 可以准备 evidence 和初审，但不能作为唯一技术批准者；�
 
 ### 7.6 中文术语
 
-写作统一使用：
+叙事顺序、句子负担、比喻边界与页面语气遵循 [内容文风指南](./SLIME_LAB_CONTENT_STYLE_GUIDE.md)。术语统一使用：
 
 - `Sample` 写作“`Sample` 对象 / 实例”，不单独翻译成含糊的“样本”；
 - 同一 prompt 的多次生成称“同组候选”；只有一次逻辑 rollout 拆出的片段称“rollout sibling / 同一逻辑 rollout 的派生片段”；

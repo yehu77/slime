@@ -72,44 +72,55 @@ export const foundationReview = {
 } as const;
 
 export const startRouteCopy = {
-  eyebrow: "第一次认识 slime",
-  title: "slime 到底是做什么的？",
-  answer: "它把模型的尝试、评价与学习连成一条流水线。",
+  eyebrow: "第一章 · 回答如何成为学习",
+  title: ["一条回答，", "如何走进训练？"],
+  answer: "slime 让一次次尝试被看见、被评价，并在合适的时候回到训练。",
   summary:
-    "slime 不是一个新模型。它是一套训练框架，负责组织“让模型回答、判断回答好不好、再用结果更新模型”这套可以反复运行的循环。",
+    "模型不会因为答对了一次题，就突然变得聪明。它需要一次次尝试，让结果被衡量，再让其中的得失参与下一次训练。slime 所做的，正是让这场循环稳定地发生。",
   loop: [
-    { number: "1", title: "生成回答", description: "让模型尝试完成一批任务" },
-    { number: "2", title: "评价回答", description: "判断结果好不好，并整理反馈" },
-    { number: "3", title: "更新模型", description: "用反馈训练模型，再开始下一轮" },
+    { number: "1", title: "让模型先开口", description: "面对一批任务，模型写下自己的尝试" },
+    { number: "2", title: "让回答接受判断", description: "结果被评分、比较，留下可以学习的信号" },
+    { number: "3", title: "让反馈回到训练", description: "训练据此更新权重，下一轮从这里重新开始" },
   ],
-  facts: ["先懂整体", "无需 GPU", "首课约 25–30 分钟"],
+  scrollCue: "接下来，跟着这条回答继续往下走",
+  facts: ["先看旅程，再认术语", "无需 GPU", "首课约 25–30 分钟"],
   primaryCta: {
     label: "开始首课",
     href: "/learn/sample-journey",
   },
-  imageCaption: "你会跟着一条训练记录，看它怎样获得回答、评分，并最终推动模型更新。",
+  imageCaption: "一条回答从诞生到参与训练，要穿过多个系统，也会在途中不断获得新的意义。",
+  roleMap: {
+    eyebrow: "一次回答背后的接力",
+    title: "一场真正的训练循环，藏着七次接力",
+    introduction:
+      "不必急着记住这些名字。把它们看作一支接力队：有人准备题目，有人生成回答，有人判断得失，也有人把结果交给训练。先认清方向，术语会在旅途中逐一变得具体。",
+  },
   phases: [
     {
       id: "generate",
       title: "生成",
-      plainDescription: "准备任务，并让模型产出候选回答",
+      plainDescription: "题目被整理成记录，模型第一次为它写下回答",
       stepIds: ["overview-dataset", "overview-group", "overview-generate"],
     },
     {
       id: "evaluate",
       title: "评价与整理",
-      plainDescription: "给结果打分，再把记录整理成训练能使用的批次",
+      plainDescription: "好坏被看见，零散的回答被整理成训练可读的形式",
       stepIds: ["overview-reward", "overview-convert"],
     },
     {
       id: "learn",
       title: "训练与继续",
-      plainDescription: "更新模型，并把新版本交给下一轮生成",
+      plainDescription: "反馈推动权重更新，新的权重版本开启下一轮任务",
       stepIds: ["overview-train", "overview-sync"],
     },
   ],
   sampleExplanation: {
-    title: "这门首课只追踪一个主角：Sample",
-    body: "先把 Sample 理解成“一条正在被处理的训练记录”。它起初只有题目，随后逐渐得到候选回答、评分和训练信息。课程会在需要时解释每个新术语。",
+    label: "旅程的主角",
+    title: "接下来，我们只跟着一条记录走",
+    bodyBefore:
+      "在 slime 里，一条回答不会在生成之后便结束。它会带着题目、身份、token、评分与训练信号穿过整个系统。源码把这条不断变化的训练记录称作",
+    codeLabel: "Sample",
+    bodyAfter: "。首课会在需要时解释每一个新术语。",
   },
 } as const;

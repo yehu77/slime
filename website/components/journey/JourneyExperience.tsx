@@ -473,10 +473,25 @@ export function JourneyExperience() {
           decoding="async"
         />
         <figcaption>
-          <span>TRACE / SAMPLE A0</span>
-          <strong>同一条 Sample，在系统边界上逐步改变。</strong>
+          <span>{sampleJourneyLesson.opening.coverKicker}</span>
+          <strong>{sampleJourneyLesson.opening.coverCaption}</strong>
         </figcaption>
       </figure>
+
+      <section className="journey-prologue" aria-labelledby="journey-prologue-title">
+        <div className="journey-prologue-mark" aria-hidden="true">
+          <span>序</span>
+          <i />
+        </div>
+        <div className="journey-prologue-copy">
+          <p className="journey-eyebrow">{sampleJourneyLesson.opening.eyebrow}</p>
+          <h2 id="journey-prologue-title">{sampleJourneyLesson.opening.title}</h2>
+          {sampleJourneyLesson.opening.paragraphs.map((paragraph) => (
+            <p key={paragraph}>{paragraph}</p>
+          ))}
+          <strong>{sampleJourneyLesson.opening.closing}</strong>
+        </div>
+      </section>
 
       <div className="journey-notice">
         <strong>受控示例</strong>
@@ -486,7 +501,7 @@ export function JourneyExperience() {
       <section className="journey-overview" id="overview" aria-labelledby="journey-overview-title">
         <header>
           <div>
-            <p className="journey-eyebrow">90-second model</p>
+            <p className="journey-eyebrow">{sampleJourneyLesson.opening.overviewKicker}</p>
             <h2 id="journey-overview-title">{sampleJourneyLesson.overview90s.title}</h2>
           </div>
           <p>{sampleJourneyLesson.overview90s.description}</p>

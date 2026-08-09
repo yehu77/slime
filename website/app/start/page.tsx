@@ -15,8 +15,12 @@ export default function StartPage() {
           <div className="beginner-copy">
             <p className="eyebrow">{startRouteCopy.eyebrow}</p>
             <h1>
-              {startRouteCopy.title}
-              <span>{startRouteCopy.answer}</span>
+              <span className="beginner-question">
+                <span>{startRouteCopy.title[0]}</span>
+                <wbr />
+                <span>{startRouteCopy.title[1]}</span>
+              </span>
+              <span className="beginner-answer">{startRouteCopy.answer}</span>
             </h1>
             <p className="beginner-lead">{startRouteCopy.summary}</p>
 
@@ -33,7 +37,7 @@ export default function StartPage() {
             </ol>
 
             <p className="beginner-scroll-cue">
-              继续往下，看三步如何展开成七个角色
+              {startRouteCopy.scrollCue}
               <span aria-hidden="true">↓</span>
             </p>
 
@@ -58,11 +62,9 @@ export default function StartPage() {
 
       <section className="page-shell beginner-detail">
         <header className="beginner-detail-heading">
-          <p className="section-kicker">从三步到具体系统</p>
-          <h2>三步展开后，才会看到七个具体角色</h2>
-          <p>
-            这些名字来自 slime 的真实工作流，但你现在不需要记住它们。先看清它们分别属于“生成、评价、训练”中的哪一步就够了。
-          </p>
+          <p className="section-kicker">{startRouteCopy.roleMap.eyebrow}</p>
+          <h2>{startRouteCopy.roleMap.title}</h2>
+          <p>{startRouteCopy.roleMap.introduction}</p>
         </header>
 
         <div className="phase-grid" aria-label="slime 七个角色按三个阶段分组">
@@ -93,10 +95,13 @@ export default function StartPage() {
         </div>
 
         <aside className="beginner-lesson-note">
-          <span aria-hidden="true">一条记录</span>
+          <span aria-hidden="true">{startRouteCopy.sampleExplanation.label}</span>
           <div>
             <h2>{startRouteCopy.sampleExplanation.title}</h2>
-            <p>{startRouteCopy.sampleExplanation.body}</p>
+            <p>
+              {startRouteCopy.sampleExplanation.bodyBefore} <code>{startRouteCopy.sampleExplanation.codeLabel}</code>
+              {startRouteCopy.sampleExplanation.bodyAfter}
+            </p>
           </div>
           <a className="button button-primary button-small" href={startRouteCopy.primaryCta.href}>
             {startRouteCopy.primaryCta.label} <span aria-hidden="true">→</span>

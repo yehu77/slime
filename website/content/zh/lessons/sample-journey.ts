@@ -1,8 +1,8 @@
 import type { AssessmentQuestion, LessonAct, OverviewStep } from "../types";
 
 export const sampleJourneyOverview = {
-  title: "90 秒闭环速览",
-  description: "先只回答“谁把数据交给谁”，暂不展开字段与算法公式。",
+  title: "先听一遍它的旅程",
+  description: "这是七个角色的技术速览：先只看谁把记录交给谁。字段、公式与源码，会在每一幕慢慢展开。",
   totalSeconds: 90,
   steps: [
     {
@@ -650,7 +650,8 @@ export const sampleJourneyLesson = {
     locale: "zh-CN",
     route: "/learn/sample-journey",
     title: "一条 Sample 的旅程",
-    summary: "跟踪一行数据如何成为可信的训练更新，以及新权重怎样影响下一条 Sample。",
+    summary:
+      "一行数据刚进入 slime 时，还只带着一道题。接下来的七幕里，我们会看着它得到回答、评分与训练信号，最终推动一次权重更新，再把更新后的权重发布给下一轮生成。",
     audiences: ["researcher", "engineer"],
     level: "slime-intro",
     duration: { minMinutes: 25, maxMinutes: 30, includesAssessment: true },
@@ -724,6 +725,19 @@ export const sampleJourneyLesson = {
       content: "project-initiator",
       technicalReview: "project-initiator-or-designated-slime-reviewer",
     },
+  },
+  opening: {
+    eyebrow: "序章 · 一条记录出发",
+    title: "它最初只是一道题。",
+    paragraphs: [
+      "此刻还没有回答，没有分数，也没有训练信号。它只是数据集里安静的一行，等待系统把它读进来。",
+      "接下来，它会被复制成同组候选，交给模型生成答案，接受评价，再被整理成训练能够理解的形状。每越过一个系统边界，它都会多出一些字段，也多承担一层含义。",
+      "到了第六幕，优化器终于根据派生训练数据完成一次更新；第七幕再把新权重发布给 rollout engine。至此，下一轮生成才真正有了新的起点。",
+    ],
+    closing: "先别急着记字段。先看它走完全程。",
+    coverKicker: "序章 / 一条记录出发",
+    coverCaption: "一道题，走向权重更新。",
+    overviewKicker: "90 秒 · 技术速览",
   },
   hook: {
     question: "同样答对，为什么一个 Sample 完全不学习？",

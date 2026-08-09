@@ -201,6 +201,72 @@
   max-width: 620px;
 }
 
+.journey-prologue {
+  background:
+    radial-gradient(circle at 88% 8%, rgb(228 173 46 / 11%), transparent 17rem),
+    var(--journey-surface);
+  border: 1px solid var(--journey-line);
+  border-radius: 0.8rem;
+  display: grid;
+  gap: clamp(1.5rem, 3vw, 3rem);
+  grid-template-columns: 110px minmax(0, 1fr);
+  margin: 0 0 1.25rem;
+  padding: clamp(1.5rem, 3vw, 2.7rem);
+}
+
+.journey-prologue-mark {
+  align-items: center;
+  color: var(--journey-green);
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  padding-top: 0.3rem;
+}
+
+.journey-prologue-mark span {
+  font-family: var(--journey-mono);
+  font-size: 0.62rem;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  writing-mode: vertical-rl;
+}
+
+.journey-prologue-mark i {
+  background: linear-gradient(var(--journey-green), transparent);
+  display: block;
+  height: 100%;
+  min-height: 80px;
+  width: 1px;
+}
+
+.journey-prologue-copy { max-width: 880px; }
+
+.journey-prologue-copy h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.9rem, 3.4vw, 3.25rem);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+  margin: 0.4rem 0 1.2rem;
+}
+
+.journey-prologue-copy > p:not(.journey-eyebrow) {
+  color: var(--journey-muted);
+  font-size: clamp(0.95rem, 1.25vw, 1.06rem);
+  line-height: 1.9;
+  margin: 0.75rem 0;
+}
+
+.journey-prologue-copy > strong {
+  border-top: 1px solid var(--journey-line);
+  color: var(--journey-green-dark);
+  display: block;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.05rem;
+  margin-top: 1.4rem;
+  padding-top: 1rem;
+}
+
 .journey-notice {
   align-items: flex-start;
   background: var(--journey-yellow-soft);
@@ -1849,6 +1915,19 @@ button.journey-time-block {
   .journey-progress-card {
     flex-basis: auto;
   }
+
+  .journey-prologue {
+    gap: 1.1rem;
+    grid-template-columns: 1fr;
+  }
+
+  .journey-prologue-mark {
+    align-items: center;
+    flex-direction: row;
+  }
+
+  .journey-prologue-mark span { writing-mode: horizontal-tb; }
+  .journey-prologue-mark i { background: linear-gradient(90deg, var(--journey-green), transparent); height: 1px; min-height: 0; width: 90px; }
 
   .journey-notice {
     flex-direction: column;

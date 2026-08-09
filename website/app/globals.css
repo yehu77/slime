@@ -432,7 +432,9 @@ code { font-size: .88em; }
   line-height: 1.03;
   text-wrap: balance;
 }
-.beginner-copy h1 span {
+.beginner-question { display: block; }
+.beginner-question > span { white-space: nowrap; }
+.beginner-copy h1 .beginner-answer {
   display: block;
   margin-top: .2em;
   color: var(--moss);
@@ -609,6 +611,7 @@ code { font-size: .88em; }
 }
 .beginner-lesson-note h2 { margin: 0; font-size: 23px; letter-spacing: -.03em; line-height: 1.3; }
 .beginner-lesson-note p { max-width: 760px; margin: 8px 0 0; color: #bdccc2; font-size: 14px; }
+.beginner-lesson-note code { color: var(--slime); font-weight: 750; }
 .beginner-lesson-note .button-primary { border-color: var(--slime); background: var(--slime); color: var(--moss-dark); }
 .concept-review-section { padding-block: 100px 110px; border-top: 1px solid var(--line); }
 
