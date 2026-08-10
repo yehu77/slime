@@ -10,11 +10,11 @@ export const sampleJourneyMessages: Record<string, string> = {
   "sample-journey.prompt.a": "3 + 2 = ? 只输出整数。",
   "sample-journey.prompt.b": "4 + 3 = ? 只输出整数。",
 
-  "sample-journey.event.ready.title": "出生：输入行成为 Sample",
+  "sample-journey.event.ready.title": "出生：一行数据有了框架内的形状",
   "sample-journey.event.ready.narration":
-    "Dataset 把语义输入放进一个尚未完成的 Sample；生成侧字段仍然为空。",
+    "Dataset 把外部的一行记录整理成 `Sample`。题目已经留下，回答与评价仍是一片空白。",
   "sample-journey.event.ready.transcript":
-    "两行输入分别提供 prompt、label 和 metadata。此时 tokens 为空、response 为空、reward 与 loss_mask 为 None，status 为 PENDING。它已经是 Sample 对象，但还不是 trainer 可直接消费的 batch。",
+    "输入行提供 `text`、`label` 和 `metadata`，Dataset 用它们构造初始 `Sample`。此时 `tokens=[]`、`response=\"\"`、`reward=None`、`loss_mask=None`，状态是 `PENDING`。它已经能在 rollout 流程里继续传递，却还不是 trainer 可直接消费的 batch。",
 
   "sample-journey.event.group_built.title": "分组：建立同组候选的身份",
   "sample-journey.event.group_built.narration":

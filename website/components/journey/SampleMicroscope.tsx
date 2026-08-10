@@ -18,6 +18,7 @@ type ChangeHistoryItem = {
 
 type SampleMicroscopeProps = {
   sampleId: string;
+  displayLabel?: string;
   sample?: SampleSnapshot;
   layer: JourneyLayer;
   derived: JourneyState["derived"];
@@ -79,6 +80,7 @@ function FieldRow({
 
 export function SampleMicroscope({
   sampleId,
+  displayLabel,
   sample,
   layer,
   derived,
@@ -118,7 +120,7 @@ export function SampleMicroscope({
           <p className="journey-eyebrow">持续观察</p>
           <h2 id="microscope-title">Sample 显微镜</h2>
         </div>
-        <span className="journey-sample-id">{sampleId}</span>
+        <span className="journey-sample-id">{displayLabel ?? sampleId}</span>
       </div>
 
       <div className="journey-layer-tabs" role="tablist" aria-label="对象层级">

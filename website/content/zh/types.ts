@@ -34,6 +34,14 @@ export interface LessonAct {
     actor: string;
     visual: string;
   };
+  narrative?: {
+    kicker: string;
+    title: string;
+    paragraphs: string[];
+    directAnswer: string;
+    evidenceLead: string;
+    takeaway: string;
+  };
   fieldChanges: string[];
   explanation: ContentBlock[];
   sourceRefIds: string[];

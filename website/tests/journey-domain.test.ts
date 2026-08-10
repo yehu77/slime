@@ -70,7 +70,7 @@ describe("math-2x2-v1 fixture", () => {
     );
     expect(localized.initial_samples.a0.prompt).toBe("3 + 2 = ? 只输出整数。");
     expect(localized.events[0]).toMatchObject({
-      title: "出生：输入行成为 Sample",
+      title: "出生：一行数据有了框架内的形状",
       phase: "ready",
     });
     expect(localized.teaching_values_notice).toContain("教学 fixture");

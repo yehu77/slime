@@ -39,6 +39,9 @@ for (const [route, expected] of routes) {
     if (route === "/learn/sample-journey") {
       assert.match(html, /它最初只是一道题/);
       assert.match(html, /先别急着记字段。先看它走完全程/);
+      assert.match(html, /一行 JSON，刚刚走进 slime/);
+      assert.match(html, /四条候选将在第二幕出现/);
+      assert.match(html, /这一幕，记录发生了什么/);
     }
   });
 }

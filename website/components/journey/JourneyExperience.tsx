@@ -72,6 +72,20 @@ const statusLabels: Record<PersistedJourneyProgress["status"], string> = {
   review_required: "需要复习",
 };
 
+function InlineCodeText({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(`[^`]+`)/g).map((part, index) =>
+        part.startsWith("`") && part.endsWith("`") ? (
+          <code key={`${part}-${index}`}>{part.slice(1, -1)}</code>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
 function isEditableTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;
   return (
@@ -645,6 +659,22 @@ export function JourneyExperience() {
             </div>
           ) : (
             <div className="journey-stage-body">
+              {currentAct.narrative ? (
+                <article className="journey-act-story">
+                  <p className="journey-eyebrow">{currentAct.narrative.kicker}</p>
+                  <h3>{currentAct.narrative.title}</h3>
+                  {currentAct.narrative.paragraphs.map((paragraph) => (
+                    <p key={paragraph}><InlineCodeText text={paragraph} /></p>
+                  ))}
+                  <div className="journey-direct-answer">
+                    <span>先回答本幕问题</span>
+                    <strong>{currentAct.drivingQuestion}</strong>
+                    <p><InlineCodeText text={currentAct.narrative.directAnswer} /></p>
+                  </div>
+                  <blockquote><InlineCodeText text={currentAct.narrative.takeaway} /></blockquote>
+                </article>
+              ) : null}
+
               <div className="journey-system-map" aria-label="slime 闭环系统图">
                 {actorGroups.map((group) => (
                   <div
@@ -660,71 +690,138 @@ export function JourneyExperience() {
               <article className="journey-event-card" aria-live="polite">
                 <span>{journeyState.actor.replace("_", " ")}</span>
                 <h3>{journeyState.title}</h3>
-                <p>{journeyState.narration}</p>
+                <p><InlineCodeText text={journeyState.narration} /></p>
               </article>
 
-              <section className="journey-sample-deck" aria-labelledby="sample-deck-title">
-                <header>
-                  <h3 id="sample-deck-title">四条 Sample</h3>
-                  <span>选择一张，右侧显微镜会保持跟随</span>
-                </header>
-                <div className="journey-sample-cards">
-                  {Object.entries(journeyState.raw_samples).map(([sampleId, sample]) => (
-                    <button
-                      className="journey-sample-card"
-                      type="button"
-                      aria-pressed={sampleId === journeyState.selected_sample_id}
-                      onClick={() => performAction({ type: "select_sample", sample_id: sampleId })}
-                      key={sampleId}
-                    >
-                      <strong>
-                        {sampleId}
-                        <i className="journey-sample-status">{sample.status}</i>
-                      </strong>
-                      <span>group {sample.group_index ?? "—"} · index {sample.index ?? "—"}</span>
-                      <small>
-                        {sample.response || "等待生成"} · reward{" "}
-                        {typeof sample.reward === "number"
-                          ? sample.reward
-                          : sample.reward
-                            ? JSON.stringify(sample.reward)
-                            : "None"}
-                      </small>
-                    </button>
-                  ))}
-                </div>
-              </section>
+              {currentAct.number === 1 && selectedSample ? (
+                <section className="journey-birth-snapshot" aria-labelledby="birth-snapshot-title">
+                  <header>
+                    <div>
+                      <p className="journey-eyebrow">只看一次变化</p>
+                      <h3 id="birth-snapshot-title">一行外部记录，怎样成为初始 Sample</h3>
+                    </div>
+                    <span>四条候选将在第二幕出现</span>
+                  </header>
+                  <div className="journey-birth-flow">
+                    <article>
+                      <p>框架门外</p>
+                      <h4><code>dataset row</code></h4>
+                      <dl>
+                        <div><dt><code>text</code></dt><dd>{selectedSample.prompt}</dd></div>
+                        <div><dt><code>label</code></dt><dd>{selectedSample.label ?? "None"}</dd></div>
+                        <div><dt><code>metadata</code></dt><dd><code>{JSON.stringify(selectedSample.metadata)}</code></dd></div>
+                      </dl>
+                    </article>
+                    <div className="journey-birth-arrow" aria-label="Dataset 读取并构造">
+                      <span aria-hidden="true">→</span>
+                      <b>Dataset</b>
+                      <small>读取并构造</small>
+                    </div>
+                    <article className="is-sample">
+                      <p>框架门内</p>
+                      <h4>
+                        <code>Sample</code>
+                        <span>{String(selectedSample.status).toUpperCase()}</span>
+                      </h4>
+                      <dl>
+                        <div><dt><code>prompt</code></dt><dd>已保存题目</dd></div>
+                        <div><dt><code>tokens</code></dt><dd><code>[]</code></dd></div>
+                        <div><dt><code>response</code></dt><dd>空字符串</dd></div>
+                        <div><dt><code>reward / loss_mask</code></dt><dd><code>None / None</code></dd></div>
+                      </dl>
+                    </article>
+                  </div>
+                </section>
+              ) : (
+                <section className="journey-sample-deck" aria-labelledby="sample-deck-title">
+                  <header>
+                    <h3 id="sample-deck-title">四条 Sample</h3>
+                    <span>选择一张，右侧显微镜会保持跟随</span>
+                  </header>
+                  <div className="journey-sample-cards">
+                    {Object.entries(journeyState.raw_samples).map(([sampleId, sample]) => (
+                      <button
+                        className="journey-sample-card"
+                        type="button"
+                        aria-pressed={sampleId === journeyState.selected_sample_id}
+                        onClick={() => performAction({ type: "select_sample", sample_id: sampleId })}
+                        key={sampleId}
+                      >
+                        <strong>
+                          {sampleId}
+                          <i className="journey-sample-status">{sample.status}</i>
+                        </strong>
+                        <span>group {sample.group_index ?? "—"} · index {sample.index ?? "—"}</span>
+                        <small>
+                          {sample.response || "等待生成"} · reward{" "}
+                          {typeof sample.reward === "number"
+                            ? sample.reward
+                            : sample.reward
+                              ? JSON.stringify(sample.reward)
+                              : "None"}
+                        </small>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
 
               <article className="journey-act-reading">
-                <p className="journey-driving-question">{currentAct.drivingQuestion}</p>
+                {currentAct.narrative ? (
+                  <p className="journey-evidence-lead">{currentAct.narrative.evidenceLead}</p>
+                ) : (
+                  <p className="journey-driving-question">{currentAct.drivingQuestion}</p>
+                )}
+                <section className="journey-field-changes" aria-labelledby="field-changes-title">
+                  <header>
+                    <span>字段快照</span>
+                    <h4 id="field-changes-title">这一幕，记录发生了什么</h4>
+                  </header>
+                  <ul>
+                    {currentAct.fieldChanges.map((change) => (
+                      <li key={change}><InlineCodeText text={change} /></li>
+                    ))}
+                  </ul>
+                </section>
                 <div className="journey-content-blocks">
                   {currentAct.explanation.map((block) => (
                     <section className={`journey-content-block is-${block.kind}`} key={block.id}>
                       <span>{truthLabels[block.kind]}</span>
                       {block.title ? <h4>{block.title}</h4> : null}
-                      <p>{block.body}</p>
+                      <p><InlineCodeText text={block.body} /></p>
                     </section>
                   ))}
                 </div>
                 <div className="journey-misconception">
-                  <span><b>常见误解：</b>{currentAct.misconception.belief}</span>
-                  <strong>纠正：{currentAct.misconception.correction}</strong>
+                  <span><b>常见误解：</b><InlineCodeText text={currentAct.misconception.belief} /></span>
+                  <strong>纠正：<InlineCodeText text={currentAct.misconception.correction} /></strong>
                 </div>
                 <details className="journey-micro-check">
                   <summary>微型检查：{currentAct.microCheck.prompt}</summary>
-                  <p><strong>{currentAct.microCheck.answer}</strong><br />{currentAct.microCheck.feedback}</p>
+                  <p>
+                    <strong><InlineCodeText text={currentAct.microCheck.answer} /></strong>
+                    <br />
+                    <InlineCodeText text={currentAct.microCheck.feedback} />
+                  </p>
                 </details>
-                <div className="journey-source-links" aria-label="本幕源码证据">
-                  {currentAct.sourceRefIds.map((sourceRefId) => (
-                    <a href={`/source#${sourceRefId}`} key={sourceRefId}>{sourceRefId}</a>
-                  ))}
+                <div className="journey-source-proof">
+                  <span>想核对时再看源码</span>
+                  <div className="journey-source-links" aria-label="本幕源码证据">
+                    {currentAct.sourceRefIds.map((sourceRefId) => (
+                      <a href={`/source#${sourceRefId}`} key={sourceRefId}>{sourceRefId}</a>
+                    ))}
+                  </div>
                 </div>
+                <footer className="journey-act-transition">
+                  <span>下一幕</span>
+                  <p><InlineCodeText text={currentAct.transition} /></p>
+                </footer>
               </article>
 
               <details className="journey-transcript">
                 <summary>事件文字稿 · {journeyState.event_index + 1}/{events.length}</summary>
                 <p><strong>{journeyState.title}</strong></p>
-                <p>{journeyState.transcript}</p>
+                <p><InlineCodeText text={journeyState.transcript} /></p>
               </details>
             </div>
           )}
@@ -732,6 +829,7 @@ export function JourneyExperience() {
 
         <SampleMicroscope
           sampleId={journeyState.selected_sample_id}
+          displayLabel={journeyState.act === 1 ? "初始记录" : undefined}
           sample={selectedSample}
           layer={layer}
           derived={journeyState.derived}

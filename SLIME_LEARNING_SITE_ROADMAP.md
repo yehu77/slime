@@ -15,13 +15,15 @@
 | 当前共同维护者 | 项目发起人 + Codex |
 | 公网网站 | [slime Lab](https://slime-lab.hunyu6792.workers.dev)（Cloudflare Workers） |
 | 公网源码 | [yehu77/slime](https://github.com/yehu77/slime)（个人 fork） |
-| 下一份产物 | 叙事型技术文风落地 + 首课内容深化 |
+| 下一份产物 | 首课第二幕“分组”的叙事化改写 |
 
 ## 0. 当前焦点
 
 **现在：** M1 已按 [M1 Implementation Brief](./SLIME_LAB_M1_IMPLEMENTATION_BRIEF.md) 完成实现、自动 gate 与公网发布。源码以个人 GitHub fork 为唯一事实来源，`main` 由 Cloudflare Workers 自动构建并发布；接下来把主要精力转向课程内容与学习效果。
 
-**接下来：** 按 [内容文风指南](./SLIME_LAB_CONTENT_STYLE_GUIDE.md) 深化“一条 Sample 的旅程”的叙事、解释、练习与源码导读；同时继续目标用户学习、360 / 768 / 1280 多视口、触摸和完整键盘焦点流验收，按发现迭代后把首课从 `ready` 推进到 `verified`。
+第一幕“出生”已经按 [内容文风指南](./SLIME_LAB_CONTENT_STYLE_GUIDE.md) 完成样板改写：先建立场景并直接回答核心问题，再展示 `dataset row → Sample`、字段快照、源码证据与下一幕过渡；四条候选延后到第二幕出现。
+
+**接下来：** 以第一幕为模板改写第二幕“分组”，重点解释为什么一条 prompt 要复制成同组候选，以及 `group_index`、`index` 分别在回答什么问题；同时继续目标用户学习、360 / 768 / 1280 多视口、触摸和完整键盘焦点流验收，按发现迭代后把首课从 `ready` 推进到 `verified`。
 
 **暂时不做：** 大规模铺课程、账号系统、真实在线训练、全量英文内容和高级 recipe explorer。
 
@@ -782,3 +784,4 @@ M0 已完成。[《一条 Sample 的旅程》storyboard](./SLIME_SAMPLE_JOURNEY_
 - 2026-08-08：批准公网发布，确定 GitHub fork + Cloudflare Workers 架构并开始部署准备；独立域名与 M2 内容框架留待后续决策。
 - 2026-08-08：完成 Cloudflare Workers 公网发布；将 GitHub + Cloudflare 确认为唯一维护链路，移除过渡托管集成，工作重点转向课程内容。
 - 2026-08-10：建立共同维护的内容文风指南，确认以有文学性的叙事型技术写作为默认表达方式，并从学习入口与首课开场开始校准。
+- 2026-08-10：完成首课第一幕“出生”的叙事化样板；修正第一幕过早展示四条候选的问题，补齐字段变化、源码证据与第二幕过渡的渐进阅读线。

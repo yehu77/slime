@@ -100,6 +100,19 @@ describe("M1 lesson content contract", () => {
     });
   });
 
+  it("gives the first act a beginner-readable narrative before technical evidence", () => {
+    const firstAct = sampleJourneyLesson.acts[0];
+    expect(metadata.lessonRevision).toBe(2);
+    expect(firstAct.narrative).toMatchObject({
+      title: "一行 JSON，刚刚走进 slime。",
+      takeaway: expect.stringContaining("PENDING"),
+    });
+    expect(firstAct.narrative?.paragraphs).toHaveLength(2);
+    expect(firstAct.narrative?.directAnswer).toContain("`tokens`");
+    expect(firstAct.fieldChanges).toHaveLength(5);
+    expect(firstAct.transition).toContain("下一幕");
+  });
+
   it("resolves every glossary, source, review, and locale reference", () => {
     expect(glossaryIds.size).toBe(glossaryTerms.length);
     expect(glossaryTerms.length).toBeGreaterThanOrEqual(15);
