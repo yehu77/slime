@@ -40,11 +40,11 @@ export const sampleJourneyMessages: Record<string, string> = {
   "sample-journey.event.terminal.transcript":
     "stop、length、abort 分别对应 COMPLETED、TRUNCATED、ABORTED。选中的 a0 在 actor@0 下生成 response 5，并以 COMPLETED 结束；后续权重更新不会改写这段历史。",
 
-  "sample-journey.event.rewarded_collected.title": "评价与收集：reward 各归其位",
+  "sample-journey.event.rewarded_collected.title": "评价与收集：判完四条回答，按两组收回",
   "sample-journey.event.rewarded_collected.narration":
-    "四条 Sample 获得 raw reward，并以完整 group 为单位进入收集结果。",
+    "a0/a1 得到 1/0，b0/b1 也得到 1/0；零分候选没有消失，两组仍然保持完整。",
   "sample-journey.event.rewarded_collected.transcript":
-    "a0、b0 的 raw reward 为 1，a1、b1 为 0。reward 评价轨迹结果，loss_mask 选择可训练 response 位置，status 描述终止方式；三者不能互相替代。dynamic filter 的细节属于进阶路线。",
+    "本教学 fixture 用正确 1、错误 0 固定四条 raw reward，不调用网络 reward service。四条 status 都保持 COMPLETED，因为 status 只描述生成怎样结束。collect 把候选数量齐全的 group 0 与 group 1 加入 rollout 结果；reward=0 不是删除指令。只有显式配置的 dynamic filter 才会在完整 group 层做 keep / drop。",
 
   "sample-journey.event.train_data_built.title": "交接：Sample 转成 train data",
   "sample-journey.event.train_data_built.narration":

@@ -104,7 +104,8 @@ describe("M1 lesson content contract", () => {
     const firstAct = sampleJourneyLesson.acts[0];
     const groupingAct = sampleJourneyLesson.acts[1];
     const generationAct = sampleJourneyLesson.acts[2];
-    expect(metadata.lessonRevision).toBe(3);
+    const rewardAct = sampleJourneyLesson.acts[3];
+    expect(metadata.lessonRevision).toBe(4);
     expect(firstAct.narrative).toMatchObject({
       title: "一行 JSON，刚刚走进 slime。",
       takeaway: expect.stringContaining("PENDING"),
@@ -128,6 +129,17 @@ describe("M1 lesson content contract", () => {
     expect(generationAct.walkthrough?.caption).toContain("`tokens`");
     expect(generationAct.walkthrough?.caption).toContain("`response_length`");
     expect(generationAct.fieldChanges).toHaveLength(6);
+
+    expect(rewardAct.narrative?.directAnswer).toContain("`reward=0`");
+    expect(rewardAct.narrative?.takeaway).toContain("`collect`");
+    expect(rewardAct.walkthrough?.steps).toHaveLength(3);
+    expect(rewardAct.walkthrough?.steps[2].facts).toEqual([
+      "group 0 = [a0(1), a1(0)]",
+      "group 1 = [b0(1), b1(0)]",
+      "本课收回 2 个完整 group",
+    ]);
+    expect(rewardAct.walkthrough?.caption).toContain("`collected=true`");
+    expect(rewardAct.fieldChanges).toHaveLength(5);
   });
 
   it("resolves every glossary, source, review, and locale reference", () => {

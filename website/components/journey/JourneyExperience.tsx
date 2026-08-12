@@ -55,7 +55,7 @@ const actorGroups: ReadonlyArray<{
   { id: "dataset", label: "Dataset", detail: "语义输入", actors: ["dataset"] },
   { id: "data-source", label: "DataSource", detail: "复制与分组", actors: ["data_source"] },
   { id: "sglang", label: "SGLang", detail: "请求与生成", actors: ["router", "sglang"] },
-  { id: "reward", label: "Reward / collect", detail: "评价与收集", actors: ["reward"] },
+  { id: "reward", label: "Reward → collect", detail: "逐条评分，按组收回", actors: ["reward"] },
   { id: "train", label: "Rollout → Actor", detail: "转换、排程、训练", actors: ["rollout_manager", "scheduler", "actor"] },
   { id: "sync", label: "Weight Sync", detail: "发布新 policy", actors: ["weight_sync"] },
 ] as const;

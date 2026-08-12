@@ -36,7 +36,7 @@ const actorLabels: Record<string, string> = {
   data_source: "DataSource",
   router: "Router",
   sglang: "SGLang",
-  reward: "Reward / collector",
+  reward: "Reward → collect",
   rollout_manager: "RolloutManager",
   scheduler: "DP scheduler",
   actor: "Megatron actor",
