@@ -42,6 +42,11 @@ for (const [route, expected] of routes) {
       assert.match(html, /一行 JSON，刚刚走进 slime/);
       assert.match(html, /四条候选将在第二幕出现/);
       assert.match(html, /这一幕，记录发生了什么/);
+      assert.match(html, /课程目录/);
+      assert.match(html, /上一事件/);
+      assert.match(html, /下一事件/);
+      assert.match(html.replaceAll("<!-- -->", ""), /继续第 2 幕/);
+      assert.match(html, /分组/);
     }
   });
 }

@@ -181,9 +181,15 @@ export function JourneyExperience() {
   const [storageUnavailable, setStorageUnavailable] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const stageRef = useRef<HTMLElement>(null);
+  const knowledgeCheckRef = useRef<HTMLDivElement>(null);
 
   const events = runtimeFixture.events;
   const currentAct = sampleJourneyLesson.acts[journeyState.act - 1];
+  const previousAct = sampleJourneyLesson.acts[journeyState.act - 2];
+  const nextAct = sampleJourneyLesson.acts[journeyState.act];
+  const actPositionPercent = Math.round(
+    (journeyState.act / sampleJourneyLesson.acts.length) * 100,
+  );
   const selectedSample = journeyState.raw_samples[journeyState.selected_sample_id];
   const invariants = useMemo(
     () => checkJourneyInvariants(journeyState),
@@ -254,10 +260,10 @@ export function JourneyExperience() {
       setPlayback("paused");
       performAction({ type: "seek", event_id: target.id });
       if (shouldScroll) {
-        window.setTimeout(
-          () => stageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
-          0,
-        );
+        window.setTimeout(() => {
+          stageRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          stageRef.current?.focus({ preventScroll: true });
+        }, 0);
       }
     },
     [events, performAction],
@@ -392,11 +398,11 @@ export function JourneyExperience() {
           setPlayback((current) => (current === "playing" ? "paused" : "playing"));
           break;
         case "ArrowLeft":
-          if (event.shiftKey) seekAct(Math.max(1, journeyState.act - 1));
+          if (event.shiftKey) seekAct(Math.max(1, journeyState.act - 1), true);
           else performAction({ type: "previous" });
           break;
         case "ArrowRight":
-          if (event.shiftKey) seekAct(Math.min(7, journeyState.act + 1));
+          if (event.shiftKey) seekAct(Math.min(7, journeyState.act + 1), true);
           else performAction({ type: "next" });
           break;
         case "Home":
@@ -541,8 +547,33 @@ export function JourneyExperience() {
       ) : null}
 
       <div className="journey-workbench">
-        <aside className="journey-act-rail" aria-label="七幕导航">
-          <span>七幕路径</span>
+        <aside className="journey-act-rail" aria-label="课程幕次导航">
+          <header className="journey-act-rail-heading">
+            <div>
+              <span>课程目录</span>
+              <strong>
+                第 {journeyState.act} / {sampleJourneyLesson.acts.length} 幕
+              </strong>
+            </div>
+            <span>{actPositionPercent}%</span>
+          </header>
+          <div className="journey-act-rail-progress" aria-hidden="true">
+            <i style={{ width: `${actPositionPercent}%` }} />
+          </div>
+          <p>点选幕次可以跳读；顺序阅读时，用正文末尾的“继续下一幕”。</p>
+          <label className="journey-act-select">
+            <span>快速切换幕次</span>
+            <select
+              value={journeyState.act}
+              onChange={(event) => seekAct(Number(event.currentTarget.value), true)}
+            >
+              {sampleJourneyLesson.acts.map((act) => (
+                <option value={act.number} key={act.id}>
+                  第 {act.number} 幕 · {act.shortTitle} · {act.durationMinutes} 分钟
+                </option>
+              ))}
+            </select>
+          </label>
           <nav>
             {sampleJourneyLesson.acts.map((act) => (
               <button
@@ -550,17 +581,23 @@ export function JourneyExperience() {
                 className={`journey-act-button ${act.number === journeyState.act ? "is-current" : ""} ${visitedActs.has(act.number) ? "is-visited" : ""}`}
                 type="button"
                 aria-current={act.number === journeyState.act ? "step" : undefined}
-                onClick={() => seekAct(act.number)}
+                onClick={() => seekAct(act.number, true)}
                 key={act.id}
               >
-                <span>{act.number}</span>
-                <b>{act.shortTitle}<small>{act.durationMinutes} min</small></b>
+                <span>{String(act.number).padStart(2, "0")}</span>
+                <b>{act.shortTitle}</b>
+                <small>{act.durationMinutes} 分</small>
               </button>
             ))}
           </nav>
         </aside>
 
-        <section className="journey-stage" ref={stageRef} aria-labelledby="journey-stage-title">
+        <section
+          className="journey-stage"
+          ref={stageRef}
+          tabIndex={-1}
+          aria-labelledby="journey-stage-title"
+        >
           <header className="journey-stage-header">
             <div className="journey-stage-header-top">
               <p className="journey-eyebrow">第 {journeyState.act} 幕 · {currentAct.stage.actor}</p>
@@ -593,13 +630,14 @@ export function JourneyExperience() {
                 ↺
               </button>
               <button
-                className="journey-icon-button"
+                className="journey-icon-button journey-event-step"
                 type="button"
                 aria-label="上一个事件"
                 disabled={journeyState.event_index === 0 || playback === "error"}
                 onClick={() => performAction({ type: "previous" })}
               >
-                ←
+                <span aria-hidden="true">←</span>
+                <small>上一事件</small>
               </button>
               <button
                 className="journey-play-button"
@@ -616,13 +654,14 @@ export function JourneyExperience() {
                 {playback === "playing" ? "暂停" : playback === "ended" ? "重播" : "播放"}
               </button>
               <button
-                className="journey-icon-button"
+                className="journey-icon-button journey-event-step"
                 type="button"
                 aria-label="下一个事件"
                 disabled={journeyState.event_index === events.length - 1 || playback === "error"}
                 onClick={() => performAction({ type: "next" })}
               >
-                →
+                <small>下一事件</small>
+                <span aria-hidden="true">→</span>
               </button>
             </div>
             <label className="journey-scrubber">
@@ -645,6 +684,7 @@ export function JourneyExperience() {
               />
             </label>
             <span className="journey-player-counter">
+              <small>事件</small>
               {String(journeyState.event_index + 1).padStart(2, "0")} / {events.length}
             </span>
           </div>
@@ -812,10 +852,6 @@ export function JourneyExperience() {
                     ))}
                   </div>
                 </div>
-                <footer className="journey-act-transition">
-                  <span>下一幕</span>
-                  <p><InlineCodeText text={currentAct.transition} /></p>
-                </footer>
               </article>
 
               <details className="journey-transcript">
@@ -823,6 +859,59 @@ export function JourneyExperience() {
                 <p><strong>{journeyState.title}</strong></p>
                 <p><InlineCodeText text={journeyState.transcript} /></p>
               </details>
+
+              <nav className="journey-act-pager" aria-label="继续阅读">
+                <header>
+                  <span>读完第 {currentAct.number} 幕</span>
+                  <p><InlineCodeText text={currentAct.transition} /></p>
+                </header>
+                <div className="journey-act-pager-actions">
+                  {previousAct ? (
+                    <button
+                      className="journey-act-pager-button is-previous"
+                      type="button"
+                      onClick={() => seekAct(previousAct.number, true)}
+                    >
+                      <span aria-hidden="true">←</span>
+                      <span>
+                        <small>返回第 {previousAct.number} 幕</small>
+                        <strong>{previousAct.shortTitle}</strong>
+                      </span>
+                    </button>
+                  ) : null}
+                  {nextAct ? (
+                    <button
+                      className="journey-act-pager-button is-next"
+                      type="button"
+                      onClick={() => seekAct(nextAct.number, true)}
+                    >
+                      <span>
+                        <small>继续第 {nextAct.number} 幕</small>
+                        <strong>{nextAct.shortTitle}</strong>
+                      </span>
+                      <span aria-hidden="true">→</span>
+                    </button>
+                  ) : (
+                    <button
+                      className="journey-act-pager-button is-next"
+                      type="button"
+                      onClick={() => {
+                        knowledgeCheckRef.current?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "start",
+                        });
+                        knowledgeCheckRef.current?.focus({ preventScroll: true });
+                      }}
+                    >
+                      <span>
+                        <small>七幕已经读完</small>
+                        <strong>进入章末检查</strong>
+                      </span>
+                      <span aria-hidden="true">→</span>
+                    </button>
+                  )}
+                </div>
+              </nav>
             </div>
           )}
         </section>
@@ -864,15 +953,17 @@ export function JourneyExperience() {
         />
       </div>
 
-      <KnowledgeCheck
-        questions={assessmentQuestions()}
-        visitedActs={visitedActs}
-        initialAnswers={answers}
-        requiredQuestionIds={sampleJourneyLesson.assessment.completion.requiredQuestionIds}
-        passScore={sampleJourneyLesson.assessment.completion.minCorrect}
-        onSubmit={handleAssessmentSubmit}
-        onReturnToAct={(act) => seekAct(act, true)}
-      />
+      <div className="journey-knowledge-anchor" ref={knowledgeCheckRef} tabIndex={-1}>
+        <KnowledgeCheck
+          questions={assessmentQuestions()}
+          visitedActs={visitedActs}
+          initialAnswers={answers}
+          requiredQuestionIds={sampleJourneyLesson.assessment.completion.requiredQuestionIds}
+          passScore={sampleJourneyLesson.assessment.completion.minCorrect}
+          onSubmit={handleAssessmentSubmit}
+          onReturnToAct={(act) => seekAct(act, true)}
+        />
+      </div>
 
       <div className="journey-live-region" aria-live="polite">
         {phaseValueText}。{journeyState.narration}
