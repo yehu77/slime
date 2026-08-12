@@ -91,10 +91,7 @@ def generate(repo_root: Path, refs_path: Path) -> dict[str, Any]:
                 "start_line": start,
                 "end_line": end,
                 "snippet_sha256": hashlib.sha256(snippet.encode()).hexdigest(),
-                "url": (
-                    f"https://github.com/THUDM/slime/blob/{commit}/{ref['path']}"
-                    f"#L{start}-L{end}"
-                ),
+                "url": (f"https://github.com/THUDM/slime/blob/{commit}/{ref['path']}" f"#L{start}-L{end}"),
             }
         )
 
