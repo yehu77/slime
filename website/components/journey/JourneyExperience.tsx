@@ -53,9 +53,10 @@ const actorGroups: ReadonlyArray<{
   actors: readonly JourneyActor[];
 }> = [
   { id: "dataset", label: "Dataset", detail: "语义输入", actors: ["dataset"] },
-  { id: "rollout", label: "DataSource → SGLang", detail: "分组与生成", actors: ["data_source", "router", "sglang"] },
+  { id: "data-source", label: "DataSource", detail: "复制与分组", actors: ["data_source"] },
+  { id: "sglang", label: "SGLang", detail: "请求与生成", actors: ["router", "sglang"] },
   { id: "reward", label: "Reward / collect", detail: "评价与收集", actors: ["reward"] },
-  { id: "train", label: "RolloutManager → Actor", detail: "转换、排程、训练", actors: ["rollout_manager", "scheduler", "actor"] },
+  { id: "train", label: "Rollout → Actor", detail: "转换、排程、训练", actors: ["rollout_manager", "scheduler", "actor"] },
   { id: "sync", label: "Weight Sync", detail: "发布新 policy", actors: ["weight_sync"] },
 ] as const;
 
@@ -713,6 +714,39 @@ export function JourneyExperience() {
                   </div>
                   <blockquote><InlineCodeText text={currentAct.narrative.takeaway} /></blockquote>
                 </article>
+              ) : null}
+
+              {currentAct.walkthrough ? (
+                <section
+                  className="journey-walkthrough"
+                  aria-labelledby={`${currentAct.id}-walkthrough-title`}
+                >
+                  <header>
+                    <p className="journey-eyebrow">{currentAct.walkthrough.kicker}</p>
+                    <h3 id={`${currentAct.id}-walkthrough-title`}>
+                      {currentAct.walkthrough.title}
+                    </h3>
+                    <p><InlineCodeText text={currentAct.walkthrough.introduction} /></p>
+                  </header>
+                  <div className="journey-walkthrough-grid">
+                    {currentAct.walkthrough.steps.map((step) => (
+                      <article key={step.label}>
+                        <span>{step.label}</span>
+                        <h4>{step.title}</h4>
+                        <p><InlineCodeText text={step.body} /></p>
+                        <ul>
+                          {step.facts.map((fact) => (
+                            <li key={fact}><code>{fact}</code></li>
+                          ))}
+                        </ul>
+                      </article>
+                    ))}
+                  </div>
+                  <p className="journey-walkthrough-caption">
+                    <strong>读图结论</strong>
+                    <span><InlineCodeText text={currentAct.walkthrough.caption} /></span>
+                  </p>
+                </section>
               ) : null}
 
               <div className="journey-system-map" aria-label="slime 闭环系统图">

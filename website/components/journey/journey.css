@@ -754,6 +754,157 @@
   padding: 0.35rem 0 0.35rem 0.9rem;
 }
 
+.journey-walkthrough {
+  background:
+    linear-gradient(rgba(39, 100, 72, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(39, 100, 72, 0.035) 1px, transparent 1px),
+    #f8f6f0;
+  background-size: 22px 22px;
+  border: 1px solid var(--journey-line);
+  border-radius: 0.65rem;
+  margin-bottom: 1rem;
+  padding: clamp(1rem, 2.4vw, 1.5rem);
+}
+
+.journey-walkthrough > header {
+  max-width: 70ch;
+}
+
+.journey-walkthrough > header h3 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.3rem, 2.4vw, 1.8rem);
+  line-height: 1.2;
+  margin: 0.35rem 0 0.45rem;
+}
+
+.journey-walkthrough > header > p:not(.journey-eyebrow) {
+  color: var(--journey-muted);
+  font-size: 0.86rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.journey-walkthrough-grid {
+  display: grid;
+  gap: 1.4rem;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 1rem;
+}
+
+.journey-walkthrough-grid > article {
+  background: var(--journey-surface);
+  border: 1px solid #c9cbc2;
+  border-radius: 0.55rem;
+  min-width: 0;
+  padding: 0.9rem;
+  position: relative;
+}
+
+.journey-walkthrough-grid > article:nth-child(2) {
+  background: #fff8e8;
+  border-color: #dec98c;
+}
+
+.journey-walkthrough-grid > article:last-child {
+  background: var(--journey-green-soft);
+  border-color: #8db79a;
+}
+
+.journey-walkthrough-grid > article:not(:last-child)::after {
+  align-items: center;
+  background: var(--journey-ink);
+  border-radius: 50%;
+  color: #b8f34b;
+  content: "→";
+  display: flex;
+  font-size: 0.8rem;
+  height: 1.55rem;
+  justify-content: center;
+  position: absolute;
+  right: -1.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1.55rem;
+  z-index: 2;
+}
+
+.journey-walkthrough-grid article > span {
+  color: var(--journey-green-dark);
+  font-family: var(--journey-mono);
+  font-size: 0.58rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+}
+
+.journey-walkthrough-grid h4 {
+  font-size: 0.92rem;
+  line-height: 1.35;
+  margin: 0.35rem 0;
+}
+
+.journey-walkthrough-grid article > p {
+  color: #526058;
+  font-size: 0.72rem;
+  line-height: 1.55;
+  margin: 0;
+  min-height: 3.3em;
+}
+
+.journey-walkthrough-grid ul {
+  display: grid;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+}
+
+.journey-walkthrough-grid li {
+  background: rgb(255 255 255 / 65%);
+  border: 1px solid rgb(42 71 54 / 12%);
+  border-radius: 0.35rem;
+  min-width: 0;
+  padding: 0.4rem 0.45rem;
+}
+
+.journey-walkthrough-grid code,
+.journey-walkthrough-caption code {
+  color: var(--journey-green-dark);
+  font-family: var(--journey-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.journey-walkthrough-caption {
+  align-items: flex-start;
+  background: var(--journey-ink);
+  border-radius: 0.5rem;
+  color: #e3ece6;
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: auto minmax(0, 1fr);
+  line-height: 1.6;
+  margin: 1rem 0 0;
+  padding: 0.75rem 0.85rem;
+}
+
+.journey-walkthrough-caption strong {
+  color: #b8f34b;
+  font-family: var(--journey-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  padding-top: 0.1rem;
+  white-space: nowrap;
+}
+
+.journey-walkthrough-caption span {
+  font-size: 0.76rem;
+}
+
+.journey-walkthrough-caption code {
+  color: #d7ff86;
+}
+
 .journey-system-map {
   background:
     linear-gradient(rgba(39, 100, 72, 0.035) 1px, transparent 1px),
@@ -764,7 +915,7 @@
   border-radius: 0.55rem;
   display: grid;
   gap: 0.55rem;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   padding: 1rem;
 }
 
@@ -2421,6 +2572,24 @@ button.journey-time-block {
     grid-template-columns: 1fr;
   }
 
+  .journey-walkthrough-grid {
+    gap: 1.9rem;
+    grid-template-columns: 1fr;
+  }
+
+  .journey-walkthrough-grid article > p {
+    min-height: 0;
+  }
+
+  .journey-walkthrough-grid > article:not(:last-child)::after {
+    bottom: -1.75rem;
+    content: "↓";
+    left: 50%;
+    right: auto;
+    top: auto;
+    transform: translateX(-50%);
+  }
+
   .journey-birth-arrow {
     min-height: 64px;
   }
@@ -2597,6 +2766,10 @@ button.journey-time-block {
   }
 
   .journey-sample-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .journey-walkthrough-caption {
     grid-template-columns: 1fr;
   }
 

@@ -16,27 +16,27 @@ export const sampleJourneyMessages: Record<string, string> = {
   "sample-journey.event.ready.transcript":
     "输入行提供 `text`、`label` 和 `metadata`，Dataset 用它们构造初始 `Sample`。此时 `tokens=[]`、`response=\"\"`、`reward=None`、`loss_mask=None`，状态是 `PENDING`。它已经能在 rollout 流程里继续传递，却还不是 trainer 可直接消费的 batch。",
 
-  "sample-journey.event.group_built.title": "分组：建立同组候选的身份",
+  "sample-journey.event.group_built.title": "分组：给同一道题安排两个回答席位",
   "sample-journey.event.group_built.narration":
-    "每个 prompt 复制成两个同组候选：group_index 相同，index 各不相同。",
+    "`3 + 2 = ?` 没有被改写，只是成为 a0 与 a1 两次独立尝试：它们同属 group 0，却各有自己的 index。",
   "sample-journey.event.group_built.transcript":
-    "rollout_batch_size 为 2，n_samples_per_prompt 为 2，因此形成两组、四条物理 Sample。同组候选保留相同输入内容，但通过 deepcopy 避免可变 metadata 相互 alias。普通路径此时还没有 Sample.rollout_id。",
+    "本课一次取 2 道 prompt，每道题安排 2 个候选，因此形成两组、四条物理 Sample。a0/a1 的 prompt、label、metadata 内容相同，group_index 同为 0；index 分别为 0 和 1。deepcopy 使两条候选的可变字段彼此独立。普通路径此时还没有 Sample.rollout_id，response 也仍为空。",
 
-  "sample-journey.event.request_prepared.title": "生成：准备 SGLang 请求",
+  "sample-journey.event.request_prepared.title": "生成 1/3：a0 带着 prompt 进入 SGLang",
   "sample-journey.event.request_prepared.narration":
-    "生成侧为选中的 Sample 建立 session，并准备 prompt token 前缀。",
+    "回答还没开始。生成路径先留下 session-a0，并把 `3 + 2 = ?` 准备成 5 个 prompt token。",
   "sample-journey.event.request_prepared.transcript":
-    "本教学 fixture 使用稳定 session-a0 和 prompt token ID，便于重放与测试。真实 session 通常是动态生成的 UUID，真实 token ID 取决于 checkpoint 与 tokenizer。",
+    "此刻 a0.tokens 是 [11, 12, 13, 14, 15]，它们全部属于输入前缀，所以 response 仍为空、response_length 仍为 0。本教学 fixture 使用稳定的 session-a0 与 token ID 便于重放；真实值取决于请求路由、checkpoint 与 tokenizer。",
 
-  "sample-journey.event.generating.title": "生成：追加 response token",
+  "sample-journey.event.generating.title": "生成 2/3：回答“5”被写回 a0",
   "sample-journey.event.generating.narration":
-    "模型 token 被追加到 prompt 前缀之后；mask 与 log-prob 在 response 空间逐位置对齐。",
+    "SGLang 返回 token 25，也就是“5”。它被接在 5 个 prompt token 后面，同时留下 mask 1 与 log-prob -0.08。",
   "sample-journey.event.generating.transcript":
-    "append_response_tokens 更新 response、response_length、loss_mask 与 rollout_log_probs。模型动作位置的 mask 为 1；工具或环境观察位置可用 mask 0 与占位 log-prob 表示。播放器动画是教学回放，不宣称生产请求必然逐 token 流式返回。",
+    "写回后，a0.tokens 一共有 6 项，但 response_length 只有 1：前 5 项是 prompt，最后 1 项才是 response。append_response_tokens 让 loss_mask 与 rollout_log_probs 都在 response 空间逐位置对齐。工具或环境 observation 可使用 mask 0 与占位 log-prob；本播放器只是教学回放，不宣称生产请求必然逐 token 流式返回。",
 
-  "sample-journey.event.terminal.title": "生成：记录终止状态",
+  "sample-journey.event.terminal.title": "生成 3/3：为这次回答盖上完成章",
   "sample-journey.event.terminal.narration":
-    "finish reason 被映射为 Sample status，并保留本次生成使用的权重版本。",
+    "finish reason 是 stop，因此 a0 成为 COMPLETED；actor@0 也被留下，说明这段回答由哪一版 policy 生成。",
   "sample-journey.event.terminal.transcript":
     "stop、length、abort 分别对应 COMPLETED、TRUNCATED、ABORTED。选中的 a0 在 actor@0 下生成 response 5，并以 COMPLETED 结束；后续权重更新不会改写这段历史。",
 

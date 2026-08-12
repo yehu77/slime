@@ -100,9 +100,11 @@ describe("M1 lesson content contract", () => {
     });
   });
 
-  it("gives the first act a beginner-readable narrative before technical evidence", () => {
+  it("gives the opening acts a beginner-readable narrative before technical evidence", () => {
     const firstAct = sampleJourneyLesson.acts[0];
-    expect(metadata.lessonRevision).toBe(2);
+    const groupingAct = sampleJourneyLesson.acts[1];
+    const generationAct = sampleJourneyLesson.acts[2];
+    expect(metadata.lessonRevision).toBe(3);
     expect(firstAct.narrative).toMatchObject({
       title: "一行 JSON，刚刚走进 slime。",
       takeaway: expect.stringContaining("PENDING"),
@@ -111,6 +113,21 @@ describe("M1 lesson content contract", () => {
     expect(firstAct.narrative?.directAnswer).toContain("`tokens`");
     expect(firstAct.fieldChanges).toHaveLength(5);
     expect(firstAct.transition).toContain("下一幕");
+
+    expect(groupingAct.narrative?.directAnswer).toContain("`group_index`");
+    expect(groupingAct.narrative?.directAnswer).toContain("`index`");
+    expect(groupingAct.walkthrough?.steps).toHaveLength(3);
+    expect(groupingAct.walkthrough?.steps[2].facts).toEqual([
+      "a0 → group_index 0 · index 0",
+      "a1 → group_index 0 · index 1",
+      "response 仍为空",
+    ]);
+
+    expect(generationAct.narrative?.paragraphs).toHaveLength(3);
+    expect(generationAct.walkthrough?.steps).toHaveLength(3);
+    expect(generationAct.walkthrough?.caption).toContain("`tokens`");
+    expect(generationAct.walkthrough?.caption).toContain("`response_length`");
+    expect(generationAct.fieldChanges).toHaveLength(6);
   });
 
   it("resolves every glossary, source, review, and locale reference", () => {

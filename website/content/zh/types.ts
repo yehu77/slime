@@ -22,6 +22,21 @@ export interface LessonMicroCheck {
   feedback: string;
 }
 
+export interface LessonActWalkthroughStep {
+  label: string;
+  title: string;
+  body: string;
+  facts: string[];
+}
+
+export interface LessonActWalkthrough {
+  kicker: string;
+  title: string;
+  introduction: string;
+  steps: LessonActWalkthroughStep[];
+  caption: string;
+}
+
 export interface LessonAct {
   id: string;
   number: number;
@@ -42,6 +57,7 @@ export interface LessonAct {
     evidenceLead: string;
     takeaway: string;
   };
+  walkthrough?: LessonActWalkthrough;
   fieldChanges: string[];
   explanation: ContentBlock[];
   sourceRefIds: string[];
