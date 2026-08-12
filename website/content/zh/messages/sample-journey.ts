@@ -46,33 +46,33 @@ export const sampleJourneyMessages: Record<string, string> = {
   "sample-journey.event.rewarded_collected.transcript":
     "本教学 fixture 用正确 1、错误 0 固定四条 raw reward，不调用网络 reward service。四条 status 都保持 COMPLETED，因为 status 只描述生成怎样结束。collect 把候选数量齐全的 group 0 与 group 1 加入 rollout 结果；reward=0 不是删除指令。只有显式配置的 dynamic filter 才会在完整 group 层做 keep / drop。",
 
-  "sample-journey.event.train_data_built.title": "交接：Sample 转成 train data",
+  "sample-journey.event.train_data_built.title": "交接 1/2：把四张 Sample 翻译成训练字段",
   "sample-journey.event.train_data_built.narration":
-    "converter 冻结 raw Sample 语义，显式构造 trainer 需要的派生字段。",
+    "原始判分被保留下来，组内相对信号、身份与 mask 则在 train data 这一侧整齐成列。",
   "sample-journey.event.train_data_built.transcript":
-    "raw reward 被保留为 raw_reward；本 fixture 关闭 std normalization，因此 rewards 展示 reward 减组均值后的组内中心化 reward。sample_indices、rollout_ids、loss_masks 和 rollout_mask_sums 都在转换边界被显式准备，不会自动写回原 Sample。",
+    "四条 raw reward [1,0,1,0] 被保存为 raw_reward；两组各减去均值 0.5，得到 rewards [0.5,-0.5,0.5,-0.5]。sample_indices 与派生 rollout_ids 都是 [0,1,2,3]，四条 loss_masks 都是 [1]。这些字段由 converter 显式构造，Megatron 不会从 Sample dataclass 自动获得它们。",
 
-  "sample-journey.event.scheduled.title": "排程：四个 rollout 分成两个 step",
+  "sample-journey.event.scheduled.title": "交接 2/2：四条 rollout 排成两班训练数据",
   "sample-journey.event.scheduled.narration":
-    "scheduler 按 logical rollout 守恒地构造 training step 与 microbatch。",
+    "global batch 每次容纳两条 logical rollout：a0/a1 先走，b0/b1 后走，没有记录被裁掉。",
   "sample-journey.event.scheduled.transcript":
-    "本 fixture 有 2 个 prompt group、每组 2 个同组候选，共 4 个 logical rollout。global batch size 为 2，因此得到 2 个 training step；每条记录只放置一次。",
+    "本 fixture 没有 fan-out，所以四条 physical Sample 各自对应 rollout id 0、1、2、3。global batch size 为 2，因此 step 0 放置 a0/a1，step 1 放置 b0/b1；used_rollouts=4、trimmed_rollouts=0。这里排的是 logical rollout，不要把 rollout id 与用于组内比较的 group_index 混成一件事。",
 
-  "sample-journey.event.trained.title": "训练：actor 参数更新",
+  "sample-journey.event.trained.title": "训练：两班数据走完，actor@1 在训练侧诞生",
   "sample-journey.event.trained.narration":
-    "Megatron 消费 per-DP train data；有效 mask 位置参与 loss，actor 从 actor@0 训练到 actor@1。",
+    "Megatron 按 schedule 消费 per-DP train data；optimizer 改变了 actor，却没有改写四条历史 Sample。",
   "sample-journey.event.trained.transcript":
-    "训练侧接收的是 converter 和 scheduler 交付的 batch，而不是 Sample dataclass。optimizer step 改变 actor 参数，但 actor@1 此时尚未发布到 SGLang；历史 Sample 仍记录 actor@0。",
+    "DP rank 0 依次处理 a0/a1 与 b0/b1；本例四个 response mask 都是 [1]。播放器用 actor@0 → actor@1 表示训练侧参数版本变化，不模拟真实 loss 或张量。此刻 weights_published=false，SGLang 与历史 Sample 都仍记录 actor@0。",
 
-  "sample-journey.event.weights_synced.title": "权重回流：发布 actor@1",
+  "sample-journey.event.weights_synced.title": "回流 1/2：actor@1 穿过发布边界",
   "sample-journey.event.weights_synced.narration":
-    "显式 weight sync 完成后，SGLang 才切换到新 actor 权重。",
+    "update_weights 把新参数交给 rollout engines；发布完成后，SGLang 才从 actor@0 切到 actor@1。",
   "sample-journey.event.weights_synced.transcript":
-    "默认同步循环在训练后调用 update_weights，再进入下一轮生成。transport 可以变化，但协调、发布、等待完成这个系统边界不能被省略。同步不会回写历史 Sample。",
+    "默认同步循环在当前训练结束后显式调用 actor_model.update_weights()，再进入下一轮 generation。具体 transport 可以变化，但训练完成与生成侧发布仍是两个边界；同步只改变 rollout engine 持有的权重，不回写 a0/a1/b0/b1。",
 
-  "sample-journey.event.next_cycle_ready.title": "下一轮：新 Sample 使用新版本",
+  "sample-journey.event.next_cycle_ready.title": "回流 2/2：下一条 Sample 才从 actor@1 出发",
   "sample-journey.event.next_cycle_ready.narration":
-    "闭环重新回到 DataSource；下一轮生成才会记录 actor@1。",
+    "桥已经合拢，闭环回到 DataSource；旧记录留在 actor@0，新一轮开始书写 actor@1 的历史。",
   "sample-journey.event.next_cycle_ready.transcript":
-    "Sample 记录模型在某个 policy 版本下做了什么；train data 规定 trainer 怎样聚合它；weight sync 决定下一条 Sample 由哪个 policy 产生。异步路径可能让重叠中的下一批仍由旧版本生成，但会在发布边界等待进行中的 generation。",
+    "Sample 记录某个 policy 版本曾经做过什么，weight sync 决定此后启动的 generation 能使用哪一版。异步路径可能提前启动 rollout(i+1)，让它仍由 actor@i 生成；真正发布前会等待进行中的 generation，避免一次请求中途切换权重。",
 };

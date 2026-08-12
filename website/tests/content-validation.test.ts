@@ -100,12 +100,15 @@ describe("M1 lesson content contract", () => {
     });
   });
 
-  it("gives the opening acts a beginner-readable narrative before technical evidence", () => {
+  it("gives every act a beginner-readable narrative before technical evidence", () => {
     const firstAct = sampleJourneyLesson.acts[0];
     const groupingAct = sampleJourneyLesson.acts[1];
     const generationAct = sampleJourneyLesson.acts[2];
     const rewardAct = sampleJourneyLesson.acts[3];
-    expect(metadata.lessonRevision).toBe(4);
+    const conversionAct = sampleJourneyLesson.acts[4];
+    const trainingAct = sampleJourneyLesson.acts[5];
+    const syncAct = sampleJourneyLesson.acts[6];
+    expect(metadata.lessonRevision).toBe(5);
     expect(firstAct.narrative).toMatchObject({
       title: "一行 JSON，刚刚走进 slime。",
       takeaway: expect.stringContaining("PENDING"),
@@ -140,6 +143,37 @@ describe("M1 lesson content contract", () => {
     ]);
     expect(rewardAct.walkthrough?.caption).toContain("`collected=true`");
     expect(rewardAct.fieldChanges).toHaveLength(5);
+
+    expect(conversionAct.narrative?.directAnswer).toContain("按 DP rank");
+    expect(conversionAct.walkthrough?.steps).toHaveLength(3);
+    expect(conversionAct.walkthrough?.steps[2].facts).toEqual([
+      "step 0 → a0, a1 · rollout 0, 1",
+      "step 1 → b0, b1 · rollout 2, 3",
+      "used = 4 · trimmed = 0",
+    ]);
+    expect(conversionAct.walkthrough?.caption).toContain("`raw_reward`");
+    expect(conversionAct.walkthrough?.caption).toContain("`rewards`");
+    expect(conversionAct.fieldChanges).toHaveLength(6);
+
+    expect(trainingAct.narrative?.takeaway).toContain("训练改变模型");
+    expect(trainingAct.walkthrough?.steps).toHaveLength(3);
+    expect(trainingAct.walkthrough?.steps[2].facts).toEqual([
+      "Megatron actor → actor@1",
+      "SGLang rollout → actor@0",
+      "weights_published = false",
+      "历史 Sample → actor@0",
+    ]);
+    expect(trainingAct.fieldChanges).toHaveLength(6);
+
+    expect(syncAct.narrative?.directAnswer).toContain("`update_weights`");
+    expect(syncAct.walkthrough?.steps).toHaveLength(3);
+    expect(syncAct.walkthrough?.steps[2].facts).toEqual([
+      "next_cycle_ready = true",
+      "new Sample → actor@1",
+      "a0/a1/b0/b1 → 仍是 actor@0",
+    ]);
+    expect(syncAct.walkthrough?.caption).toContain("`train 完成 ≠ rollout 已发布`");
+    expect(syncAct.fieldChanges).toHaveLength(6);
   });
 
   it("resolves every glossary, source, review, and locale reference", () => {
