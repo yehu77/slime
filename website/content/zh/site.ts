@@ -2,13 +2,13 @@ import type { LearningIntent } from "./types";
 
 export const siteCopy = {
   name: "slime Lab",
-  eyebrow: "从训练脚本走进系统内部",
-  headline: "把 slime 从训练脚本，变成你能解释的系统。",
+  eyebrow: "从可运行脚本到可验证系统模型",
+  headline: "从训练脚本建立 slime 的可验证系统模型。",
   summary:
-    "用交互式闭环、Sample 字段追踪、源码锚点和可验证实验，理解 rollout、训练与权重同步为什么这样连接。",
+    "沿一条 Sample 检查字段、身份和权重版本的变化，并用固定源码锚点验证 rollout、训练与权重发布的边界。",
   primaryCta: { label: "开始理解 slime", href: "/start" },
   lessonCta: {
-    label: "先看一条 Sample 的旅程",
+    label: "查看 Sample 的状态演化",
     href: "/learn/sample-journey",
   },
   baseline: "slime v0.3.1-1-g06ffdbe2",
@@ -32,7 +32,7 @@ export const learningIntents: LearningIntent[] = [
     href: "/learn/sample-journey",
     cta: "先理解 Sample 闭环",
     availability: "roadmap-preview",
-    recommendation: "M1 先补齐运行 recipe 之前必须理解的数据旅程；完整实验路线将在后续里程碑加入。",
+    recommendation: "M1 先建立运行 recipe 所依赖的数据流与系统边界；完整实验路线将在后续里程碑加入。",
   },
   {
     id: "custom-reward-agent",

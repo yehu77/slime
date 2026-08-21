@@ -69,8 +69,8 @@ export function BatchCalculator({ defaults }: BatchCalculatorProps) {
     <section className="journey-lab-card journey-batch-lab" aria-labelledby="batch-lab-title">
       <div className="journey-lab-heading">
         <div>
-          <p className="journey-eyebrow">第五幕实验</p>
           <h3 id="batch-lab-title">Batch 守恒计算器</h3>
+          <span className="journey-production-mark">第五幕实验</span>
           <p>数 logical rollout 与完整 training step；它不是显存或吞吐估算器。</p>
         </div>
         <button className="journey-text-button" type="button" onClick={reset}>

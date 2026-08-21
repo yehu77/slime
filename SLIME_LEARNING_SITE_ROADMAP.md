@@ -153,6 +153,7 @@ Prompt / DataSource
 3. 先解释默认同步路径，再引入异步、partial 和 fully async。
 4. 先建立正确性不变量，再讲性能优化。
 5. 每个高级机制都回答三个问题：解决什么瓶颈、改变了哪条数据流、引入了什么新风险。
+6. **先讲透机制，再运行实验。** 系统导论负责建立地图，机制课负责逐边界解释与检查；只有学习者能够定位一条异常 trace 的首个错误边界后，真实实验才承担验证解释的职责。实验入口不做硬锁，但课程路线必须保持这一建议顺序。
 
 ## 7. 网站信息架构
 
@@ -690,7 +691,7 @@ idea → researched → drafted → content-reviewed → technically-reviewed �
 - M1 放在当前仓库 `website/`，不修改 slime 核心训练路径；
 - 视觉采用严谨系统教材为主、克制 slime 趣味为辅；
 - M1 只发布中文无前缀页面，未来英文使用 `/en/...`；
-- M1 页面固定为 `/`、`/start`、`/learn/sample-journey`、`/glossary`、`/source`；
+- 当前稳定页面包括 `/`、`/start`、`/learn`、`/learn/sample-journey`、`/learn/sample-to-generation`、`/glossary`、`/source`；
 - M1 使用 vinext、npm、React / TypeScript、typed content、静态 fixture 和本地进度；
 - GitHub fork + Cloudflare Workers 是唯一托管链路，不再维护其他托管集成；
 - `main` 作为公网生产分支，其他分支生成预览版本；首发使用免费 `workers.dev` 地址，独立域名以后再决定；
@@ -704,7 +705,7 @@ idea → researched → drafted → content-reviewed → technically-reviewed �
 - 一份 `math-2x2-v1` fixture 驱动播放器、显微镜、Batch 与时间线；
 - raw Sample、derived train data 与 system state 严格分离；
 - source refs 固定到 `06ffdbe2…`，symbol 是身份，行号由 manifest 生成；
-- 学习进度只保存于设备本地，key 为 `slime-lab:progress:v1`。
+- 学习进度只保存于设备本地；统一使用按 lesson ID 隔离的 `slime-lab:progress:v2`，并兼容迁移一个发布周期内的两种 v1 记录。
 
 ### 20.3 公网发布后的待确认项
 
@@ -725,7 +726,7 @@ M0 已完成。[《一条 Sample 的旅程》storyboard](./SLIME_SAMPLE_JOURNEY_
 2. 通过内容校验、测试、类型检查、lint、安全检查和生产构建；
 3. 将修改推送到 [yehu77/slime](https://github.com/yehu77/slime) 的 `main`；
 4. 由 Cloudflare Workers Builds 自动发布；
-5. 检查 `/`、`/start`、`/learn/sample-journey`、`/glossary`、`/source` 后记录验收结果。
+5. 检查 `/`、`/start`、`/learn`、`/learn/sample-journey`、`/learn/sample-to-generation`、`/glossary`、`/source` 后记录验收结果。
 
 ## 22. 研究入口
 
@@ -774,6 +775,8 @@ M0 已完成。[《一条 Sample 的旅程》storyboard](./SLIME_SAMPLE_JOURNEY_
 | 2026-08-08 | 只保留 `yehu77/slime` + Cloudflare Workers，退出过渡托管项目与集成 | 让源码、构建和公网生产统一在项目发起人控制的单一链路 | 已确认 |
 | 2026-08-08 | 托管迁移先行，M2 前再单独验证 Docusaurus + MDX | 先解决访问问题，不把公开发布与框架重写绑在一起 | 已确认 |
 | 2026-08-10 | 采用“叙事层 + 技术层”的双层内容文风 | 让课程既值得读下去，又不牺牲源码、字段与因果的准确性 | 已确认 |
+| 2026-08-20 | 正式采用“先讲透机制，再运行实验”的教学顺序 | 避免学习者只会复制命令却无法解释字段、网络边界和失败原因 | 已确认并进入实施 |
+| 2026-08-20 | 新增七阶段 `/learn` 路线与首门 88 分钟机制课 | 把系统导论、核心机制、综合检查、实验和修改框架放回同一条可见路线 | 已实现 |
 
 ## 24. 更新记录
 
@@ -785,3 +788,4 @@ M0 已完成。[《一条 Sample 的旅程》storyboard](./SLIME_SAMPLE_JOURNEY_
 - 2026-08-08：完成 Cloudflare Workers 公网发布；将 GitHub + Cloudflare 确认为唯一维护链路，移除过渡托管集成，工作重点转向课程内容。
 - 2026-08-10：建立共同维护的内容文风指南，确认以有文学性的叙事型技术写作为默认表达方式，并从学习入口与首课开场开始校准。
 - 2026-08-10：完成首课第一幕“出生”的叙事化样板；修正第一幕过早展示四条候选的问题，补齐字段变化、源码证据与第二幕过渡的渐进阅读线。
+- 2026-08-20：新增 `/learn` 七阶段路线与《Sample 如何得到回答》六章机制课；引入独立 2×2 fixture、固定源码摘录、结构化练习、终测和 lesson-keyed v2 本地进度，正式把真实实验放到机制理解与综合检查之后。

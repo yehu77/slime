@@ -70,7 +70,7 @@ describe("math-2x2-v1 fixture", () => {
     );
     expect(localized.initial_samples.a0.prompt).toBe("3 + 2 = ? 只输出整数。");
     expect(localized.events[0]).toMatchObject({
-      title: "出生：一行数据有了框架内的形状",
+      title: "构造：外部记录被映射为 Sample",
       phase: "ready",
     });
     expect(localized.teaching_values_notice).toContain("教学 fixture");
@@ -246,12 +246,12 @@ describe("batch conservation calculator", () => {
 
 describe("versioned local progress", () => {
   const requirements = {
-    min_correct: 7,
-    required_question_ids: ["q4", "q5", "q8"],
+    min_correct: 8,
+    required_question_ids: ["q4", "q5", "q8", "q10"],
     required_acts: [1, 2, 3, 4, 5, 6, 7],
   } as const;
 
-  it("requires all acts, seven correct answers, and q4/q5/q8", () => {
+  it("requires all acts, eight correct answers, and q4/q5/q8/q10", () => {
     const incomplete = createEmptyLessonProgress();
     expect(evaluateLessonCompletion(incomplete, requirements).completed).toBe(
       false,
@@ -262,8 +262,8 @@ describe("versioned local progress", () => {
       "core.sample-journey",
       {
         visited_acts: [7, 1, 2, 3, 4, 5, 6],
-        assessment_version: 1,
-        correct_question_ids: ["q1", "q2", "q3", "q4", "q5", "q8", "q9"],
+        assessment_version: 2,
+        correct_question_ids: ["q1", "q2", "q3", "q4", "q5", "q8", "q9", "q10"],
         last_event_id: "next_cycle_ready",
       },
       requirements,

@@ -109,8 +109,8 @@ export function TimelineComparison({
     <section className="journey-lab-card journey-timeline" aria-labelledby="timeline-title">
       <div className="journey-lab-heading">
         <div>
-          <p className="journey-eyebrow">第七幕实验</p>
           <h3 id="timeline-title">同一闭环，两种时间排列</h3>
+          <span className="journey-production-mark">第七幕实验</span>
           <p>块宽只表示教学顺序，不是性能 benchmark。</p>
         </div>
         <div className="journey-segmented" aria-label="时间线模式">

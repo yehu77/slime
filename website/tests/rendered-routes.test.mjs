@@ -2,9 +2,19 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 const routes = [
-  ["/", /把 slime 从训练脚本/],
-  ["/start", /如何走进训练/],
-  ["/learn/sample-journey", /学完后，再检查四个基础概念/],
+  ["/", /可验证系统模型/],
+  ["/start", /如何转化为参数更新/],
+  ["/learn", /先把一条 Sample 的机制弄通/],
+  ["/learn/sample-journey", /同样答对，为什么一个 Sample 完全不学习/],
+  ["/learn/sample-to-generation", /Sample 如何得到回答/],
+  ["/learn/sample-to-generation?chapter=row-to-sample", /一行数据怎样成为 Sample/],
+  ["/learn/sample-to-generation?chapter=field-ownership", /Sample 的字段由谁负责/],
+  ["/learn/sample-to-generation?chapter=group-without-aliasing", /成组，但不粘连/],
+  ["/learn/sample-to-generation?chapter=sample-to-request", /Sample 怎样变成 SGLang 请求/],
+  ["/learn/sample-to-generation?chapter=response-projection", /HTTP 响应为什么还不是 Sample/],
+  ["/learn/sample-to-generation?chapter=writeback-contract", /写回怎样维持数据契约/],
+  ["/learn/sample-to-generation?chapter=assessment", /用一条新 trace 检查机制/],
+  ["/learn/sample-to-generation?chapter=not-a-chapter", /没有名为“not-a-chapter”的章节/],
   ["/glossary", /术语/],
   ["/source", /源码/],
 ];
@@ -27,26 +37,34 @@ for (const [route, expected] of routes) {
     assert.equal(response.status, 200);
     assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
     const html = await response.text();
-    assert.match(html, expected);
+    const renderedText = html.replaceAll("<!-- -->", "");
+    assert.match(renderedText, expected);
     assert.match(html, /<html[^>]+lang="zh-CN"/i);
     assert.match(html, /<main[^>]+id="main-content"/i);
     assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
     if (route === "/start") {
-      assert.match(html, /接下来，跟着这条回答继续往下走/);
+      assert.match(html, /slime 是用于大语言模型强化学习后训练的框架/);
+      assert.match(html, /这是入课前唯一一张完整总览/);
+      assert.match(html, /3 分钟课前诊断/);
       assert.match(html, /开始首课/);
-      assert.doesNotMatch(html, /看一条回答怎样变成一次模型更新/);
+      assert.doesNotMatch(html, /下面先建立最小因果链，再进入字段与源码/);
     }
     if (route === "/learn/sample-journey") {
-      assert.match(html, /它最初只是一道题/);
-      assert.match(html, /先别急着记字段。先看它走完全程/);
-      assert.match(html, /一行 JSON，刚刚走进 slime/);
-      assert.match(html, /四条候选将在第二幕出现/);
-      assert.match(html, /这一幕，记录发生了什么/);
-      assert.match(html, /课程目录/);
+      assert.match(html, /核心阅读/);
+      assert.match(html, /完整研究/);
+      assert.match(html, /播放前先预测/);
+      assert.match(html, /Sample 是统一中间表示，不是训练 batch/);
+      assert.match(html, /同组候选由下一幕构造/);
+      assert.match(html, /本幕产生的状态变化/);
+      assert.match(html, /本幕术语/);
+      assert.match(html, /深入证据/);
+      assert.match(html, /完整路线，不在一门课里塞完/);
+      assert.match(html, /七幕曝光轨/);
       assert.match(html, /上一事件/);
       assert.match(html, /下一事件/);
-      assert.match(html.replaceAll("<!-- -->", ""), /继续第 2 幕/);
+      assert.match(renderedText, /继续第 2 幕/);
       assert.match(html, /分组/);
+      assert.doesNotMatch(html, /3 分钟课前诊断/);
     }
   });
 }

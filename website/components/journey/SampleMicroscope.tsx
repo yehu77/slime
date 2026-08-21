@@ -117,8 +117,8 @@ export function SampleMicroscope({
     <aside className="journey-microscope" aria-labelledby="microscope-title">
       <div className="journey-microscope-heading">
         <div>
-          <p className="journey-eyebrow">持续观察</p>
           <h2 id="microscope-title">Sample 显微镜</h2>
+          <span className="journey-production-mark">持续观察</span>
         </div>
         <span className="journey-sample-id">{displayLabel ?? sampleId}</span>
       </div>

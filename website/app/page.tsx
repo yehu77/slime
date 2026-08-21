@@ -1,153 +1,133 @@
 import type { Metadata } from "next";
-import { learningIntents, siteCopy } from "../content/zh";
+import { siteCopy } from "../content/zh";
+import "./studio.css";
 
 export const metadata: Metadata = {
-  title: "理解 slime，从一条 Sample 开始",
+  title: "slime 训练闭环与系统边界",
 };
 
-const loop = [
-  ["01", "Dataset", "一行问题"],
-  ["02", "DataSource", "复制与编号"],
-  ["03", "SGLang", "生成 response"],
-  ["04", "Reward", "评价与收集"],
-  ["05", "Megatron", "训练 actor"],
-  ["06", "Weight sync", "发布新权重"],
-];
+const acts = [
+  { number: "01", actor: "Dataset", scene: "外部记录映射为 Sample", image: "/art/home-library-act-01.webp", position: "68% 50%", mark: "SC.01 / PL.01" },
+  { number: "02", actor: "DataSource", scene: "构造同组独立候选", image: "/art/home-library-act-02.webp?v=2", position: "50% 50%", mark: "SC.02 / PL.05" },
+  { number: "03", actor: "SGLang", scene: "写回 response 与生成证据", image: "/art/home-library-act-03.webp", position: "65% 50%", mark: "SC.03 / PL.11" },
+  { number: "04", actor: "Reward", scene: "写入 reward，保留完整 group", image: "/art/home-library-act-04.webp?v=2", position: "50% 48%", mark: "SC.04 / PL.23" },
+  { number: "05", actor: "RolloutManager", scene: "显式转换并构造 schedule", image: "/art/home-library-act-05.webp", position: "50% 56%", mark: "SC.05 / PL.29" },
+  { number: "06", actor: "Megatron actor", scene: "消费 train data，更新 actor", image: "/art/home-library-act-06.webp?v=2", position: "43% 50%", mark: "SC.06 / PL.35" },
+  { number: "07", actor: "Weight sync", scene: "发布权重供后续 rollout 使用", image: "/art/home-library-act-07.webp", position: "50% 50%", mark: "SC.07 / TOTAL" },
+] as const;
 
 export default function Home() {
   return (
-    <>
-      <section className="hero page-shell">
-        <div className="hero-copy">
-          <p className="eyebrow"><span>slime Lab</span> / interactive systems textbook</p>
-          <h1>{siteCopy.headline}</h1>
-          <p className="hero-lead">{siteCopy.summary}</p>
-          <div className="button-row">
-            <a className="button button-primary" href={siteCopy.primaryCta.href}>
-              {siteCopy.primaryCta.label} <span aria-hidden="true">↗</span>
-            </a>
-            <a className="button button-ghost" href={siteCopy.lessonCta.href}>
-              {siteCopy.lessonCta.label}
-            </a>
-          </div>
-          <ul className="hero-facts" aria-label="课程特点">
-            <li><strong>30 min</strong><span>完整首课</span></li>
-            <li><strong>0 GPU</strong><span>浏览器可学</span></li>
-            <li><strong>06ffdbe2</strong><span>固定源码基线</span></li>
-          </ul>
-        </div>
+    <div className="studio-home">
+      <section className="studio-home-layout" aria-labelledby="home-title">
+        <div className="studio-home-opening">
+          <article className="studio-home-copy-sheet">
+            <div className="studio-home-sheet-fields" aria-hidden="true">
+              <span>TITLE.</span><span>NO.</span><span>S.</span><span>C.</span>
+            </div>
+            <h1 id="home-title">把 slime<br />从训练脚本，<br />变成你能解释的系统。</h1>
+            <p className="studio-home-premise">
+              跟随一条 <strong>Sample</strong><br />穿越七个技术环节，理解一个可复现的强化学习系统如何运作。
+            </p>
+            <dl className="studio-home-facts" aria-label="课程信息">
+              <div>
+                <dt>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><path d="M12 7.5v5l3.5 2" /></svg>
+                  核心阅读
+                </dt>
+                <dd>25–30 分钟</dd>
+              </div>
+              <div>
+                <dt>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2" /><circle cx="18" cy="7" r="2" /><circle cx="9" cy="18" r="2" /><path d="M7.8 7.1 15.9 7M7.1 7.8l1.4 8.1" /></svg>
+                  固定源码基线
+                </dt>
+                <dd>06ffdbe2</dd>
+              </div>
+            </dl>
+            <span className="studio-home-pencil-note" aria-hidden="true">BL 100%<br /><i>SAFE</i></span>
+            <span className="studio-home-cross is-left" aria-hidden="true" />
+            <span className="studio-home-cross is-right" aria-hidden="true" />
+          </article>
 
-        <div className="hero-visual">
-          <figure className="hero-art">
+          <figure className="studio-home-key-cel">
+            <span className="studio-home-cel-holes" aria-hidden="true"><i /><i /><i /><i /><i /></span>
             <img
-              src="/art/lab-console.webp"
-              alt=""
+              src="/art/library-hero-v1.webp"
+              alt="窗边读者手持书本，观察暮色中的城市系统与交错线路"
               width="1440"
               height="810"
               loading="eager"
               fetchPriority="high"
               decoding="async"
+              style={{ objectPosition: "42% 50%" }}
             />
-            <figcaption>
-              <span>OBSERVATION DECK / 001</span>
-              <strong>从一次 rollout，看见整个训练系统。</strong>
-            </figcaption>
+            <figcaption><span>KEY FRAME</span><strong>同一条 Sample，穿过七个系统边界。</strong></figcaption>
+            <span className="studio-home-cel-tape" aria-hidden="true" />
+            <span className="studio-home-cel-note" aria-hidden="true">A1<br /><i>BG / BOOK</i></span>
           </figure>
+        </div>
 
-          <div className="hero-system" aria-label="slime 训练闭环概览">
-            <div className="system-caption">
-              <span className="status-dot" />
-              <span>LIVE MENTAL MODEL</span>
-              <span>01 / 06</span>
+        <section className="studio-home-exposure" aria-labelledby="exposure-title">
+          <h2 className="studio-home-visually-hidden" id="exposure-title">一条 Sample 的七阶段状态演化</h2>
+          <div className="studio-home-exposure-scroll" role="region" aria-label="七幕曝光表，可横向浏览">
+            <div className="studio-home-exposure-sheet">
+              <div className="studio-home-exposure-label" aria-hidden="true">
+                <strong>ACT.</strong><svg viewBox="0 0 28 10"><path d="M1 5h23M19 1l5 4-5 4" /></svg>
+              </div>
+              <ol>
+                {acts.map((act, index) => (
+                  <li key={act.actor}>
+                    <header><span>{act.number}</span><strong>{act.actor}</strong></header>
+                    <figure>
+                      <img
+                        src={act.image}
+                        alt=""
+                        width="640"
+                        height="360"
+                        loading="eager"
+                        decoding="async"
+                        style={{ objectPosition: act.position }}
+                      />
+                      <span className="studio-home-sample-register" aria-hidden="true"><i />SAMPLE A0</span>
+                      {index === 0 ? (
+                        <a className="studio-home-act-action" href={siteCopy.primaryCta.href}>
+                          <span>{siteCopy.primaryCta.label}</span>
+                          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M14 7l5 5-5 5" /></svg>
+                        </a>
+                      ) : null}
+                    </figure>
+                    <p>{act.scene}</p>
+                    <footer><span>{act.mark.split(" / ")[0]}</span><span>{act.mark.split(" / ")[1]}</span></footer>
+                  </li>
+                ))}
+              </ol>
+              <div className="studio-home-exposure-index" aria-hidden="true">
+                <span>EXPOSURE SHEET<br /><strong>SLIME LAB / SAMPLE JOURNEY</strong></span>
+                <i />
+                <span>TOTAL<br /><strong>(7 ACTS)</strong></span>
+              </div>
             </div>
-            <ol className="loop-list">
-              {loop.map(([number, title, copy], index) => (
-                <li className={index === 0 ? "is-active" : ""} key={title}>
-                  <span className="loop-number">{number}</span>
-                  <span className="loop-node">
-                    <strong>{title}</strong>
-                    <small>{copy}</small>
-                  </span>
-                  <span className="loop-arrow" aria-hidden="true">↓</span>
-                </li>
-              ))}
-            </ol>
-            <div className="sample-chip">
-              <span>Sample</span>
-              <code>status=PENDING</code>
-            </div>
           </div>
-        </div>
+        </section>
       </section>
 
-      <section className="statement-band">
-        <div className="page-shell statement-grid">
-          <p className="section-kicker">为什么不是另一份文档</p>
-          <blockquote>
-            官方文档告诉你“怎样运行”；slime Lab 帮你形成一套能解释、
-            能验证、也能发现错误的系统模型。
-          </blockquote>
-          <p className="statement-note">
-            所有技术结论都回到固定版本的源码、测试或明确标注的教学 fixture。
-          </p>
-        </div>
+      <section className="studio-home-course" aria-labelledby="course-intro-title">
+        <figure className="studio-home-course-reference">
+          <img src="/art/library-act-03-v1.webp" alt="研究者坐在多屏控制台前观察生成过程的参考画面" width="1600" height="900" loading="lazy" decoding="async" />
+          <figcaption>LAYOUT REFERENCE / SAMPLE STATE</figcaption>
+        </figure>
+        <article className="studio-home-course-paper">
+          <h2 id="course-intro-title">课程简介</h2>
+          <p>首课持续跟踪同一条 Sample。学完后，你应该能够解释一次模型回答怎样经过评价、训练数据转换与参数更新，并指出新权重何时才对下一轮生成可见。</p>
+          <p>核心路径不需要 GPU；想进一步核对时，再展开固定 commit 的源码证据、教学 fixture、事件文字稿与实验工具。</p>
+          <ul>
+            <li>确定性教学示例</li>
+            <li>结论可回到源码核对</li>
+            <li>进度仅存在本地浏览器</li>
+          </ul>
+        </article>
       </section>
-
-      <section className="page-shell intent-section">
-        <div className="section-heading">
-          <div>
-            <p className="section-kicker">Choose your intent</p>
-            <h2>你今天想弄懂什么？</h2>
-          </div>
-          <p>先选问题，再进入知识。尚未开放的路线只展示方向，不制造空页面。</p>
-        </div>
-        <div className="intent-grid">
-          {learningIntents.map((intent, index) => {
-            const number = String(index + 1).padStart(2, "0");
-            const ready = intent.availability === "m1-ready";
-            const content = (
-              <>
-                <div className="intent-topline">
-                  <span>{number}</span>
-                  <span className={ready ? "tag tag-ready" : "tag"}>{ready ? "现在可学" : "路线预告"}</span>
-                </div>
-                <h3>{intent.title}</h3>
-                <p>{intent.description}</p>
-                <span className="intent-arrow" aria-hidden="true">↗</span>
-              </>
-            );
-            return (
-              <a
-                className={`intent-card ${ready ? "" : "is-planned"}`}
-                href={intent.href}
-                key={intent.id}
-                aria-label={`${intent.title}：${intent.cta}`}
-              >
-                {content}
-              </a>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="page-shell featured-lesson">
-        <div className="lesson-index">CORE / 001</div>
-        <div className="featured-copy">
-          <p className="section-kicker">首个完整纵向切片</p>
-          <h2>一条 Sample 的旅程</h2>
-          <p>
-            从 dataset row 出生，到 actor 参数更新、权重回到 rollout engine。
-            七幕、四个交互、一份确定性 fixture。
-          </p>
-          <div className="lesson-tags">
-            <span>Sample 显微镜</span><span>Batch 计算器</span><span>同步 / 异步时间线</span>
-          </div>
-        </div>
-        <div className="featured-action">
-          <span className="duration">25–30 分钟</span>
-          <a className="circle-link" href="/learn/sample-journey" aria-label="进入一条 Sample 的旅程">↗</a>
-        </div>
-      </section>
-    </>
+    </div>
   );
 }

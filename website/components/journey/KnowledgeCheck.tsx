@@ -143,10 +143,10 @@ export function KnowledgeCheck({
     <section className="journey-check" aria-labelledby="journey-check-title">
       <div className="journey-section-heading">
         <div>
-          <p className="journey-eyebrow">09 · 形成解释</p>
           <h2 id="journey-check-title">章末知识检查</h2>
+          <span className="journey-production-mark">综合迁移 · {questions.length} 题</span>
           <p>
-            不只记流程，也检查 token 对齐、身份边界和异步 stale policy。可无限重试，设备只保存学习进度。
+            前九题检查关键边界，最后一题要求从一条调试记录中区分正常暂态与真正错误。可无限重试，答案只保存在当前设备。
           </p>
         </div>
         <div className="journey-check-meter" aria-label={`已作答 ${answeredCount} 题，共 ${questions.length} 题`}>

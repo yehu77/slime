@@ -1,6 +1,6 @@
 # slime Lab
 
-slime Lab 是一个面向研究者与工程师的中文交互式学习站。M1 课程「一条 Sample 的旅程」沿固定源码基线，解释一行数据如何经过 rollout、reward、训练数据转换、Megatron 训练与权重同步，最终闭合 slime 训练循环。
+slime Lab 是一个面向研究者与工程师的中文交互式学习站。「一条 Sample 的状态演化」负责建立系统地图；第一门完整机制课「Sample 如何得到回答」沿固定源码基线，逐边界解释 Dataset row、Sample、DataSource 与 SGLang 写回。教学顺序坚持先讲透机制，再运行实验。
 
 ## 本地运行
 
@@ -39,7 +39,10 @@ python3 scripts/generate-source-anchors.py
 - `data/fixtures/`：确定性的教学数据，不代表性能实测。
 - `data/source-refs/`：固定 commit 的 production symbol 与 contract test。
 - `core/journey/`：课程播放器的领域状态、reducer 与不变量。
+- `core/sample-to-generation/`：首门机制课的 2×2 trace、原子写回、练习判分与不变量。
+- `core/progress/`：按 lesson ID 隔离的 v2 设备本地进度与 v1 迁移。
 - `components/journey/`：交互课程、显微镜、batch 计算器和同步/异步时间线。
+- `components/mechanism/`：六章机制课、状态账本、源码摘录与结构化练习。
 
 学习进度仅保存在访问者浏览器的 `localStorage` 中；M1 不采集账户或服务器端学习数据。
 

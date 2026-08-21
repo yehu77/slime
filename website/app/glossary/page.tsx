@@ -26,7 +26,7 @@ export default function GlossaryPage() {
             <p className="eyebrow">GLOSSARY / lesson-scoped</p>
             <h1>先把相似的词，<br />放回不同的边界。</h1>
             <p className="lead">
-              M1 只收录《一条 Sample 的旅程》真正使用的术语。中文帮助理解，代码名保持可搜索。
+              M1 只收录《一条 Sample 的状态演化》实际使用的术语。中文解释语义，代码名保持可搜索。
             </p>
           </div>
           <div className="intro-meta">

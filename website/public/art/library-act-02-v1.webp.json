@@ -1,0 +1,8 @@
+{
+  "prompt": "No generative prompt. Deterministic derivative of the user's local open-source image library.",
+  "sourceLibraryPath": "anime7000/01080_wallpapersmug_original-anime-girl-mirror.jpg",
+  "rightsConfirmation": "On 2026-08-20, the user confirmed that this local source image is open source and may be used on the public website. No specific license name was provided.",
+  "processing": "EXIF orientation normalization; fit=cover center resize to 1600x900 with Lanczos3; saturation=0.90; brightness=0.98; WebP quality=88, effort=6. No generative editing, text overlay, or monochrome conversion.",
+  "output": { "width": 1600, "height": 900, "format": "webp" },
+  "createdAt": "2026-08-20"
+}

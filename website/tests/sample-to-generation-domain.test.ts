@@ -1,0 +1,167 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  SAMPLE_TO_GENERATION_OBSERVATIONS,
+  appendResponseAtomically,
+  checkSampleToGenerationInvariants,
+  cloneSeedSamplesIntoGroups,
+  materializeSampleToGenerationStates,
+  sampleToGenerationFixture,
+  seekSampleToGeneration,
+  type ResponseWrite,
+} from "@/core/sample-to-generation";
+
+describe("sample-to-generation deterministic trace", () => {
+  it("materializes the seven fixed observation points in order", () => {
+    const states = materializeSampleToGenerationStates(
+      sampleToGenerationFixture,
+    );
+    expect(states.map((state) => state.observation_id)).toEqual(
+      SAMPLE_TO_GENERATION_OBSERVATIONS,
+    );
+    for (const state of states) {
+      expect(
+        checkSampleToGenerationInvariants(state, sampleToGenerationFixture).filter(
+          (check) => check.status === "fail",
+        ),
+      ).toEqual([]);
+    }
+  });
+
+  it("constructs two seed Samples without inventing generation values", () => {
+    const state = seekSampleToGeneration(
+      sampleToGenerationFixture,
+      "samples-constructed",
+    );
+    expect(state.seed_samples["origin-a"]).toMatchObject({
+      prompt: "3 + 2 = ?",
+      label: "5",
+      tokens: [],
+      response: "",
+      response_length: 0,
+      reward: null,
+      loss_mask: null,
+      rollout_log_probs: null,
+      status: "pending",
+    });
+    expect(state.samples).toEqual({});
+  });
+
+  it("forms a 2×2 identity matrix with independent clones", () => {
+    const seedState = seekSampleToGeneration(
+      sampleToGenerationFixture,
+      "samples-constructed",
+    );
+    const clones = cloneSeedSamplesIntoGroups(
+      sampleToGenerationFixture,
+      seedState.seed_samples,
+    );
+    expect(
+      Object.fromEntries(
+        Object.entries(clones).map(([sampleId, sample]) => [
+          sampleId,
+          [sample.group_index, sample.index],
+        ]),
+      ),
+    ).toEqual({ a0: [0, 0], a1: [0, 1], b0: [1, 2], b1: [1, 3] });
+    expect(clones.a0).not.toBe(clones.a1);
+    expect(clones.a0.metadata).not.toBe(clones.a1.metadata);
+    clones.a0.metadata.only_a0 = true;
+    expect(clones.a1.metadata).not.toHaveProperty("only_a0");
+  });
+
+  it("stores prompt tokens before dispatch and keeps Sample bookkeeping out of payload", () => {
+    const state = seekSampleToGeneration(
+      sampleToGenerationFixture,
+      "requests-prepared",
+    );
+    expect(state.samples.a0.tokens).toEqual([11, 12, 13, 14, 15]);
+    expect(state.requests.a0.payload.input_ids).toEqual(state.samples.a0.tokens);
+    expect(Object.keys(state.requests.a0.payload).sort()).toEqual([
+      "input_ids",
+      "return_logprob",
+      "sampling_params",
+    ]);
+    expect(JSON.stringify(state.requests)).not.toMatch(
+      /"(?:label|reward|group_index|index|metadata|train_metadata)"/,
+    );
+  });
+
+  it("keeps the HTTP response in a sidecar until the writeback observation", () => {
+    const received = seekSampleToGeneration(
+      sampleToGenerationFixture,
+      "responses-received",
+    );
+    expect(received.response_projections.a0).toEqual({
+      sample_id: "a0",
+      text: "5",
+      output_token_logprobs: [[-0.356675, 25]],
+      finish_reason: "stop",
+      weight_version: "actor@0",
+    });
+    expect(received.samples.a0.response).toBe("");
+    expect(received.samples.a0.status).toBe("pending");
+  });
+
+  it("writes four terminal responses while preserving prompt prefixes and null rewards", () => {
+    const state = seekSampleToGeneration(
+      sampleToGenerationFixture,
+      "responses-written",
+    );
+    expect(
+      Object.fromEntries(
+        Object.entries(state.samples).map(([id, sample]) => [
+          id,
+          {
+            response: sample.response,
+            logProb: sample.rollout_log_probs?.[0],
+            status: sample.status,
+            reward: sample.reward,
+          },
+        ]),
+      ),
+    ).toEqual({
+      a0: { response: "5", logProb: -0.356675, status: "completed", reward: null },
+      a1: { response: "6", logProb: -1.609438, status: "completed", reward: null },
+      b0: { response: "7", logProb: -0.430783, status: "completed", reward: null },
+      b1: { response: "8", logProb: -1.386294, status: "completed", reward: null },
+    });
+
+    for (const sample of Object.values(state.samples)) {
+      const prefix =
+        sampleToGenerationFixture.tokenizer.prompt_encodings[sample.origin_id];
+      expect(sample.tokens.slice(0, prefix.length)).toEqual(prefix);
+      expect(sample.response_length).toBe(1);
+      expect(sample.loss_mask).toHaveLength(sample.response_length);
+      expect(sample.rollout_log_probs).toHaveLength(sample.response_length);
+      expect(sample.weight_versions).toEqual(["actor@0"]);
+      expect(sample.train_metadata).toBeNull();
+    }
+    expect(state.samples.a1.response).not.toBe(state.samples.a1.label);
+    expect(state.samples.a1.status).toBe("completed");
+  });
+
+  it("rejects mismatched response metadata before mutating the original Sample", () => {
+    const state = seekSampleToGeneration(
+      sampleToGenerationFixture,
+      "prompts-tokenized",
+    );
+    const original = state.samples.a0;
+    const before = JSON.stringify(original);
+    const malformed = {
+      sample_id: "a0",
+      text: "56",
+      tokens: [25, 26],
+      log_probabilities: [-0.356675],
+      finish_reason: "stop",
+      weight_version: "actor@0",
+    } satisfies ResponseWrite;
+
+    expect(() => appendResponseAtomically(original, malformed)).toThrow(
+      /token\/log-prob lengths differ/,
+    );
+    expect(JSON.stringify(original)).toBe(before);
+    expect(original.response).toBe("");
+    expect(original.status).toBe("pending");
+  });
+});

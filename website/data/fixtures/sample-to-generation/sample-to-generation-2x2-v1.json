@@ -1,0 +1,120 @@
+{
+  "schema_version": "sample-to-generation/1",
+  "fixture_id": "sample-to-generation-2x2-v1",
+  "slime_ref": {
+    "tag": "v0.3.1",
+    "describe": "v0.3.1-1-g06ffdbe2",
+    "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e"
+  },
+  "teaching_notice": "本 fixture 的 token ID、sampling 参数、SGLang 响应与 log-prob 都是确定性的教学值，用来隔离字段契约；它们不来自任何真实 checkpoint，也不预测真实模型输出。源码边界则固定验证于 slime commit 06ffdbe2。",
+  "tokenizer": {
+    "kind": "teaching-only",
+    "notice": "教学 tokenizer 只为让 before/after 可复算；真实 token ID 由所选 checkpoint 的 tokenizer 或 processor 决定。",
+    "vocabulary": [
+      { "id": 11, "piece": "3" },
+      { "id": 12, "piece": " +" },
+      { "id": 13, "piece": " 2" },
+      { "id": 14, "piece": " =" },
+      { "id": 15, "piece": " ?" },
+      { "id": 16, "piece": "4" },
+      { "id": 17, "piece": " 3" },
+      { "id": 25, "piece": "5" },
+      { "id": 26, "piece": "6" },
+      { "id": 27, "piece": "7" },
+      { "id": 28, "piece": "8" }
+    ],
+    "prompt_encodings": {
+      "origin-a": [11, 12, 13, 14, 15],
+      "origin-b": [16, 12, 17, 14, 15]
+    }
+  },
+  "rows": [
+    {
+      "origin_id": "origin-a",
+      "text": "3 + 2 = ?",
+      "label": "5",
+      "metadata": { "source_name": "mechanism_course", "difficulty": "warmup" }
+    },
+    {
+      "origin_id": "origin-b",
+      "text": "4 + 3 = ?",
+      "label": "7",
+      "metadata": { "source_name": "mechanism_course", "difficulty": "warmup" }
+    }
+  ],
+  "group_plan": [
+    {
+      "origin_id": "origin-a",
+      "group_index": 0,
+      "members": [
+        { "sample_id": "a0", "index": 0 },
+        { "sample_id": "a1", "index": 1 }
+      ]
+    },
+    {
+      "origin_id": "origin-b",
+      "group_index": 1,
+      "members": [
+        { "sample_id": "b0", "index": 2 },
+        { "sample_id": "b1", "index": 3 }
+      ]
+    }
+  ],
+  "sampling_params": {
+    "temperature": 0,
+    "top_p": 1,
+    "top_k": -1,
+    "max_new_tokens": 1,
+    "stop": [],
+    "stop_token_ids": [],
+    "skip_special_tokens": true,
+    "no_stop_trim": true,
+    "spaces_between_special_tokens": false
+  },
+  "response_projections": [
+    {
+      "sample_id": "a0",
+      "text": "5",
+      "output_token_logprobs": [[-0.356675, 25]],
+      "finish_reason": "stop",
+      "weight_version": "actor@0"
+    },
+    {
+      "sample_id": "a1",
+      "text": "6",
+      "output_token_logprobs": [[-1.609438, 26]],
+      "finish_reason": "stop",
+      "weight_version": "actor@0"
+    },
+    {
+      "sample_id": "b0",
+      "text": "7",
+      "output_token_logprobs": [[-0.430783, 27]],
+      "finish_reason": "stop",
+      "weight_version": "actor@0"
+    },
+    {
+      "sample_id": "b1",
+      "text": "8",
+      "output_token_logprobs": [[-1.386294, 28]],
+      "finish_reason": "stop",
+      "weight_version": "actor@0"
+    }
+  ],
+  "observations": [
+    { "id": "rows-read", "chapter": 1, "actor": "file-reader", "source_ref_ids": ["dataset.read-file"] },
+    { "id": "samples-constructed", "chapter": 1, "actor": "dataset", "source_ref_ids": ["dataset.construct-sample", "sample.dataclass"] },
+    { "id": "groups-built", "chapter": 3, "actor": "data-source", "source_ref_ids": ["rollout.datasource-get-samples"] },
+    { "id": "prompts-tokenized", "chapter": 4, "actor": "tokenizer", "source_ref_ids": ["rollout.prepare-prompt-ids"] },
+    { "id": "requests-prepared", "chapter": 4, "actor": "sglang-request", "source_ref_ids": ["rollout.generate-state-init", "rollout.generate"] },
+    { "id": "responses-received", "chapter": 5, "actor": "sglang", "source_ref_ids": ["rollout.generate"] },
+    { "id": "responses-written", "chapter": 6, "actor": "sample", "source_ref_ids": ["sample.append-response-tokens", "sample.apply-meta-info", "sample.validate-response-metadata-lengths"] }
+  ],
+  "expected": {
+    "origins": 2,
+    "groups": 2,
+    "samples_per_group": 2,
+    "physical_samples": 4,
+    "generator_weight_version": "actor@0"
+  }
+}

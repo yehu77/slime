@@ -1,8 +1,8 @@
 import type { AssessmentQuestion, LessonAct, OverviewStep } from "../types";
 
 export const sampleJourneyOverview = {
-  title: "先听一遍它的旅程",
-  description: "这是七个角色的技术速览：先只看谁把记录交给谁。字段、公式与源码，会在每一幕慢慢展开。",
+  title: "先建立完整闭环",
+  description: "这份 90 秒概览只回答三个问题：每个组件接收什么、产生什么，以及把结果交给谁。字段与源码将在对应幕展开。",
   totalSeconds: 90,
   steps: [
     {
@@ -76,25 +76,38 @@ export const sampleJourneyActs: LessonAct[] = [
     id: "act-1",
     number: 1,
     slug: "birth",
-    title: "第一幕：出生——一行数据有了 Sample 的形状",
-    shortTitle: "出生",
+    title: "第一幕：构造——从外部记录到 Sample",
+    shortTitle: "构造",
     durationMinutes: 2,
     drivingQuestion: "这行数据刚进入 slime，就已经变成模型能训练的张量了吗？",
     stage: {
       actor: "Dataset → Sample",
-      visual: "先把时间停在模型回答之前。我们只看一条记录：哪些信息已经写进 Sample，哪些位置仍然空着。",
+      visual: "本幕只检查 Dataset 的输出边界：哪些字段在构造 Sample 时确定，哪些字段必须由后续阶段产生。",
+    },
+    prediction: {
+      prompt: "Dataset 刚完成构造。下面哪一组状态最可能属于此刻的 Sample？",
+      options: [
+        { id: "semantic-only", label: "已有 prompt、label、metadata；tokens 为空，reward 为 None" },
+        { id: "generated", label: "已有 response、rollout_log_probs 与 reward" },
+        { id: "train-batch", label: "已经变成 Megatron 可直接消费的 tensor batch" },
+      ],
+      correctOptionId: "semantic-only",
+      feedback: {
+        correct: "正确。Dataset 只完成框架内部表示的初始构造。",
+        incorrect: "先区分“构造 Sample”和“产生训练数据”：生成与训练字段要在后续边界出现。",
+      },
     },
     narrative: {
-      kicker: "先把时间停在模型开口之前",
-      title: "一行 JSON，刚刚走进 slime。",
+      kicker: "默认数据路径 · 构造边界",
+      title: "Sample 是统一中间表示，不是训练 batch。",
       paragraphs: [
-        "它带着一道题、参考答案和来源说明。除此之外，几乎还是一张白纸：模型没有回答，评价没有发生，训练更没有开始。",
-        "Dataset 做的第一件事很克制。它把外部记录整理成框架内部统一的 Sample，让这条记录获得继续穿过系统的形状；后面的生成、评分与训练痕迹，要等旅程真正发生后才会写进来。",
+        "Dataset 从 JSONL 或 Parquet 读取一条外部记录后，先将语义输入映射到框架内部统一的 `Sample` 结构。默认路径在这里写入 `prompt`、`label` 与 `metadata`，但不执行模型生成，也不构造 Megatron 的训练张量。",
+        "因此，初始 `Sample` 的生成与训练字段仍处于未产生状态：`tokens=[]`、`response=\"\"`、`reward=None`、`loss_mask=None`，生命周期状态为 `PENDING`。这些空值不是异常，而是当前系统边界的预期输出。",
       ],
       directAnswer:
         "没有。默认教学路径此时只把 `text`、`label` 和 `metadata` 放进 `Sample`；`tokens` 仍是空列表，`reward` 与 `loss_mask` 仍是 `None`，更没有 trainer 能直接使用的 tensor batch。",
-      evidenceLead: "直觉已经有了。现在用字段和源码，把这条边界钉牢。",
-      takeaway: "`PENDING` 不是失败。它只是说明：这条记录已经出生，故事还没有发生。",
+      evidenceLead: "下面用字段快照和固定源码锚点验证这一构造边界。",
+      takeaway: "`PENDING` 表示 Sample 已构造、生成尚未开始；它不是失败状态。",
     },
     fieldChanges: [
       "题目进入档案：`row.text → Sample.prompt`",
@@ -107,20 +120,20 @@ export const sampleJourneyActs: LessonAct[] = [
       {
         id: "act-1-fact",
         kind: "source-fact",
-        title: "Dataset 只完成第一道翻译",
+        title: "源码边界：Dataset 只构造初始 Sample",
         body: "源码先从 JSONL 或 Parquet 读出一行，再取出 prompt、label 与 metadata，调用 `Sample(...)` 构造框架内对象。这一步保存的是语义输入，不是 Megatron 可直接消费的训练张量。",
       },
       {
         id: "act-1-fixture",
         kind: "teaching-fixture",
-        title: "我们先把岔路关掉",
-        body: "教学 fixture 只放入两道算术题，并关闭 chat template。这样不是说 slime 只能处理简单文本，而是为了让你先看清 `Sample` 怎样出生，不被模板、工具和多模态输入分散注意力。",
+        title: "教学范围：固定两道题并关闭 chat template",
+        body: "教学 fixture 只包含两道算术题，并关闭 chat template，以隔离 `Sample` 构造这一变量。这不表示 slime 仅支持简单文本，也不代表生产数据路径必须使用相同配置。",
       },
       {
         id: "act-1-preview",
         kind: "advanced-preview",
-        title: "以后，它还会带上更多行李",
-        body: "真实任务可以把 tools 放进 metadata，也可以带入多模态字段或应用 chat template。入口会更丰富，但本幕的边界不变：Dataset 构造的是初始 `Sample`，不是最终训练 batch。",
+        title: "扩展范围：工具、多模态与 chat template",
+        body: "真实任务可以在 metadata 中携带 tools，也可以包含多模态字段或应用 chat template。输入形式可以扩展，但本幕的系统边界不变：Dataset 构造初始 `Sample`，而不是最终训练 batch。",
       },
     ],
     sourceRefIds: ["dataset.read-file", "dataset.construct-sample", "sample.dataclass"],
@@ -136,41 +149,54 @@ export const sampleJourneyActs: LessonAct[] = [
         "已有 `prompt`、`label` 与 `metadata`；`tokens=[]`、`reward=None`、`loss_mask=None`，`status=PENDING`。",
       feedback: "它已经是框架内的 `Sample`，却还不是 trainer 能消费的训练数据。",
     },
-    transition: "它有了身体，却还是孤身一条记录。要比较回答的好坏，下一幕先让同一道题长出多个候选。",
+    transition: "初始 Sample 已经构造完成。下一幕解释 DataSource 为什么要为同一 prompt 建立多个独立候选。",
   },
   {
     id: "act-2",
     number: 2,
     slug: "grouping",
-    title: "第二幕：分组——同一道题，先摆出两个回答席位",
+    title: "第二幕：分组——建立可比较的独立候选",
     shortTitle: "分组",
     durationMinutes: 2.5,
     drivingQuestion: "为什么同一道题要复制两份？复制后，哪些相同，哪些必须不同？",
     stage: {
       actor: "DataSource",
-      visual: "先跟着算术题 `3 + 2 = ?` 走一遍：它会变成同组的 a0 与 a1，随后各自去经历一次生成。",
+      visual: "以 `3 + 2 = ?` 为例，检查 DataSource 如何构造 a0 与 a1，以及 `group_index` 和 `index` 分别表达什么。",
+    },
+    prediction: {
+      prompt: "输入 3 个 prompt，每个 prompt 生成 4 个候选。DataSource 应输出什么？",
+      options: [
+        { id: "three-twelve", label: "3 个 group、12 条物理 Sample" },
+        { id: "twelve-twelve", label: "12 个 group、12 条物理 Sample" },
+        { id: "three-four", label: "3 个 group、4 条物理 Sample" },
+      ],
+      correctOptionId: "three-twelve",
+      feedback: {
+        correct: "正确。prompt 数决定 group 数，候选数决定每组的物理 Sample 数。",
+        incorrect: "先固定一个 prompt 对应一个比较组，再乘以每组候选数。",
+      },
     },
     narrative: {
-      kicker: "同一道题，为什么要走两遍？",
-      title: "DataSource 没有改题，只是替它摆出两把椅子。",
+      kicker: "采样结构 · 共享条件与独立身份",
+      title: "DataSource 为同一 prompt 构造 N 个独立候选。",
       paragraphs: [
-        "上一幕只有一道题：`3 + 2 = ?`。如果模型只回答一次，我们只能知道这一次答得怎样，却无法把同一道题的多次尝试放在一起比较。于是 DataSource 先不催模型开口，而是从同一条 prompt 深拷贝出两个候选：a0 和 a1。",
-        "它们像拿着同一张试卷走进两个考场：`prompt`、`label` 与 `metadata` 的内容相同，`group_index` 也同为 0；但它们的 `index` 分别是 0 和 1。共享 `group_index` 是在说“以后把我们放在一起比较”，不同 `index` 则是在说“我们是两次彼此独立的生成记录”。",
+        "同一 prompt 的单次生成不足以形成组内比较。DataSource 因此按照 `n_samples_per_prompt` 深拷贝初始 Sample；本教学配置取 N=2，于是 `3 + 2 = ?` 产生候选 a0 与 a1。复制的目的不是简单增加记录数量，而是在相同输入条件下获得多个独立 rollout。",
+        "a0 与 a1 共享相同的 `prompt`、`label`、`metadata` 内容和 `group_index=0`，因为后续需要把它们作为同一比较组处理；二者拥有不同的 `index`，因为每次生成都必须可独立追踪。深拷贝还保证可变字段不发生对象别名。",
       ],
       directAnswer:
-        "同组候选拥有相同的 `prompt`、`label`、`metadata` 内容与 `group_index`；每条候选必须拥有不同的 `index`。一句话：`group_index` 回答“谁该一起比较”，`index` 回答“眼前究竟是哪一条记录”。",
-      evidenceLead: "先认清这两张身份证，再看 DataSource 在源码里怎样发放它们。",
-      takeaway: "相同的题目，不等于相同的尝试。同组让比较有意义，独立身份让每次生成都能被追踪。",
+        "同组候选共享 `prompt`、`label`、`metadata` 内容与 `group_index`，但必须拥有不同的 `index`。`group_index` 定义比较集合，`index` 标识具体物理 Sample。",
+      evidenceLead: "下面把复制、分组与编号对应到 DataSource 的实际调用顺序。",
+      takeaway: "共享 `group_index` 建立比较关系；唯一 `index` 保持每次生成的独立身份。",
     },
     walkthrough: {
-      kicker: "本课实例 · 先只看 group 0",
-      title: "一道题，怎样变成两次独立尝试",
-      introduction: "沿着箭头只看三件事：题目从哪里来、DataSource 做了什么、两条候选怎样认出彼此。",
+      kicker: "教学 fixture · group 0",
+      title: "从一个 prompt 构造两个独立 Sample",
+      introduction: "实例依次展示输入状态、深拷贝与编号，以及 DataSource 的分组输出。",
       steps: [
         {
           label: "01 · 进入 DataSource",
-          title: "此刻还只有一道题",
-          body: "Sample 已经保存题目，却还没有被分组，也没有任何模型回答。",
+          title: "输入是一个未分组 Sample",
+          body: "Sample 已保存语义输入，但 `group_index` 与 `index` 尚未分配，生成也尚未开始。",
           facts: [
             "prompt = \"3 + 2 = ?\"",
             "group_index = None",
@@ -179,8 +205,8 @@ export const sampleJourneyActs: LessonAct[] = [
         },
         {
           label: "02 · 复制并编号",
-          title: "为它安排两个回答席位",
-          body: "DataSource 用 deepcopy 造出两个彼此独立的候选，再给它们写入组号与记录号。",
+          title: "深拷贝并分配身份",
+          body: "DataSource 使用 `deepcopy` 构造两个对象独立的候选，并分别写入组号与记录号。",
           facts: [
             "n_samples_per_prompt = 2",
             "deepcopy(prompt_sample)",
@@ -189,8 +215,8 @@ export const sampleJourneyActs: LessonAct[] = [
         },
         {
           label: "03 · 离开 DataSource",
-          title: "同组，但不是同一条记录",
-          body: "a0 与 a1 会回答同一道题；下一幕里，它们可以生成完全不同的答案。",
+          title: "输出保持组关系与个体身份",
+          body: "a0 与 a1 共享比较条件，但后续分别生成并记录各自的 response。",
           facts: [
             "a0 → group_index 0 · index 0",
             "a1 → group_index 0 · index 1",
@@ -211,20 +237,20 @@ export const sampleJourneyActs: LessonAct[] = [
       {
         id: "act-2-fact",
         kind: "source-fact",
-        title: "源码真的做了这三步",
+        title: "源码路径：深拷贝、编号、按组返回",
         body: "`RolloutDataSource.get_samples` 逐条取出 `prompt_sample`，在循环中调用 `deepcopy`，给副本写入 `group_index` 与递增的 `index`，再把同组副本装进一个列表。外层列表装 group，内层列表装该 prompt 的候选。",
       },
       {
         id: "act-2-fixture",
         kind: "teaching-fixture",
-        title: "为什么本页恰好是四张卡",
+        title: "教学配置：2 个 prompt × 2 个候选",
         body: "教学 fixture 设置 `rollout_batch_size=2`，所以一次取两道 prompt；又设置 `n_samples_per_prompt=2`，所以每道题各有两个候选。结果是 2 个 group、4 条 Sample：a0/a1 与 b0/b1。a0 这类 ID 只为稳定演示，生产源码真正分配的是数值 `group_index` 与 `index`。",
       },
       {
         id: "act-2-preview",
         kind: "advanced-preview",
-        title: "deepcopy 解决的不是“多一张卡”这么简单",
-        body: "深拷贝让候选拥有内容相同、对象彼此独立的可变字段；以后修改 a0 的 metadata，不会顺手改掉 a1。partial rollout 还可以让可恢复 group 重新入队，但那是后续课程，本幕先守住“同组不等于同一实例”。",
+        title: "扩展边界：对象独立性与 partial rollout",
+        body: "深拷贝使候选内容相同但可变字段对象彼此独立，因此修改 a0 的 metadata 不会影响 a1。partial rollout 还可以让可恢复 group 重新入队；本幕只要求掌握“同组不等于同一实例”。",
       },
     ],
     sourceRefIds: ["rollout.datasource-get-samples"],
@@ -244,35 +270,48 @@ export const sampleJourneyActs: LessonAct[] = [
     id: "act-3",
     number: 3,
     slug: "generation",
-    title: "第三幕：生成——a0 终于得到一个回答",
+    title: "第三幕：生成——写回 response 与生成证据",
     shortTitle: "生成",
     durationMinutes: 4,
     drivingQuestion: "SGLang 只回答了一个“5”，为什么 Sample 里却同时多出这么多字段？",
     stage: {
       actor: "SGLang",
-      visual: "只跟随 a0：先准备请求，再把回答 token 接到 prompt 后面，最后记录这次生成怎样结束。",
+      visual: "只跟随 a0，检查请求准备、response token 写回、数组对齐、终止状态与权重版本。",
+    },
+    prediction: {
+      prompt: "请求已有 5 个 prompt token，SGLang 接着生成 1 个 response token。写回后哪组长度正确？",
+      options: [
+        { id: "six-one-one", label: "len(tokens)=6，response_length=1，len(loss_mask)=1" },
+        { id: "six-six-six", label: "len(tokens)=6，response_length=6，len(loss_mask)=6" },
+        { id: "five-one-six", label: "len(tokens)=5，response_length=1，len(loss_mask)=6" },
+      ],
+      correctOptionId: "six-one-one",
+      feedback: {
+        correct: "正确。tokens 包含输入前缀与回答后缀，response 元数据只在回答空间对齐。",
+        incorrect: "不要把完整 token 序列与 response-side 元数据放进同一个坐标系。",
+      },
     },
     narrative: {
-      kicker: "两把椅子已经摆好，模型现在才开口",
-      title: "a0 带着一道题进入 SGLang，回来时多了一段可训练的经历。",
+      kicker: "生成边界 · 结果与证据",
+      title: "一次生成必须同时保存结果、对齐信息与版本来源。",
       paragraphs: [
-        "出发前，a0 只知道自己的题目。生成路径先把 prompt 准备成 token ID，并为这次请求留下 `session_id`；在本课的固定示例里，`3 + 2 = ?` 对应 5 个 prompt token。它们只是输入前缀，还不是模型的回答。",
-        "随后 SGLang 使用 `actor@0` 生成了一个 token：ID 25，解码后是“5”。这个 token 被接到 prompt token 后面，于是 `tokens` 从 5 项变成 6 项；而 `response_length` 只数回答部分，所以它是 1。",
-        "回答文本是给人读的，`loss_mask` 与 `rollout_log_probs` 则是留给训练的账本：前者说明这个回答位置是否算作模型动作，后者记录生成它时旧 policy 给出的 log probability。finish reason 最后把状态写成 `COMPLETED`，`weight_versions` 则留下“这段回答由 actor@0 生成”的历史。",
+        "生成路径首先准备 prompt token IDs，并为请求记录 `session_id`。在本教学 fixture 中，`3 + 2 = ?` 被固定表示为 5 个 prompt token；这些 token 只构成输入前缀，`response_length` 此时仍为 0。",
+        "SGLang 随后使用 `actor@0` 生成 token 25，解码结果为“5”。`append_response_tokens` 将该 token 追加到 prompt 后，因此 `tokens` 的长度从 5 变为 6；`response_length` 只统计 response 空间，所以值为 1。",
+        "生成路径还必须保存后续训练与审计所需的证据：`loss_mask` 标识 response 位置是否参与训练，`rollout_log_probs` 记录生成时 policy 的动作概率，finish reason 映射为 terminal status，`weight_versions` 记录生成所使用的参数版本。",
       ],
       directAnswer:
         "因为训练需要的不只是“模型说了什么”，还要知道“它生成了哪些 token、当时给这些动作多大概率、哪些位置可以训练、生成怎样结束、使用的是哪一版权重”。`response` 保存可读答案，其余字段保存可对齐、可追溯的生成证据。",
-      evidenceLead: "先把 a0 的三个时刻并排看清，再讨论每个数组为什么必须对齐。",
-      takeaway: "`response` 讲述答案；token、mask、log-prob、status 与权重版本，保存答案诞生的过程。",
+      evidenceLead: "下面按请求前、请求准备完成和生成完成三个状态检查字段变化。",
+      takeaway: "`response` 保存生成结果；token、mask、log-prob、status 与权重版本保存可训练、可追溯的生成证据。",
     },
     walkthrough: {
-      kicker: "本课实例 · 只跟随 a0",
-      title: "一个“5”写回 Sample 时，究竟发生了什么",
-      introduction: "不要一次记住所有字段。先按时间读：请求前、请求准备好、生成完成。",
+      kicker: "教学 fixture · a0",
+      title: "response 写回过程的三个状态",
+      introduction: "按时间顺序比较请求前、请求准备完成与生成结束时的字段快照。",
       steps: [
         {
           label: "01 · 请求前",
-          title: "题目在，回答还不在",
+          title: "生成尚未开始",
           body: "a0 已经拥有组号和身份，但它仍处于等待生成的 PENDING 状态。",
           facts: [
             "prompt = \"3 + 2 = ?\"",
@@ -282,7 +321,7 @@ export const sampleJourneyActs: LessonAct[] = [
         },
         {
           label: "02 · 准备 SGLang 请求",
-          title: "先放入 prompt 前缀",
+          title: "构造 prompt token 前缀",
           body: "生成路径准备输入 token；session 用来标识或路由这次请求，本课值是固定的教学数据。",
           facts: [
             "session_id = session-a0",
@@ -292,7 +331,7 @@ export const sampleJourneyActs: LessonAct[] = [
         },
         {
           label: "03 · 回答并结束",
-          title: "response token 接在 prompt 后面",
+          title: "追加 response token 并记录元信息",
           body: "SGLang 返回 token 25，也就是“5”；Sample 同步保存动作概率、训练掩码和终止信息。",
           facts: [
             "tokens = [11, 12, 13, 14, 15, 25]",
@@ -302,7 +341,7 @@ export const sampleJourneyActs: LessonAct[] = [
           ],
         },
       ],
-      caption: "最容易混淆的一点：`tokens` 保存 prompt + response，所以长度是 6；`response_length`、`loss_mask` 与 `rollout_log_probs` 只站在 response 一侧，所以长度都是 1。",
+      caption: "关键对齐关系：`tokens` 保存 prompt + response，所以长度是 6；`response_length`、`loss_mask` 与 `rollout_log_probs` 仅对齐 response 空间，所以长度都是 1。",
     },
     fieldChanges: [
       "请求获得身份：`session_id: None → session-a0`",
@@ -316,19 +355,19 @@ export const sampleJourneyActs: LessonAct[] = [
       {
         id: "act-3-fact",
         kind: "source-fact",
-        title: "源码把一次生成分成准备、调用、写回",
+        title: "源码路径：准备请求、调用 SGLang、写回 Sample",
         body: "`generate` 先准备 prompt IDs，再把请求发给 SGLang；响应回来后，`append_response_tokens` 把新 token 接到 `Sample.tokens`，同时更新 `response`、`response_length`、`loss_mask` 与 `rollout_log_probs`。最后，meta info 中的 finish reason 被映射为 terminal status。",
       },
       {
         id: "act-3-fixture",
         kind: "teaching-fixture",
-        title: "为什么这里的数字可以逐项对上",
+        title: "教学配置：固定 token、session 与 log-prob",
         body: "a0 在 fixture 中固定使用 5 个 prompt token 和 1 个 response token；回答 token 25 解码为“5”，对应 rollout log-prob 为 -0.08，生成权重版本为 actor@0。token ID 与 `session-a0` 是为了稳定回放而固定的值，不是线上 tokenizer 或 SGLang 服务的实测输出。",
       },
       {
         id: "act-3-preview",
         kind: "advanced-preview",
-        title: "等单轮生成清楚后，再加入工具 observation",
+        title: "扩展边界：工具 observation 与 streaming",
         body: "本例只有一个模型动作，因此 `loss_mask=[1]` 很直观。agent 场景还会把工具或环境 observation token 接进 response 空间；这些位置可以用 mask 0 与占位 log-prob 表示。播放器只是确定性教学回放，不承诺生产请求一定按相同粒度 streaming。",
       },
     ],
@@ -349,41 +388,54 @@ export const sampleJourneyActs: LessonAct[] = [
       answer: "len(tokens)=10，response_length=5，len(loss_mask)=len(rollout_log_probs)=5；有效 response 长度为 3。",
       feedback: "prompt 前缀只计入 tokens；mask 与 rollout log-prob 在 response 空间对齐。",
     },
-    transition: "现在知道模型做了什么、哪些位置是动作以及生成怎样结束，但还不知道结果值多少。",
+    transition: "生成结果及其证据已经写回 Sample。下一幕区分 terminal status、reward 与 collect 的职责。",
   },
   {
     id: "act-4",
     number: 4,
     slug: "reward-and-collect",
-    title: "第四幕：评价与收集——给答案打分，但不把队伍拆散",
+    title: "第四幕：评价与收集——区分 status、reward 与 group 完整性",
     shortTitle: "评价与收集",
     durationMinutes: 2.5,
     drivingQuestion: "a1 的 reward 是 0，为什么 collect 没有把它丢掉？",
     stage: {
       actor: "Reward → collect",
-      visual: "先判四条回答，再按原来的两组收回：group 0 带着 1/0，group 1 也带着 1/0，一条都不偷偷消失。",
+      visual: "先对四条 response 逐条计算 reward，再检查 collect 为什么按完整 group 返回结果。",
+    },
+    prediction: {
+      prompt: "a0 与 a1 都正常结束，但 a1 的 reward 是 0。默认 collect 下一步会怎样处理？",
+      options: [
+        { id: "keep-group", label: "保留 a0/a1，按完整 group 交给下一阶段" },
+        { id: "drop-zero", label: "立即删除 a1，只留下高分 Sample" },
+        { id: "abort-group", label: "把整个 group 标记为 ABORTED" },
+      ],
+      correctOptionId: "keep-group",
+      feedback: {
+        correct: "正确。reward 是评价结果，不是默认删除指令。",
+        incorrect: "先把 status、reward 和 collect 的职责拆开：三者回答不同问题。",
+      },
     },
     narrative: {
-      kicker: "模型停笔了，判卷才刚开始",
-      title: "终点线与判卷桌，是两个不同的地方。",
+      kicker: "评价边界 · 三种不同语义",
+      title: "status、reward 与 collect 回答三个不同问题。",
       paragraphs: [
-        "第三幕结束时，a0 回答“5”，a1 回答“6”；它们的 `status` 都是 `COMPLETED`。这并不是说两份答案都正确，只表示两次生成都以 stop 正常结束。生成怎样停下，由 status 记录；答案究竟好不好，要由 reward 另行判断。",
-        "本课把判卷规则刻意做得很简单：回答与参考答案一致，raw reward 记为 1，否则记为 0。于是 a0 的“5”得到 1，a1 的“6”得到 0；另一组里，b0 的“7”得到 1，b1 的“8”得到 0。判分只给原来的 Sample 补上 `reward`，不会改写它的回答、token 或终止状态。",
-        "接着 collect 把结果收回。它收的不是一张“高分榜”，而是候选数量齐全的 prompt group：`[a0, a1]` 仍然一起进入 group 0，`[b0, b1]` 仍然一起进入 group 1。这里的“完整”是说每组应有的候选都在，不是说每个候选都答对。",
+        "第三幕结束时，a0 回答“5”，a1 回答“6”，二者的 `status` 都是 `COMPLETED`。该状态只表示 generation 以 stop 正常终止，不包含正确性判断；结果质量由 reward function 独立评价。",
+        "本教学 fixture 使用确定性二元规则：response 与 label 相同则 raw reward 为 1，否则为 0。因此 a0/a1 得到 1/0，b0/b1 同样得到 1/0。reward 写回不会改变 response、tokens 或 terminal status。",
+        "collect 的默认单位是候选数量完整的 prompt group，而不是单条高分 Sample。`[a0, a1]` 作为 group 0 返回，`[b0, b1]` 作为 group 1 返回；完整性指候选数满足配置，不表示组内所有 response 都正确。",
       ],
       directAnswer:
         "因为 `reward=0` 是一条评价结果，不是删除指令。默认本课路径会保留 a1，并把 a0/a1 作为完整 group 一起交给下一阶段；正是 1 与 0 的差异，让后续组内比较有东西可学。只有显式启用的过滤逻辑才可能舍弃一个 group，而且它与 reward 本身是两回事。",
-      evidenceLead: "把“正常结束、判分、收回”分成三个时刻，职责就不会再串在一起。",
-      takeaway: "`status` 记录旅程怎样结束，`reward` 记录结果得到怎样的评价，`collect` 决定哪些完整组进入本轮结果。",
+      evidenceLead: "下面用 group 0 验证生成终止、逐条评价与按组收集三个步骤。",
+      takeaway: "`status` 描述 generation 的终止方式；`reward` 评价结果；`collect` 决定哪些完整 group 进入本轮 rollout 结果。",
     },
     walkthrough: {
-      kicker: "本课实例 · 两张答卷、两个动作",
-      title: "先判 a0/a1，再把 group 0 原样收回",
-      introduction: "只看 group 0 就够了：生成结束不等于判对，reward 为 0 也不等于删除。",
+      kicker: "教学 fixture · group 0",
+      title: "从 terminal status 到完整 group 返回",
+      introduction: "该实例隔离三个判断：generation 是否结束、response 得分多少、group 是否满足收集条件。",
       steps: [
         {
           label: "01 · 生成已结束",
-          title: "两份答卷都交上来了",
+          title: "两次 generation 都正常终止",
           body: "a0 与 a1 都正常停止；此刻只知道它们说了什么，还没有评价好坏。",
           facts: [
             "a0 → response \"5\" · COMPLETED",
@@ -393,7 +445,7 @@ export const sampleJourneyActs: LessonAct[] = [
         },
         {
           label: "02 · Reward 评价",
-          title: "逐条对照参考答案“5”",
+          title: "逐条计算二元 reward",
           body: "教学规则把正确记为 1、错误记为 0；它改变 reward，不改变生成历史。",
           facts: [
             "a0: \"5\" = label \"5\" → reward 1",
@@ -403,8 +455,8 @@ export const sampleJourneyActs: LessonAct[] = [
         },
         {
           label: "03 · collect 收回",
-          title: "整组进入 rollout 结果",
-          body: "collect 保留组的边界；低分候选不是垃圾，它是组内比较的另一半。",
+          title: "按完整 group 返回结果",
+          body: "collect 保留 prompt group 边界；低分候选仍是组内比较所需的数据。",
           facts: [
             "group 0 = [a0(1), a1(0)]",
             "group 1 = [b0(1), b1(0)]",
@@ -425,19 +477,19 @@ export const sampleJourneyActs: LessonAct[] = [
       {
         id: "act-4-fact",
         kind: "source-fact",
-        title: "源码先完成生成与 hook，再补 reward",
+        title: "源码路径：生成与 hooks 完成后计算 reward",
         body: "默认 `generate_and_rm` 路径先生成 Sample，再运行 sample hooks；如果 Sample 没有被 abort、也尚未自带 reward，才调用 reward function 并把结果写入 `Sample.reward`。随后 `generate_rollout_async` 等待 group 返回，检查组内候选数量，再把整个 group 加入收集结果。",
       },
       {
         id: "act-4-fixture",
         kind: "teaching-fixture",
-        title: "这个 1/0 是教学判卷，不是线上 RM 实测",
+        title: "教学配置：1/0 reward 不是线上 RM 实测",
         body: "fixture 直接固定 a0、b0 的 raw reward 为 1，a1、b1 为 0；四条都保持 `COMPLETED`。这样能先看清数据形状，但不代表真实任务只能做二元评分。生产路径可以调用规则函数、自定义 reward function 或服务；本例没有发送网络 reward 请求。",
       },
       {
         id: "act-4-preview",
         kind: "advanced-preview",
-        title: "filter 是收集阶段的一扇可选闸门",
+        title: "可选路径：dynamic filter 在 group 层过滤",
         body: "显式配置 dynamic filter 后，函数会看到一个完整 group，并决定整组 keep / drop；被 drop 的组不计入目标数量，收集循环会继续取新数据。它不是“reward 为 0 就删除该 Sample”的默认规则。partial 模式还可能回收 abort group，本课暂不展开恢复协议。",
       },
     ],
@@ -452,42 +504,55 @@ export const sampleJourneyActs: LessonAct[] = [
       answer: "两条生成都正常结束；a0 的结果被判为正确，a1 的结果被判为错误。它们仍属于同一个完整 group。",
       feedback: "status 讲终止方式，reward 讲结果评价；两者都不是 collect 的单条删除开关。",
     },
-    transition: "两组答卷已经带着 raw reward 收回，但 Megatron 还不能直接消费这些 Sample；下一幕要跨过显式转换边界。",
+    transition: "两组 Sample 已携带 raw reward 返回。下一幕说明为什么它们仍需显式转换和排程，才能成为 trainer 输入。",
   },
   {
     id: "act-5",
     number: 5,
     slug: "conversion-and-schedule",
-    title: "第五幕：交接与排程——把四张答卷装上训练列车",
-    shortTitle: "交接与排程",
+    title: "第五幕：转换与排程——从 Sample 到 per-DP train data",
+    shortTitle: "转换与排程",
     durationMinutes: 4,
     drivingQuestion: "四条 Sample 已经有回答和分数，为什么还不能直接交给 Megatron？",
     stage: {
       actor: "RolloutManager",
-      visual: "RolloutManager 先把四张 Sample 翻译成对齐的 train_data，再把它们排成两班 training step。",
+      visual: "检查 RolloutManager 如何显式构造训练字段，并按 logical rollout 与 batch 约束生成两个 training step。",
+    },
+    prediction: {
+      prompt: "group 0 的 raw reward 是 [1, 0]，本例只做组内中心化。转换后应保留哪两组值？",
+      options: [
+        { id: "raw-centered", label: "raw_reward=[1,0]，rewards=[0.5,-0.5]" },
+        { id: "overwrite", label: "raw_reward=[0.5,-0.5]，rewards=[0.5,-0.5]" },
+        { id: "unchanged", label: "raw_reward=[1,0]，rewards=[1,0]" },
+      ],
+      correctOptionId: "raw-centered",
+      feedback: {
+        correct: "正确。原始评价与派生训练信号必须保持不同语义。",
+        incorrect: "converter 会保留 raw reward，再显式构造组内相对训练信号。",
+      },
     },
     narrative: {
-      kicker: "判完的答卷，还不是训练能直接搬走的行李",
-      title: "RolloutManager 站在两套世界之间，做翻译，也做列车员。",
+      kicker: "训练输入边界 · 数据转换与 schedule",
+      title: "RolloutManager 将生成记录转换为 trainer 的显式输入。",
       paragraphs: [
-        "第四幕收回的是四条完整的 Sample：它们各自保存题目、回答、生成痕迹与 raw reward，适合追溯“一次回答怎样发生”。但 Megatron 的训练循环不回头翻阅四个 Python 对象；它需要一批长度互相对齐、身份明确、已经安排好先后次序的训练字段。",
-        "第一道翻译发生在 reward 上。原始判分 `[1, 0, 1, 0]` 被原样保存为 `raw_reward`；与此同时，两组各自减去组均值 0.5，得到训练侧的 `rewards=[+0.5, -0.5, +0.5, -0.5]`。前者回答“判卷得了几分”，后者回答“在同题的候选里，它比平均水平高还是低”。本 fixture 关闭了标准差归一化，所以这里只做中心化。",
-        "第二道翻译处理身份、mask 与排程。`index` 变成 `sample_indices`；本例原本缺失的 `rollout_id` 在 train data 中派生为 0、1、2、3；四个 `[1]` 组成 `loss_masks`。最后，scheduler 按 `global_batch_size=2` 把四个 logical rollout 排成两个 training step：第一班载 a0/a1，第二班载 b0/b1。",
+        "第四幕返回的四条 Sample 保存语义输入、生成历史与 raw reward，适合追踪单次 rollout。Megatron actor 不直接读取这些 Python dataclass；它接收的是字段对齐、身份明确并按 DP rank 打包的 train data。",
+        "转换首先区分原始评价与派生训练信号。`[1,0,1,0]` 被保留为 `raw_reward`；两组分别减去均值 0.5，得到 `rewards=[+0.5,-0.5,+0.5,-0.5]`。本 fixture 关闭标准差归一化，因此这里只进行组内中心化。",
+        "converter 随后构造 `sample_indices`、`rollout_ids`、`loss_masks` 等字段。scheduler 再按照 logical rollout、`global_batch_size=2` 与 DP 约束生成两个 training step：step 0 包含 a0/a1，step 1 包含 b0/b1。转换定义字段语义，排程定义消费顺序；二者是不同边界。",
       ],
       directAnswer:
-        "因为 Sample 是面向生成历史的记录，而 trainer 需要的是显式转换、按 DP rank 打包并排好 training step 的 train data。RolloutManager 必须把 raw reward、训练用 reward、身份、mask 与 batch 计划逐项交代清楚；没有经过这道边界，Megatron 不会“自然看见”这些字段。",
-      evidenceLead: "先把四张卡片、一次翻译和两班列车并排看清，再去读那些容易混淆的复数字段。",
-      takeaway: "Sample 记住发生过什么；train data 说明这些经历将怎样进入训练。",
+        "因为 Sample 是生成侧的历史记录，而 trainer 需要显式构造、按 DP rank 打包并带有 schedule 的 train data。raw reward、派生 reward、身份、mask 与 batch 计划都必须通过 converter 和 scheduler 明确定义；它们不会自动从 Sample 出现在 Megatron 输入中。",
+      evidenceLead: "下面将原始 Sample、字段转换和 schedule 构造分开验证。",
+      takeaway: "Sample 保存 rollout 历史；train data 定义这些记录如何参与训练。",
     },
     walkthrough: {
-      kicker: "本课实例 · 四条记录，两次交接",
-      title: "从 `[a0, a1, b0, b1]` 到两个 training step",
-      introduction: "不要把转换和排程揉成一件事。先保留原始事实，再生成训练字段，最后决定哪一批先走。",
+      kicker: "教学 fixture · 4 个 logical rollout",
+      title: "从四条 Sample 到两个 training step",
+      introduction: "实例依次展示原始记录、派生训练字段和最终 schedule。",
       steps: [
         {
           label: "01 · 收到 Sample",
-          title: "四张答卷仍按两组站好",
-          body: "这些是已经发生过的生成记录；回答、状态与 raw reward 都属于它们的历史。",
+          title: "输入保留两组生成历史",
+          body: "四条 Sample 保存 response、terminal status 与 raw reward，并维持原有 group 关系。",
           facts: [
             "group 0 → a0(1), a1(0)",
             "group 1 → b0(1), b1(0)",
@@ -496,7 +561,7 @@ export const sampleJourneyActs: LessonAct[] = [
         },
         {
           label: "02 · 转成 train_data",
-          title: "把历史翻译成训练字段",
+          title: "显式构造训练字段",
           body: "converter 保留原分，同时计算组内相对信号，并把身份与 mask 排成等长数组。",
           facts: [
             "raw_reward = [1, 0, 1, 0]",
@@ -507,7 +572,7 @@ export const sampleJourneyActs: LessonAct[] = [
         },
         {
           label: "03 · 构造 schedule",
-          title: "四条 rollout 分两班出发",
+          title: "构造两个 training step",
           body: "每个 step 容纳 2 个 logical rollout；本 fixture 没有裁掉任何记录。",
           facts: [
             "step 0 → a0, a1 · rollout 0, 1",
@@ -530,19 +595,19 @@ export const sampleJourneyActs: LessonAct[] = [
       {
         id: "act-5-fact",
         kind: "source-fact",
-        title: "源码把“翻译”和“排队”写成两道明确边界",
+        title: "源码边界：字段转换与 DP 排程分离",
         body: "RolloutManager 先校验 rollout 身份并 flatten 生成结果，随后 `_post_process_rewards` 计算 raw 与派生 reward，`_convert_samples_to_train_data` 显式组装训练字段，最后 `_split_train_data_by_dp` 调用 scheduler 按 logical rollout 与 batch 约束分配到 DP rank。trainer 只收到这份打包结果。",
       },
       {
         id: "act-5-fixture",
         kind: "teaching-fixture",
-        title: "为什么画面上恰好出现两个 step",
+        title: "教学配置：两个 step 的推导",
         body: "本例有 4 个 logical rollout，`global_batch_size=2`、`dp_size=1`、`micro_batch_size=2`，因此确定性排程给出两个 step：a0/a1 与 b0/b1。`raw_samples_frozen` 是播放器用来区分历史层与派生层的教学状态；它不是对所有生产 converter 都作“永不修改 Sample”的额外承诺。",
       },
       {
         id: "act-5-preview",
         kind: "advanced-preview",
-        title: "以后看到 fan-out，先守住 rollout_id",
+        title: "扩展边界：fan-out 必须保持 rollout_id",
         body: "一次 logical rollout fan-out 成多个物理训练片段时，兄弟片段拥有不同 `index`，却必须共享同一个 `rollout_id`；scheduler 据此把它们放在同一 training step，并让 loss reducer 按一次 logical rollout 计数。本 fixture 没有启用 fan-out，所以四条 Sample 各自对应一个 rollout id。",
       },
     ],
@@ -570,43 +635,56 @@ export const sampleJourneyActs: LessonAct[] = [
     microCheck: {
       prompt: "group 0 的 raw reward 是 [1,0]，均值为 0.5；关闭 std normalization 后，raw_reward 与 rewards 分别是什么？",
       answer: "raw_reward 仍是 [1,0]；rewards 是 [0.5,-0.5]。",
-      feedback: "一份保留原始判分，一份表达组内相对位置。先分清这两个层次，再读 advantage 会轻松许多。",
+      feedback: "`raw_reward` 保留原始评价，`rewards` 表达组内相对训练信号；二者语义不同。",
     },
-    transition: "两班 train data 已经停在 Megatron 门前。下一幕不再改写答卷，而是看这些训练信号怎样改变 actor 本身。",
+    transition: "per-DP train data 与 schedule 已经构造完成。下一幕检查 Megatron 消费什么数据、更新什么状态，以及哪些历史信息保持不变。",
   },
   {
     id: "act-6",
     number: 6,
     slug: "training",
-    title: "第六幕：训练——两班数据驶入 Megatron，actor@1 在幕后诞生",
+    title: "第六幕：训练——消费 train data 并更新 actor 参数",
     shortTitle: "训练",
     durationMinutes: 2.5,
     drivingQuestion: "Megatron 究竟读了什么、改变了什么，又为什么没有改写那四条 Sample？",
     stage: {
       actor: "Megatron actor",
-      visual: "两个 training step 依次进入 Megatron；训练侧 actor 从 actor@0 走到 actor@1，SGLang 此刻仍留在旧版本。",
+      visual: "两个 training step 由 Megatron 依次消费；训练侧参数更新为 actor@1，SGLang 与历史 Sample 暂时保持 actor@0。",
+    },
+    prediction: {
+      prompt: "train 刚完成、weight sync 还没开始。Megatron、SGLang 与历史 Sample 分别应记录哪个版本？",
+      options: [
+        { id: "split", label: "Megatron=actor@1；SGLang=actor@0；历史 Sample=actor@0" },
+        { id: "all-new", label: "三者都立刻变成 actor@1" },
+        { id: "all-old", label: "三者都保持 actor@0，直到下一轮训练" },
+      ],
+      correctOptionId: "split",
+      feedback: {
+        correct: "正确。训练侧、生成侧与历史记录是三个独立状态。",
+        incorrect: "optimizer 只改变训练侧参数；发布和历史可追溯性属于另外两个边界。",
+      },
     },
     narrative: {
-      kicker: "列车已经进站，真正改变模型的时刻才到来",
-      title: "Megatron 接过的不是四张答卷，而是两班已经排好的训练数据。",
+      kicker: "优化边界 · 参数状态与历史状态",
+      title: "Megatron 更新训练侧参数，不改写历史 Sample。",
       paragraphs: [
-        "RolloutManager 交来的是 per-DP train data：两组 token、response 长度、中心化 reward、loss mask 与 schedule 已经彼此对齐。本 fixture 只有一个 DP rank；step 0 放入 a0/a1，step 1 放入 b0/b1。Megatron 沿着这份计划取 microbatch，不需要再回到 Sample 层猜测谁和谁是一组。",
-        "训练时，配置会决定怎样准备 log-prob、advantage / returns 与具体 loss。这里先守住最朴素的一条边界：reward 提供学习方向，`loss_mask` 决定 response 中哪些位置可以贡献训练信号。本课四条回答的 mask 都是 `[1]`，所以四个回答 token 都站在有效位置；若某个位置为 0，它可以随 batch 前进，却不会以同样方式贡献 policy loss。",
-        "两个 training step 完成后，optimizer 改变的是训练侧模型参数。播放器把这个版本边界记作 `actor@0 → actor@1`。那四条 Sample 不会跟着变成年轻一岁：它们的 `weight_versions=[actor@0]` 仍然忠实记录“这些回答由旧 policy 生成”。而且此刻 `weights_published=false`——新 actor 已在训练侧诞生，却还没有抵达 SGLang。",
+        "Megatron 接收 RolloutManager 构造的 per-DP train data，其中 token、response 长度、派生 reward、loss mask 与 schedule 已经对齐。本 fixture 只有一个 DP rank：step 0 包含 a0/a1，step 1 包含 b0/b1。训练函数不需要重新读取 Sample 或推断 group 关系。",
+        "具体算法配置决定 log-prob、advantage / returns 与 loss 的构造方式。跨算法不变的边界是：reward 提供优化信号，`loss_mask` 决定 response 中哪些位置可以贡献训练目标。本例四条 mask 均为 `[1]`；mask 为 0 的位置可以存在于 batch 中，但不会以相同方式贡献 policy loss。",
+        "两个 training step 完成后，optimizer 更新训练侧模型参数。教学播放器将版本变化记为 `actor@0 → actor@1`。历史 Sample 的 `weight_versions=[actor@0]` 保持不变，因为它记录生成时的 policy；此刻 `weights_published=false`，说明 rollout engine 尚未获得新参数。",
       ],
       directAnswer:
         "Megatron 消费 converter 与 scheduler 交付的 per-DP train data，并据此更新 actor 参数；它不消费 Sample dataclass，也不会把 optimizer 的结果写回历史 Sample。训练结束只证明训练侧已有 actor@1，不等于 rollout engine 已经使用 actor@1。",
-      evidenceLead: "把“训练输入、参数变化、历史不变”拆成三层，actor@1 的来处就不再神秘。",
-      takeaway: "训练改变模型，不改写历史；一条 Sample 永远记录生成它的那版 policy。",
+      evidenceLead: "下面分别检查训练输入、参数状态和历史 Sample，避免混淆三个对象。",
+      takeaway: "optimizer 更新当前 actor 参数；历史 Sample 继续记录生成它时使用的 policy。",
     },
     walkthrough: {
-      kicker: "本课实例 · 两个 step，一个版本边界",
-      title: "谁走进训练，谁留在历史里",
-      introduction: "顺着三层状态读：Megatron 收到什么、optimizer 改变什么、四条旧 Sample 保留什么。",
+      kicker: "教学 fixture · 两个 training step",
+      title: "训练输入、参数状态与历史状态",
+      introduction: "实例分别展示 Megatron 的输入、optimizer 的输出以及历史 Sample 的不变量。",
       steps: [
         {
           label: "01 · 接收 per-DP 数据",
-          title: "排程已经替 trainer 分好批次",
+          title: "trainer 接收既定 schedule",
           body: "DP rank 0 收到两步计划；每一步拿到 2 个 logical rollout 及其训练字段。",
           facts: [
             "step 0 → a0, a1",
@@ -616,7 +694,7 @@ export const sampleJourneyActs: LessonAct[] = [
         },
         {
           label: "02 · 计算并训练",
-          title: "mask 打开的位置进入学习",
+          title: "按配置构造并应用训练目标",
           body: "算法按配置准备训练信号，再对计划中的两个 step 执行 actor training。",
           facts: [
             "rewards → +0.5, -0.5, +0.5, -0.5",
@@ -626,8 +704,8 @@ export const sampleJourneyActs: LessonAct[] = [
         },
         {
           label: "03 · 训练完成",
-          title: "新参数已经存在，但还在幕后",
-          body: "版本变化发生在训练侧；生成侧与历史记录暂时都没有改变。",
+          title: "训练侧参数更新为 actor@1",
+          body: "版本变化只发生在训练侧；生成侧与历史记录暂时保持 actor@0。",
           facts: [
             "Megatron actor → actor@1",
             "SGLang rollout → actor@0",
@@ -636,7 +714,7 @@ export const sampleJourneyActs: LessonAct[] = [
           ],
         },
       ],
-      caption: "这一刻同时存在三层真相：历史 Sample 说“我由 actor@0 生成”；train data 说“我怎样参与训练”；actor state 说“训练侧参数已成为 actor@1”。它们不是同一个对象，也不该被同步改写。",
+      caption: "此时存在三个相互独立的状态：历史 Sample 记录 actor@0，train data 描述训练输入，actor state 已更新为 actor@1。它们不是同一个对象，也不应被同步改写。",
     },
     fieldChanges: [
       "训练输入跨过设备边界：per-DP `tokens`、`loss_masks` 等字段被搬到执行设备",
@@ -650,19 +728,19 @@ export const sampleJourneyActs: LessonAct[] = [
       {
         id: "act-6-fact",
         kind: "source-fact",
-        title: "源码中的 trainer 从 per-DP 包裹开始工作",
+        title: "源码路径：从 per-DP 数据到 actor training",
         body: "`MegatronTrainRayActor._get_rollout_data` 取回 per-DP 数据，把 token、loss mask 等训练字段搬到执行设备；`train_actor` 再按配置准备 log-prob 与 advantage / returns，最后把 data iterator、microbatch 数和 global batch size 交给 `train(...)`。这条调用链没有重新读取 Sample dataclass。",
       },
       {
         id: "act-6-fixture",
         kind: "teaching-fixture",
-        title: "actor@1 是边界标签，不是伪造的性能报告",
+        title: "教学范围：actor@1 仅表示参数版本边界",
         body: "播放器用 `actor@0 → actor@1` 表示这轮训练前后的参数版本，并把两个已排定的 training step 合并成一次可读事件。它不模拟真实 tensor 值、loss 曲线、optimizer 内部状态、GPU 吞吐或训练耗时，也不把 actor@1 当作生产 checkpoint 名。",
       },
       {
         id: "act-6-preview",
         kind: "advanced-preview",
-        title: "同一扇门后，可以有不同的算法房间",
+        title: "算法范围：不同目标共享相同训练输入边界",
         body: "PPO、GRPO、GSPO 与 CISPO 会以不同方式构造 advantage、校正概率并定义 loss；有些配置还会引入 ref、critic、teacher 或 routing replay。本幕不把它们揉成一个公式，只保留共同边界：训练函数收到显式 train data，mask 控制有效位置，optimizer 更新 actor。",
       },
     ],
@@ -677,37 +755,50 @@ export const sampleJourneyActs: LessonAct[] = [
       answer: "Megatron 是 actor@1；SGLang 仍是 actor@0；历史 Sample 也仍记录 actor@0。",
       feedback: "训练侧版本、生成侧版本与历史版本可以暂时不同；这正是下一幕必须存在的理由。",
     },
-    transition: "后台已经写出 actor@1，前台的 SGLang 却还在翻 actor@0。最后一幕，要让新权重真正过桥。",
+    transition: "训练侧已经得到 actor@1，但 rollout engine 仍持有 actor@0。最后一幕分析显式权重发布与请求一致性。",
   },
   {
     id: "act-7",
     number: 7,
     slug: "weight-return",
-    title: "第七幕：权重回流——让新 actor 走过最后一座桥",
-    shortTitle: "权重回流",
+    title: "第七幕：权重发布——使 actor@1 对后续 rollout 可见",
+    shortTitle: "权重发布",
     durationMinutes: 2.5,
     drivingQuestion: "训练侧已经有 actor@1，为什么 SGLang 不会自动、也不能在请求中途换上它？",
     stage: {
       actor: "Weight sync",
-      visual: "桥的一端是 Megatron actor@1，另一端是仍在 actor@0 的 SGLang；显式发布完成后，下一轮才从新版本出发。",
+      visual: "训练侧已是 actor@1，SGLang 仍持有 actor@0；只有显式发布完成后启动的 generation 才能使用新版本。",
+    },
+    prediction: {
+      prompt: "一条 generation 在 actor@1 发布前已经开始。发布发生时，这条请求应怎样处理版本？",
+      options: [
+        { id: "finish-old", label: "先用 actor@0 完成；发布后启动的新请求再使用 actor@1" },
+        { id: "switch-midway", label: "在 response 中途无条件切换到 actor@1" },
+        { id: "rewrite-history", label: "完成后把它的历史版本改写为 actor@1" },
+      ],
+      correctOptionId: "finish-old",
+      feedback: {
+        correct: "正确。发布协调 in-flight generation，避免单次请求中途混用版本。",
+        incorrect: "判断一条 Sample 的版本，要看 generation 启动时 rollout engine 持有哪一版。",
+      },
     },
     narrative: {
-      kicker: "新书已经印好，读者手里却还是上一版",
-      title: "训练完成，只把 actor@1 写在了桥的这一端。",
+      kicker: "分布式状态边界 · 训练完成与发布完成",
+      title: "训练完成和 rollout 可用是两个不同的系统事件。",
       paragraphs: [
-        "第六幕结束时，系统里同时存在两个都正确的版本：Megatron 已经训练出 `actor@1`，SGLang 的 rollout engine 仍然服务于 `actor@0`。这不是程序自相矛盾，而是训练进程与生成引擎各自持有参数；optimizer 只改动了前者，并不会隔空改写后者。",
-        "于是主循环必须显式调用 `update_weights`。weight updater 连接可更新的 rollout engines，把新参数传过去，并等待发布边界完成。同步成功后，播放器才把 `rollout_version` 从 actor@0 改为 actor@1，并将 `weights_published` 标记为 true。旧 Sample 一笔不改，因为同步更新的是系统状态，不是历史档案。",
-        "等闭环重新回到 DataSource，下一轮新 Sample 才会在 actor@1 下生成。同步路径的次序很直白：generate → train → update weights → next generation；异步路径可以让 rollout(i+1) 与 train(i) 重叠，所以那批已经开始的 generation 仍可能使用 actor@i。真正发布前，代码会等待进行中的 generation，避免同一次请求半途换权重。",
+        "第六幕结束时，Megatron 已经持有 `actor@1`，而 SGLang rollout engine 仍服务于 `actor@0`。两个版本同时存在是预期状态：trainer 与 generation engine 是独立的参数持有者，optimizer step 只更新前者。",
+        "主循环因此必须显式调用 `update_weights`。weight updater 连接可更新的 rollout engines，传输新参数并等待发布边界完成。成功后，生成侧版本才从 actor@0 切换到 actor@1，`weights_published` 变为 true；历史 Sample 不被修改。",
+        "同步路径遵循 generate → train → update weights → next generation。异步路径可以使 rollout(i+1) 与 train(i) 重叠，因此已启动的 generation 仍可能使用 actor@i。发布前必须协调 in-flight generation，避免单次请求在执行过程中混用不同参数版本。",
       ],
       directAnswer:
         "因为 trainer 与 SGLang 是不同的权重持有者，optimizer step 只更新 trainer。新参数必须经过显式 `update_weights` 才会成为 rollout engine 的可用版本；异步模式还要先协调正在生成的请求。只有发布边界完成之后启动的新一轮 generation，才能被本课安全地记作 actor@1。",
-      evidenceLead: "把桥两端、过桥动作与下一轮分开看，闭环会在眼前真正合上。",
-      takeaway: "训练产生新权重，weight sync 发布新权重；二者之间的距离，就是系统一致性必须认真对待的边界。",
+      evidenceLead: "下面分别检查训练侧版本、生成侧版本和发布后新请求的版本。",
+      takeaway: "训练产生新参数；weight sync 使新参数对后续 generation 可见。二者之间是显式一致性边界。",
     },
     walkthrough: {
-      kicker: "本课实例 · 桥的两端",
-      title: "actor@1 什么时候才算“被下一轮用上”",
-      introduction: "不要只盯着版本号变化。依次确认训练侧、生成侧和新 Sample，才知道发布是否真的完成。",
+      kicker: "教学 fixture · 参数发布状态",
+      title: "actor@1 何时对新 generation 生效",
+      introduction: "实例依次比较训练完成、权重发布和下一轮 generation 三个状态。",
       steps: [
         {
           label: "01 · 训练刚结束",
@@ -721,7 +812,7 @@ export const sampleJourneyActs: LessonAct[] = [
         },
         {
           label: "02 · 显式发布",
-          title: "update_weights 让参数过桥",
+          title: "update_weights 执行显式发布",
           body: "weight updater 把训练侧的新参数交给 rollout engines；完成后才切换生成版本。",
           facts: [
             "actor_model.update_weights()",
@@ -731,7 +822,7 @@ export const sampleJourneyActs: LessonAct[] = [
         },
         {
           label: "03 · 下一轮开始",
-          title: "新 Sample 才写下 actor@1",
+          title: "发布后的新 Sample 记录 actor@1",
           body: "闭环回到 DataSource；随后启动的 generation 使用已发布版本，旧记录继续保存旧事实。",
           facts: [
             "next_cycle_ready = true",
@@ -754,19 +845,19 @@ export const sampleJourneyActs: LessonAct[] = [
       {
         id: "act-7-fact",
         kind: "source-fact",
-        title: "源码把发布写成主循环里的显式动词",
+        title: "源码边界：主循环显式调用 update_weights",
         body: "同步 `train` 主循环先等待当前 actor training 完成，再调用 `actor_model.update_weights()`，之后才进入下一次 generation。`MegatronTrainRayActor.update_weights` 连接可更新的 SGLang engines，并由 weight updater 执行参数发布；这条路径改变 engine 持有的权重，不会遍历并重写旧 Sample。",
       },
       {
         id: "act-7-fixture",
         kind: "teaching-fixture",
-        title: "播放器只演示边界，不假装记录一次真实传输",
+        title: "教学范围：版本标签不是网络传输 trace",
         body: "`actor@0/actor@1`、`weights_published` 与时间块用于固定表达版本和先后关系，不是 checkpoint 名、网络 trace 或性能 benchmark。事件 `weights_synced` 把 SGLang 切到 actor@1；随后 `next_cycle_ready` 只说明下一轮可以开始，不会修改上一轮四条 Sample。",
       },
       {
         id: "act-7-preview",
         kind: "advanced-preview",
-        title: "异步让桥上更热闹，却不能拆掉桥栏",
+        title: "异步边界：重叠执行不取消发布一致性",
         body: "async 会提前启动 rollout(i+1)，让它与 train(i) 重叠；因此这批 generation 可能仍由 actor@i 完成。到达配置的更新间隔时，主循环先等待那个 in-flight generation，再调用 update weights，防止参数在一次 generation 中途切换。异步改变重叠关系，不取消发布一致性。",
       },
     ],
@@ -781,15 +872,15 @@ export const sampleJourneyActs: LessonAct[] = [
       answer: "仍应记录 actor@0，因为 rollout engine 还没有完成 actor@1 的发布。只有同步完成后启动的新一轮才能记录 actor@1。",
       feedback: "判断版本不要看 trainer 何时训练完，要看 generation 启动时 rollout engine 已发布哪一版。",
     },
-    transition: "桥已合拢，闭环却不是句号：下一条 Sample 将从 actor@1 出发，再写下一轮“模型做了什么、为何被这样评价”的新历史。",
+    transition: "发布完成后启动的新 generation 可以使用 actor@1；上一轮 Sample 继续保留 actor@0 的生成历史。至此，训练闭环的状态边界完整闭合。",
   },
 ];
 
 export const sampleJourneyAssessment = {
   id: "core.sample-journey.check",
-  version: 1,
+  version: 2,
   title: "章末知识检查",
-  description: "可无限重试。至少答对 7 题，并且 q4、q5、q8 必须正确。",
+  description: "可无限重试。至少答对 8 题，并且四道关键边界题必须正确。",
   questions: [
     {
       id: "q1",
@@ -828,7 +919,7 @@ export const sampleJourneyAssessment = {
       required: false,
       answerSummary: "初始 Sample 保存语义输入，生成与训练侧字段仍未准备。",
       feedback: {
-        correct: "正确。Sample 已出生，但还没有经过生成、评价与转换。",
+        correct: "正确。Sample 已构造，但还没有经过生成、评价与训练数据转换。",
         incorrect: "注意时间点：Dataset 只完成了 Sample 的初始语义字段。",
       },
       returnTo: { label: "回到第一幕", href: "/learn/sample-journey#act-1", actId: "act-1" },
@@ -969,10 +1060,29 @@ export const sampleJourneyAssessment = {
       },
       returnTo: { label: "回到第七幕", href: "/learn/sample-journey#act-7", actId: "act-7" },
     },
+    {
+      id: "q10",
+      type: "multiple",
+      prompt: "综合调试记录如下：a0/a1 都是 COMPLETED，reward 分别为 1/0；collect 只返回 a0；训练后 Megatron 已是 actor@1，而 SGLang 仍是 actor@0；系统又把历史 a0 的 weight_versions 改成 actor@1。哪些现象首先违反了本课的默认边界？",
+      options: [
+        { id: "incomplete-group", label: "collect 因 reward=0 丢掉 a1，使默认收集结果不再是完整 group" },
+        { id: "version-split", label: "weight sync 前 Megatron 与 SGLang 暂时持有不同版本" },
+        { id: "history-rewrite", label: "把历史 a0 的生成版本从 actor@0 改写为 actor@1" },
+        { id: "completed-zero", label: "a1 同时具有 status=COMPLETED 与 reward=0" },
+      ],
+      correctOptionIds: ["incomplete-group", "history-rewrite"],
+      required: true,
+      answerSummary: "默认 collect 保留完整 group；历史 Sample 必须保留生成时的 policy 版本。训练侧与生成侧在发布前暂时分叉，以及 COMPLETED 与零 reward 并不矛盾。",
+      feedback: {
+        correct: "正确。你能区分真正的边界破坏与正常的暂态分叉。",
+        incorrect: "逐项问四个问题：generation 是否正常结束、reward 是否只是评价、collect 是否保持完整 group、历史版本是否仍可追溯。",
+      },
+      returnTo: { label: "回看评价、训练与发布边界", href: "/learn/sample-journey#act-4", actId: "act-4" },
+    },
   ] satisfies AssessmentQuestion[],
   completion: {
-    minCorrect: 7,
-    requiredQuestionIds: ["q4", "q5", "q8"],
+    minCorrect: 8,
+    requiredQuestionIds: ["q4", "q5", "q8", "q10"],
     requiredActIds: ["act-1", "act-2", "act-3", "act-4", "act-5", "act-6", "act-7"],
     unlimitedRetries: true,
     progressScope: "device-local",
@@ -986,16 +1096,20 @@ export const sampleJourneyLesson = {
     kind: "lesson",
     locale: "zh-CN",
     route: "/learn/sample-journey",
-    title: "一条 Sample 的旅程",
+    title: "一条 Sample 的状态演化",
     summary:
-      "一行数据刚进入 slime 时，还只带着一道题。接下来的七幕里，我们会看着它得到回答、评分与训练信号，最终推动一次权重更新，再把更新后的权重发布给下一轮生成。",
+      "本课沿同一条 Sample 检查七个系统边界：初始构造、候选分组、模型生成、reward 与 collect、训练数据转换、actor 更新，以及面向后续 rollout 的权重发布。",
     audiences: ["researcher", "engineer"],
     level: "slime-intro",
     duration: { minMinutes: 25, maxMinutes: 30, includesAssessment: true },
+    studyModes: {
+      core: { label: "核心阅读", duration: "25–30 分钟", includes: "结论、状态变化、实例与检查" },
+      research: { label: "完整研究", duration: "约 60 分钟", includes: "核心阅读、源码证据、fixture、进阶边界与实验工具" },
+    },
     workflowStatus: "ready",
     freshnessStatus: "current",
     visibility: "public",
-    lessonRevision: 5,
+    lessonRevision: 7,
     prerequisites: ["concept.rl-loop-basics"],
     learningObjectives: [
       "按顺序复述 Dataset → DataSource → SGLang → Reward → collect → train data → Megatron → weight sync 闭环。",
@@ -1013,9 +1127,9 @@ export const sampleJourneyLesson = {
     ],
     completion: {
       assessmentId: "core.sample-journey.check",
-      assessmentVersion: 1,
-      minCorrect: 7,
-      requiredQuestionIds: ["q4", "q5", "q8"],
+      assessmentVersion: 2,
+      minCorrect: 8,
+      requiredQuestionIds: ["q4", "q5", "q8", "q10"],
       requiredActs: [1, 2, 3, 4, 5, 6, 7],
     },
     baseline: {
@@ -1064,17 +1178,17 @@ export const sampleJourneyLesson = {
     },
   },
   opening: {
-    eyebrow: "序章 · 一条记录出发",
-    title: "它最初只是一道题。",
+    eyebrow: "阅读方法 · 跟踪同一对象",
+    title: "本课只跟踪一个对象：Sample。",
     paragraphs: [
-      "此刻还没有回答，没有分数，也没有训练信号。它只是数据集里安静的一行，等待系统把它读进来。",
-      "接下来，它会被复制成同组候选，交给模型生成答案，接受评价，再被整理成训练能够理解的形状。每越过一个系统边界，它都会多出一些字段，也多承担一层含义。",
-      "到了第六幕，优化器终于根据派生训练数据完成一次更新；第七幕再把新权重发布给 rollout engine。至此，下一轮生成才真正有了新的起点。",
+      "初始 Sample 只保存语义输入，没有 response、reward 或训练信号。后续每个组件都在明确的边界上读取已有状态、写入新字段或构造新的数据表示。",
+      "DataSource 建立同组独立候选，SGLang 写回生成结果，reward function 评价 response，RolloutManager 构造 train data 与 schedule，Megatron 更新 actor 参数。",
+      "训练完成并不等于生成侧已经使用新参数。最后一步必须显式发布权重；只有发布后启动的 generation 才能使用新的 actor 版本。",
     ],
-    closing: "先别急着记字段。先看它走完全程。",
-    coverKicker: "序章 / 一条记录出发",
-    coverCaption: "一道题，走向权重更新。",
-    overviewKicker: "90 秒 · 技术速览",
+    closing: "阅读策略：每一幕只回答当前组件改变了什么，以及哪些状态保持不变。",
+    coverKicker: "课程模型 / 单一观察对象",
+    coverCaption: "从语义输入到权重发布。",
+    overviewKicker: "90 秒 · 完整因果链",
   },
   hook: {
     question: "同样答对，为什么一个 Sample 完全不学习？",

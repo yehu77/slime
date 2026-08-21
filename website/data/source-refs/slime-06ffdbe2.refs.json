@@ -20,7 +20,11 @@
       "symbol_kind": "class",
       "claim": "Sample 定义 rollout 协议对象的输入、生成、评价、身份与状态字段。",
       "concept_ids": ["sample-object", "rollout-id", "terminal-status"],
-      "lesson_uses": ["act-1", "act-5"]
+      "lesson_uses": ["act-1", "act-5", "stg.chapter-2"],
+      "guided_excerpt": {
+        "start_contains": "# prompt",
+        "end_contains": "rollout_log_probs: list[float] | None"
+      }
     },
     {
       "id": "dataset.read-file",
@@ -40,7 +44,11 @@
       "symbol_kind": "method",
       "claim": "Dataset 选择 prompt、label、metadata，并构造初始 Sample。",
       "concept_ids": ["dataset-row", "sample-object"],
-      "lesson_uses": ["act-1", "q2"]
+      "lesson_uses": ["act-1", "q2", "stg.chapter-1"],
+      "guided_excerpt": {
+        "start_contains": "if processor:",
+        "end_contains": "multimodal_inputs=multimodal_inputs,"
+      }
     },
     {
       "id": "rollout.datasource-get-samples",
@@ -50,8 +58,41 @@
       "symbol_kind": "method",
       "claim": "DataSource 通过 deepcopy 形成同组候选，并分配 group_index 与独立 index。",
       "concept_ids": ["prompt-group", "group-index", "sample-index"],
-      "lesson_uses": ["act-2", "q3"],
-      "caveat": "生产源码是 deepcopy 与编号的主要证据；M1 fixture test 负责补充 2×2 教学契约。"
+      "lesson_uses": ["act-2", "q3", "stg.chapter-3"],
+      "caveat": "生产源码是 deepcopy 与编号的主要证据；教学 fixture test 负责补充 2×2 教学契约。",
+      "guided_excerpt": {
+        "start_contains": "samples = []",
+        "end_contains": "return samples"
+      }
+    },
+    {
+      "id": "rollout.prepare-prompt-ids",
+      "kind": "production-source",
+      "path": "slime/rollout/sglang_rollout.py",
+      "symbol": "_prepare_prompt_ids",
+      "symbol_kind": "function",
+      "claim": "默认 generation 路径复用已有 input IDs，或通过 processor/tokenizer 准备 prompt token IDs。",
+      "concept_ids": ["sample-object", "response-length"],
+      "lesson_uses": ["stg.chapter-4", "stg.final-q4"],
+      "caveat": "课程 token IDs 是显式标注的教学值；生产 token IDs 由所选 checkpoint 决定。",
+      "guided_excerpt": {
+        "start_contains": "def _prepare_prompt_ids",
+        "end_contains": "return tokenizer.encode"
+      }
+    },
+    {
+      "id": "rollout.generate-state-init",
+      "kind": "production-source",
+      "path": "slime/rollout/sglang_rollout.py",
+      "symbol": "GenerateState.__init__",
+      "symbol_kind": "method",
+      "claim": "GenerateState 从运行参数构造 tokenizer、processor、并发边界与默认 sampling params。",
+      "concept_ids": ["sample-object", "response-length"],
+      "lesson_uses": ["stg.chapter-4"],
+      "guided_excerpt": {
+        "start_contains": "self.semaphore =",
+        "end_contains": "self.sampling_params[\"custom_params\"]"
+      }
     },
     {
       "id": "rollout.generate",
@@ -61,7 +102,12 @@
       "symbol_kind": "async-function",
       "claim": "默认 generation 路径准备 prompt、调用 SGLang 并把 response 信息写回 Sample。",
       "concept_ids": ["sample-object", "response-length", "rollout-log-prob"],
-      "lesson_uses": ["act-3"]
+      "lesson_uses": ["act-3", "stg.chapter-4", "stg.chapter-5"],
+      "guided_excerpt": {
+        "start_contains": "if \"output_token_logprobs\"",
+        "end_contains": "text=output[\"text\"],",
+        "end_offset": 1
+      }
     },
     {
       "id": "sample.append-response-tokens",
@@ -71,7 +117,11 @@
       "symbol_kind": "method",
       "claim": "response token、response_length、loss_mask 与 rollout_log_probs 在 response 空间保持对齐。",
       "concept_ids": ["response-length", "loss-mask", "rollout-log-prob"],
-      "lesson_uses": ["act-3", "q4", "q5"]
+      "lesson_uses": ["act-3", "q4", "q5", "stg.chapter-6"],
+      "guided_excerpt": {
+        "start_contains": "tokens = _to_int_list(tokens)",
+        "end_contains": "self.response_length += len(tokens)"
+      }
     },
     {
       "id": "sample.apply-meta-info",
@@ -81,7 +131,21 @@
       "symbol_kind": "method",
       "claim": "generation meta info 更新权重版本，并把 finish reason 映射为 Sample status。",
       "concept_ids": ["weight-version", "terminal-status"],
-      "lesson_uses": ["act-3", "q6"]
+      "lesson_uses": ["act-3", "q6", "stg.chapter-6", "stg.final-q7"]
+    },
+    {
+      "id": "sample.validate-response-metadata-lengths",
+      "kind": "production-source",
+      "path": "slime/utils/types.py",
+      "symbol": "Sample._validate_response_metadata_lengths",
+      "symbol_kind": "method",
+      "claim": "写回后的 loss_mask、rollout_log_probs 与 top-p replay 元数据必须和 response_length 对齐。",
+      "concept_ids": ["response-length", "loss-mask", "rollout-log-prob"],
+      "lesson_uses": ["stg.chapter-6", "stg.final-q6"],
+      "guided_excerpt": {
+        "start_contains": "def _validate_response_metadata_lengths",
+        "end_contains": "rollout top-p replay must include both token ids and offsets."
+      }
     },
     {
       "id": "rollout.generate-and-rm",

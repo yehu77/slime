@@ -22,6 +22,19 @@ export interface LessonMicroCheck {
   feedback: string;
 }
 
+export interface LessonPrediction {
+  prompt: string;
+  options: Array<{
+    id: string;
+    label: string;
+  }>;
+  correctOptionId: string;
+  feedback: {
+    correct: string;
+    incorrect: string;
+  };
+}
+
 export interface LessonActWalkthroughStep {
   label: string;
   title: string;
@@ -49,6 +62,7 @@ export interface LessonAct {
     actor: string;
     visual: string;
   };
+  prediction: LessonPrediction;
   narrative?: {
     kicker: string;
     title: string;

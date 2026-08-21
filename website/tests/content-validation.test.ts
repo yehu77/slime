@@ -7,6 +7,8 @@ import {
   learningIntents,
   sampleJourneyLesson,
   sampleJourneyMessages,
+  slimeCurriculum,
+  sourceRefLabels,
   siteCopy,
 } from "@/content/zh";
 import { math2x2Fixture } from "@/core/journey";
@@ -74,7 +76,7 @@ describe("M1 lesson content contract", () => {
     ).toBeTruthy();
   });
 
-  it("keeps the 90-second, seven-act, nine-question completion shape", () => {
+  it("keeps the 90-second, seven-act, ten-question completion shape", () => {
     expect(sampleJourneyLesson.opening.paragraphs).toHaveLength(3);
     expect(sampleJourneyLesson.overview90s.steps).toHaveLength(7);
     expect(
@@ -86,17 +88,29 @@ describe("M1 lesson content contract", () => {
     expect(sampleJourneyLesson.acts.map((act) => act.number)).toEqual([
       1, 2, 3, 4, 5, 6, 7,
     ]);
-    expect(sampleJourneyLesson.assessment.questions).toHaveLength(9);
+    expect(sampleJourneyLesson.assessment.questions).toHaveLength(10);
     expect(
       sampleJourneyLesson.assessment.questions
         .filter((question) => question.required)
         .map((question) => question.id),
-    ).toEqual(["q4", "q5", "q8"]);
+    ).toEqual(["q4", "q5", "q8", "q10"]);
     expect(sampleJourneyLesson.assessment.completion).toMatchObject({
-      minCorrect: 7,
-      requiredQuestionIds: ["q4", "q5", "q8"],
+      minCorrect: 8,
+      requiredQuestionIds: ["q4", "q5", "q8", "q10"],
       unlimitedRetries: true,
       progressScope: "device-local",
+    });
+    expect(metadata.studyModes).toEqual({
+      core: expect.objectContaining({ duration: "25–30 分钟" }),
+      research: expect.objectContaining({ duration: "约 60 分钟" }),
+    });
+    expect("nextLearningPath" in sampleJourneyLesson).toBe(false);
+    expect(slimeCurriculum.stages.map((stage) => stage.id)).toHaveLength(7);
+    expect(sampleJourneyLesson.assessment.questions.at(-1)).toMatchObject({
+      id: "q10",
+      type: "multiple",
+      required: true,
+      correctOptionIds: ["incomplete-group", "history-rewrite"],
     });
   });
 
@@ -108,9 +122,11 @@ describe("M1 lesson content contract", () => {
     const conversionAct = sampleJourneyLesson.acts[4];
     const trainingAct = sampleJourneyLesson.acts[5];
     const syncAct = sampleJourneyLesson.acts[6];
-    expect(metadata.lessonRevision).toBe(5);
+    expect(metadata.lessonRevision).toBe(7);
+    expect(metadata.completion.assessmentVersion).toBe(2);
+    expect(sampleJourneyLesson.acts.every((act) => act.prediction.options.length >= 3)).toBe(true);
     expect(firstAct.narrative).toMatchObject({
-      title: "一行 JSON，刚刚走进 slime。",
+      title: "Sample 是统一中间表示，不是训练 batch。",
       takeaway: expect.stringContaining("PENDING"),
     });
     expect(firstAct.narrative?.paragraphs).toHaveLength(2);
@@ -155,7 +171,7 @@ describe("M1 lesson content contract", () => {
     expect(conversionAct.walkthrough?.caption).toContain("`rewards`");
     expect(conversionAct.fieldChanges).toHaveLength(6);
 
-    expect(trainingAct.narrative?.takeaway).toContain("训练改变模型");
+    expect(trainingAct.narrative?.takeaway).toContain("optimizer 更新当前 actor 参数");
     expect(trainingAct.walkthrough?.steps).toHaveLength(3);
     expect(trainingAct.walkthrough?.steps[2].facts).toEqual([
       "Megatron actor → actor@1",
@@ -183,7 +199,9 @@ describe("M1 lesson content contract", () => {
 
     for (const act of sampleJourneyLesson.acts) {
       expect(act.sourceRefIds.every((id) => sourceIds.has(id))).toBe(true);
+      expect(act.sourceRefIds.every((id) => Boolean(sourceRefLabels[id]))).toBe(true);
       expect(act.glossaryTermIds.every((id) => glossaryIds.has(id))).toBe(true);
+      expect(act.prediction.options.some((option) => option.id === act.prediction.correctOptionId)).toBe(true);
     }
     for (const term of glossaryTerms) {
       expect(term.sourceRefIds.every((id) => sourceIds.has(id))).toBe(true);
@@ -233,7 +251,7 @@ describe("M1 evidence and navigation contract", () => {
       environment: { num_gpus: 0 },
       result: { status: "passed", passed: 21, failed: 0 },
     });
-    expect(refsPayload.refs).toHaveLength(24);
+    expect(refsPayload.refs).toHaveLength(27);
 
     const anchorIds = new Set(anchorsPayload.anchors.map((anchor) => anchor.id));
     expect(anchorIds).toEqual(sourceIds);

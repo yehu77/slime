@@ -33,6 +33,12 @@
     {
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
       "end_line": 273,
+      "guided_excerpt": {
+        "code": "            if processor:\n                from slime.utils.processing_utils import process_vision_info\n\n                assert isinstance(\n                    prompt, list\n                ), f\"prompt must be a list when processor is not None, got {type(prompt)} instead\"\n                multimodal_inputs = process_vision_info(prompt, processor)\n            else:\n                multimodal_inputs = None\n\n            origin_samples.append(\n                Sample(\n                    prompt=output_prompt,\n                    label=data[label_key] if label_key is not None else None,\n                    metadata=metadata,\n                    multimodal_inputs=multimodal_inputs,",
+        "end_line": 262,
+        "snippet_sha256": "2b8abf7ed133c6d26c4afc83f96ce45b58fa608c69f59c902345906e662471bf",
+        "start_line": 247
+      },
       "id": "dataset.construct-sample",
       "path": "slime/utils/data.py",
       "snippet_sha256": "b1b7116d2caac42bf197b68c25896f841c65097faa7eb673b6e4e727867f2be8",
@@ -83,6 +89,12 @@
     {
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
       "end_line": 118,
+      "guided_excerpt": {
+        "code": "        samples = []\n        for prompt_sample in prompt_samples:\n            group = []\n            for _ in range(self.args.n_samples_per_prompt):\n                sample = copy.deepcopy(prompt_sample)\n                sample.group_index = self.sample_group_index\n                sample.index = self.sample_index\n                self.sample_index += 1\n                group.append(sample)\n            self.sample_group_index += 1\n            samples.append(group)\n        return samples",
+        "end_line": 118,
+        "snippet_sha256": "ffef2b16a9129cb6fb6395d05941c70693102ec92bdd80dee3db62afeca5fe35",
+        "start_line": 107
+      },
       "id": "rollout.datasource-get-samples",
       "path": "slime/rollout/data_source.py",
       "snippet_sha256": "4882846f0ef825667ae623de526956bd9b6b45a2c9229a77cc16c563b499502a",
@@ -93,6 +105,12 @@
     {
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
       "end_line": 219,
+      "guided_excerpt": {
+        "code": "    if \"output_token_logprobs\" in output[\"meta_info\"]:\n        new_response_tokens = [item[1] for item in output[\"meta_info\"][\"output_token_logprobs\"]]\n        new_response_log_probs = [item[0] for item in output[\"meta_info\"][\"output_token_logprobs\"]]\n    else:\n        new_response_tokens, new_response_log_probs = [], []\n\n    sample.append_response_tokens(\n        args,\n        tokens=new_response_tokens,\n        log_probs=new_response_log_probs,\n        trainable=True,\n        meta_info=output[\"meta_info\"],\n        text=output[\"text\"],\n    )",
+        "end_line": 217,
+        "snippet_sha256": "3cd1978492fb75a57fe5d83f1db0905c4133bad6e5ada1ad053ca0030e8953c1",
+        "start_line": 204
+      },
       "id": "rollout.generate",
       "path": "slime/rollout/sglang_rollout.py",
       "snippet_sha256": "3b52990cf03d8b743d26ac6ef53ab7047c30b6f5eae5afd8e47bed663cd11180",
@@ -119,6 +137,22 @@
       "start_line": 372,
       "symbol": "generate_rollout_async",
       "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/rollout/sglang_rollout.py#L372-L468"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 117,
+      "guided_excerpt": {
+        "code": "        self.semaphore = asyncio.Semaphore(args.sglang_server_concurrency * get_rollout_num_engines(args))\n        self.sampling_params: dict[str, Any] = dict(\n            temperature=args.rollout_temperature,\n            top_p=args.rollout_top_p,\n            top_k=args.rollout_top_k,\n            max_new_tokens=args.rollout_max_response_len,\n            stop=args.rollout_stop,\n            stop_token_ids=args.rollout_stop_token_ids,\n            skip_special_tokens=args.rollout_skip_special_tokens,\n            no_stop_trim=True,\n            spaces_between_special_tokens=False,\n        )\n        if args.rollout_top_p != 1.0:\n            self.sampling_params[\"custom_params\"] = {\"return_top_p_token_ids\": True}",
+        "end_line": 107,
+        "snippet_sha256": "c3c829d868fad946ba601bc1d5894ea4a2c42433e254e39fd6625fe46835beb3",
+        "start_line": 94
+      },
+      "id": "rollout.generate-state-init",
+      "path": "slime/rollout/sglang_rollout.py",
+      "snippet_sha256": "31b72261b20cc1bc55634cf250ea059559a6a0560e94858c4ce742f0c4739506",
+      "start_line": 88,
+      "symbol": "GenerateState.__init__",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/rollout/sglang_rollout.py#L88-L117"
     },
     {
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
@@ -152,6 +186,22 @@
     },
     {
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 61,
+      "guided_excerpt": {
+        "code": "def _prepare_prompt_ids(sample: Sample, tokenizer, processor: Any) -> list[int]:\n    raw_multimodal_inputs = sample.multimodal_inputs or {}\n    has_multimodal_inputs = any(value is not None for value in raw_multimodal_inputs.values())\n    reuse_existing_input_ids = bool(sample.tokens) and (\n        sample.multimodal_train_inputs is not None or not has_multimodal_inputs\n    )\n\n    if processor and has_multimodal_inputs and not reuse_existing_input_ids:\n        processor_output = processor(text=sample.prompt, **build_processor_kwargs(raw_multimodal_inputs))\n        prompt_ids = processor_output[\"input_ids\"][0]\n        if sample.multimodal_train_inputs is None:\n            sample.multimodal_train_inputs = {\n                k: v for k, v in processor_output.items() if k not in _PROCESSOR_PROMPT_KEYS\n            } or None\n        return prompt_ids\n\n    if reuse_existing_input_ids:\n        return sample.tokens\n\n    return tokenizer.encode(sample.prompt, add_special_tokens=False)",
+        "end_line": 61,
+        "snippet_sha256": "db08a3c7e6ed26a5acbb3186f9bfb983bfba8b24c08d90e2f047eaa8ff75e7b3",
+        "start_line": 42
+      },
+      "id": "rollout.prepare-prompt-ids",
+      "path": "slime/rollout/sglang_rollout.py",
+      "snippet_sha256": "db08a3c7e6ed26a5acbb3186f9bfb983bfba8b24c08d90e2f047eaa8ff75e7b3",
+      "start_line": 42,
+      "symbol": "_prepare_prompt_ids",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/rollout/sglang_rollout.py#L42-L61"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
       "end_line": 898,
       "id": "rollout.split-train-data",
       "path": "slime/ray/rollout.py",
@@ -163,6 +213,12 @@
     {
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
       "end_line": 314,
+      "guided_excerpt": {
+        "code": "        tokens = _to_int_list(tokens)\n        log_probs = _to_float_list(log_probs)\n        if log_probs is not None and len(log_probs) != len(tokens):\n            raise ValueError(f\"log_probs length {len(log_probs)} != tokens length {len(tokens)}\")\n        if tokens and trainable and log_probs is None:\n            raise ValueError(\"trainable response tokens require rollout log probabilities.\")\n        if tokens and not trainable:\n            if log_probs is not None:\n                raise ValueError(\"non-trainable response tokens should not pass rollout log probabilities.\")\n            log_probs = [0.0] * len(tokens)\n\n        if text is not None:\n            self.response += text\n\n        previous_response_length = self.response_length\n        if tokens:\n            self.tokens += tokens\n            self.response_length += len(tokens)",
+        "end_line": 289,
+        "snippet_sha256": "08ddbf6c5f1b276865614a272d76c14ecb1b9377cd2ea0d632d4097e23806db3",
+        "start_line": 272
+      },
       "id": "sample.append-response-tokens",
       "path": "slime/utils/types.py",
       "snippet_sha256": "29a3540820a6cec27b146d0d490271be7a2851787e2dc6927fa978855f45677b",
@@ -183,12 +239,34 @@
     {
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
       "end_line": 443,
+      "guided_excerpt": {
+        "code": "    # prompt\n    prompt: str | list[dict[str, str]] = \"\"\n    tokens: list[int] = field(default_factory=list)\n    multimodal_inputs: dict[str, Any] | None = None  # raw multimodal data, e.g. images, videos, etc.\n    multimodal_train_inputs: dict[str, Any] | None = None  # processed multimodal data, e.g. pixel_values, etc.\n    multimodal_train_input_id: str | None = None\n    apply_chat_template_kwargs: dict = field(default_factory=dict)\n    # response\n    response: str = \"\"\n    response_length: int = 0\n    label: str | None = None\n    reward: float | dict[str, Any] | None = None\n    loss_mask: list[int] | None = None\n    weight_versions: list[str] = field(default_factory=list)\n    rollout_log_probs: list[float] | None = None  # Log probabilities from rollout engine",
+        "end_line": 121,
+        "snippet_sha256": "00abda215f4110a1dd59e80558d77051b2f3c12fa5346aa03594c690285a2d3f",
+        "start_line": 107
+      },
       "id": "sample.dataclass",
       "path": "slime/utils/types.py",
       "snippet_sha256": "464d0fb132d6487d2c4122c0bf4487e7636093ba8e4b55d4edae3285e1aeced1",
       "start_line": 94,
       "symbol": "Sample",
       "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L94-L443"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 443,
+      "guided_excerpt": {
+        "code": "    def _validate_response_metadata_lengths(self):\n        if self.loss_mask is not None and len(self.loss_mask) != self.response_length:\n            raise ValueError(f\"loss_mask length {len(self.loss_mask)} != response_length {self.response_length}\")\n\n        if self.rollout_log_probs is not None and len(self.rollout_log_probs) != self.response_length:\n            raise ValueError(\n                f\"rollout_log_probs length {len(self.rollout_log_probs)} != response_length {self.response_length}\"\n            )\n\n        if self.rollout_top_p_token_ids is None and self.rollout_top_p_token_offsets is None:\n            return\n        if self.rollout_top_p_token_ids is None or self.rollout_top_p_token_offsets is None:\n            raise ValueError(\"rollout top-p replay must include both token ids and offsets.\")",
+        "end_line": 430,
+        "snippet_sha256": "da729a72fdfa8a8aad0bd410fc9b9db70a88249ed72b55caa76484a5fb979e08",
+        "start_line": 418
+      },
+      "id": "sample.validate-response-metadata-lengths",
+      "path": "slime/utils/types.py",
+      "snippet_sha256": "8e277456453457d67a74379f46a09a75c9cd48630140957fbc2a904bb6a4b17a",
+      "start_line": 418,
+      "symbol": "Sample._validate_response_metadata_lengths",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L418-L443"
     },
     {
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
