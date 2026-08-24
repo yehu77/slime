@@ -66,5 +66,14 @@ for (const [route, expected] of routes) {
       assert.match(html, /分组/);
       assert.doesNotMatch(html, /3 分钟课前诊断/);
     }
+    if (route === "/learn/sample-to-generation?chapter=row-to-sample") {
+      assert.match(renderedText, /Trace passport/);
+      assert.match(renderedText, /连续字段翻译台/);
+      assert.match(renderedText, /空白也是证据/);
+      assert.match(renderedText, /正在恢复本章练习记录/);
+      assert.match(renderedText, /下一生产者：/);
+      assert.match(renderedText, /pending<\/code>\s*只表示这条 Sample 尚未被 generation 处理/);
+      assert.doesNotMatch(renderedText, /STATEorigin-a 账本/);
+    }
   });
 }

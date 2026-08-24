@@ -40,6 +40,7 @@ function makeSeedSample(row: TeachingRow): SampleToGenerationSample {
     index: null,
     prompt: row.text,
     tokens: [],
+    multimodal_inputs: null,
     response: "",
     response_length: 0,
     label: row.label,

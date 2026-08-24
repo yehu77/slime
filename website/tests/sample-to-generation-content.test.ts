@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   gradeFinalAssessment,
   gradeStructuredExercise,
+  sampleToGenerationFixture,
   type StructuredExercise,
   type StructuredExerciseAnswer,
 } from "@/core/sample-to-generation";
@@ -16,6 +17,7 @@ import {
 } from "@/content/zh/lessons/sample-to-generation";
 import anchorsPayload from "@/data/source-refs/slime-06ffdbe2.anchors.generated.json";
 import refsPayload from "@/data/source-refs/slime-06ffdbe2.refs.json";
+import { hasChapterOneTranslationData } from "@/components/mechanism/ChapterOneTranslationDesk";
 
 function correctAnswer(exercise: StructuredExercise): StructuredExerciseAnswer {
   switch (exercise.kind) {
@@ -75,6 +77,120 @@ describe("sample-to-generation course contract", () => {
     expect(new Set(sampleToGenerationChapters.map((chapter) => chapter.exercise.kind))).toEqual(
       new Set(["choice", "ordering", "mapping", "field-entry"]),
     );
+  });
+
+  it("models chapter one as four explicit translation lanes with unique targets", () => {
+    const chapter = sampleToGenerationChapters[0];
+    expect(chapter.slug).toBe("row-to-sample");
+    expect(chapter.scopeLabel).toMatch(/教学基线/);
+    expect(chapter.objective).toMatch(/初始 Sample 投影/);
+    expect(chapter.stateTransition.after).toContain("loss_mask=None");
+    expect(chapter.stateTransition.after).toContain("metadata 字段值来自 row");
+
+    expect(chapter.mappingLanes?.map((lane) => lane.id)).toEqual([
+      "prompt-lane",
+      "label-lane",
+      "metadata-lane",
+      "defaults-lane",
+    ]);
+    const targets = chapter.mappingLanes?.flatMap((lane) => lane.target.fields) ?? [];
+    expect(new Set(targets.map((target) => target.field)).size).toBe(targets.length);
+    expect(Object.fromEntries(targets.map((target) => [target.field, target.value]))).toEqual({
+      prompt: "\"3 + 2 = ?\"",
+      label: "\"5\"",
+      metadata: "{source_name: \"mechanism_course\", difficulty: \"warmup\"}",
+      group_index: "None",
+      index: "None",
+      tokens: "[]",
+      response: "\"\"",
+      response_length: "0",
+      reward: "None",
+      loss_mask: "None",
+      weight_versions: "[]",
+      rollout_log_probs: "None",
+      status: "pending",
+      train_metadata: "None",
+    });
+    const fixtureRow = sampleToGenerationFixture.rows.find((row) => row.origin_id === "origin-a");
+    expect(JSON.parse(chapter.tracePassport?.origin.rowCode ?? "null")).toEqual({
+      text: fixtureRow?.text,
+      label: fixtureRow?.label,
+      metadata: fixtureRow?.metadata,
+    });
+    expect(chapter.tracePassport?.origin.rowShape).toBe("row{text, label, metadata}");
+
+    const groups = chapter.defaultFieldGroups ?? [];
+    expect(groups.map((group) => group.id)).toEqual(["dataset-explicit", "dataclass-default"]);
+    expect(groups.find((group) => group.id === "dataset-explicit")?.fields).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ field: "multimodal_inputs", value: "None" }),
+        expect.objectContaining({
+          field: "metadata",
+          interpretation: expect.stringContaining("不追踪 Python 对象身份"),
+        }),
+      ]),
+    );
+    expect(chapter.tracePassport?.config.map((entry) => `${entry.key}=${entry.value}`).join(" ")).toMatch(
+      /multimodal_keys \/ processor=None \/ None/,
+    );
+    const defaultFields = groups.find((group) => group.id === "dataclass-default")?.fields ?? [];
+    expect(defaultFields.every((field) => Boolean(field.nextProducer))).toBe(true);
+    expect(defaultFields.find((field) => field.field === "status")).toMatchObject({
+      value: "pending",
+      nextProducer: "generation 终止状态写回",
+      interpretation: expect.stringContaining("不表示答案正确"),
+    });
+    expect(chapter.branch?.edgeCases.map((item) => item.behavior).join(" ")).toContain(
+      "不会把编码写入 Sample.tokens",
+    );
+
+    const evidenceIds = [chapter.evidenceId, ...(chapter.additionalEvidenceIds ?? [])];
+    for (const evidenceId of evidenceIds) {
+      expect(
+        sampleToGenerationSourceEvidence.some((evidence) => evidence.id === evidenceId),
+        "missing chapter-one evidence " + evidenceId,
+      ).toBe(true);
+    }
+  });
+
+  it("uses the translation reader only when all structured chapter-one data is present", () => {
+    const chapter = sampleToGenerationChapters[0];
+    expect(hasChapterOneTranslationData(chapter)).toBe(true);
+    expect(hasChapterOneTranslationData({ ...chapter, mappingLanes: undefined })).toBe(false);
+  });
+
+  it("grades the new row-schema migration exercise without inferring label", () => {
+    const exercise = sampleToGenerationChapters[0].exercise;
+    expect(exercise.kind).toBe("field-entry");
+    if (exercise.kind !== "field-entry") throw new Error("unexpected exercise kind");
+    const correct = gradeStructuredExercise(exercise, {
+      kind: "field-entry",
+      values: {
+        prompt: "6 × 7 = ?",
+        label: "None",
+        metadata: '{"source":"transfer-check"}',
+        tokens: "[]",
+      },
+    });
+    expect(correct.correct).toBe(true);
+    expect(gradeStructuredExercise(exercise, {
+      kind: "field-entry",
+      values: {
+        prompt: "6 × 7 = ?",
+        label: "None",
+        metadata: "{source:transfer-check}",
+        tokens: "[]",
+      },
+    })).toMatchObject({ correct: false, fieldResults: { metadata: false } });
+    expect(gradeStructuredExercise(exercise, {
+      kind: "field-entry",
+      values: {
+        prompt: "6 × 7 = ?",
+        label: "42",
+        metadata: '{"source":"transfer-check"}',
+        tokens: "[]",
+      },
+    })).toMatchObject({ correct: false, fieldResults: { label: false } });
   });
 
   it("requires 7/8 with q2, q4, q6 and q8 all correct", () => {

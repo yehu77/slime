@@ -5,6 +5,62 @@ export type SampleToGenerationExplanation = {
   body: string;
 };
 
+export type SampleToGenerationMappingLane = {
+  id: string;
+  source: {
+    label: string;
+    code: string;
+    value: string;
+  };
+  rule: {
+    label: string;
+    code: string;
+    explanation: string;
+  };
+  target: {
+    label: string;
+    fields: readonly {
+      field: string;
+      value: string;
+    }[];
+  };
+};
+
+export type SampleToGenerationDefaultFieldGroup = {
+  id: "dataset-explicit" | "dataclass-default";
+  title: string;
+  summary: string;
+  fields: readonly {
+    field: string;
+    value: string;
+    provenance: string;
+    nextProducer?: string;
+    interpretation: string;
+  }[];
+};
+
+export type SampleToGenerationTracePassport = {
+  origin: {
+    id: string;
+    rowCode: string;
+    rowShape: string;
+  };
+  config: readonly {
+    key: string;
+    value: string;
+  }[];
+  stopAt: string;
+};
+
+export type SampleToGenerationBranch = {
+  title: string;
+  body: string;
+  edgeCases: readonly {
+    condition: string;
+    behavior: string;
+  }[];
+};
+
 export type SampleToGenerationChapter = {
   id: string;
   number: number;
@@ -14,6 +70,9 @@ export type SampleToGenerationChapter = {
   durationMinutes: number;
   drivingQuestion: string;
   imageSrc: string;
+  imageAlt?: string;
+  scopeLabel?: string;
+  objective?: string;
   conclusion: string;
   boundary: {
     input: readonly string[];
@@ -25,10 +84,15 @@ export type SampleToGenerationChapter = {
     operation: string;
     after: string;
   };
+  tracePassport?: SampleToGenerationTracePassport;
+  mappingLanes?: readonly SampleToGenerationMappingLane[];
+  defaultFieldGroups?: readonly SampleToGenerationDefaultFieldGroup[];
+  branch?: SampleToGenerationBranch;
   explanation: readonly SampleToGenerationExplanation[];
   observationIds: readonly string[];
   sourceRefIds: readonly string[];
   evidenceId: string;
+  additionalEvidenceIds?: readonly string[];
   exercise: StructuredExercise;
   misconception: {
     belief: string;
@@ -90,15 +154,15 @@ export type CourseManifest = SampleToGenerationCourse;
 export const sampleToGenerationSourceEvidence: readonly SampleToGenerationSourceEvidence[] = [
   {
     id: "evidence-row-to-sample",
-    title: "Dataset 只完成语义字段映射",
+    title: "源码核对：构造器没有接收生成结果",
     sourceRefId: "dataset.construct-sample",
-    claim: "默认 Dataset 从外部记录读取 prompt、label 与 metadata，再构造尚未生成的 Sample。",
+    claim: "固定提交中，Dataset 显式传入 prompt=output_prompt、可选 label、metadata 与 multimodal_inputs；本章 processor=None，因此最后一项显式为 None。其余课程追踪字段不在这次调用中。",
     focus: [
-      "循环消费 read_file(path) 的每一行",
-      "prompt_key、label_key、metadata_key 是外部 schema 到内部协议的映射点",
-      "Sample(...) 构造调用没有 response、reward 或训练张量参数",
+      "output_prompt 是前面完成 schema 适配后的 prompt",
+      "label 只有在 label_key 不为 None 时才从 row 读取",
+      "未传入的生成与训练字段采用 Sample dataclass 的阶段默认值",
     ],
-    boundary: "这段证据说明 Dataset 构造什么；它不说明 tokenizer 最终会产生哪些 token ID。",
+    boundary: "摘录只证明四个显式实参。metadata/chat-template 分支在同一 Dataset.__init__ 更早处；prompt_key/multimodal_keys 映射在 _build_messages。它不证明真实 token ID。",
   },
   {
     id: "evidence-sample-fields",
@@ -110,7 +174,7 @@ export const sampleToGenerationSourceEvidence: readonly SampleToGenerationSource
       "tokens、response 与 response_length 描述生成前后状态",
       "reward、loss_mask 与 rollout_log_probs 初始都允许为空",
     ],
-    boundary: "dataclass 给出结构和默认值，但字段的写入责任仍要由调用链确定。",
+    boundary: "引导摘录集中展示 prompt、response、label、reward 与 response-space 默认值；group_index / index 位于类定义更前面，status=Sample.Status.PENDING 位于更后面，可由下方固定 commit 链接核对。dataclass 给出结构，不单独证明后续写入责任。",
   },
   {
     id: "evidence-deepcopy-groups",
@@ -164,30 +228,20 @@ export const sampleToGenerationSourceEvidence: readonly SampleToGenerationSource
 
 const chapterOneExercise = {
   id: "stg.chapter-1-gate",
-  kind: "mapping",
-  title: "字段映射：外部记录怎样进入 Sample",
-  prompt: "把外部 row 的三个字段映射到默认 Dataset 构造的 Sample 字段。",
-  instruction: "每个左侧字段选择一个唯一的内部去向。",
-  items: [
-    { id: "row-text", label: "row.text" },
-    { id: "row-label", label: "row.label" },
-    { id: "row-metadata", label: "row.metadata" },
+  kind: "field-entry",
+  title: "迁移练习：换一套 row schema，重新翻译",
+  prompt: "迁移到 row={question, answer, context}：question=\"6 × 7 = ?\"，answer=\"42\"，context.source=\"transfer-check\"。",
+  instruction: "配置 question → prompt、context → metadata、label_key=None。填写 prompt、label、metadata、tokens；停在 Dataset 构造边界。",
+  fields: [
+    { id: "prompt", label: "prompt", acceptedAnswers: ["6 × 7 = ?", "\"6 × 7 = ?\""], placeholder: "例如：\"...\"" },
+    { id: "label", label: "label", acceptedAnswers: ["None", "null"], placeholder: "Python/JSON 空值" },
+    { id: "metadata", label: "metadata", acceptedAnswers: ["{\"source\":\"transfer-check\"}", "{'source':'transfer-check'}"], placeholder: "紧凑对象" },
+    { id: "tokens", label: "tokens", acceptedAnswers: ["[]"], placeholder: "列表" },
   ],
-  targets: [
-    { id: "sample-prompt", label: "Sample.prompt" },
-    { id: "sample-label", label: "Sample.label" },
-    { id: "sample-metadata", label: "Sample.metadata" },
-    { id: "sample-tokens", label: "Sample.tokens" },
-  ],
-  correctMapping: {
-    "row-text": "sample-prompt",
-    "row-label": "sample-label",
-    "row-metadata": "sample-metadata",
-  },
-  sourceRefIds: ["dataset.construct-sample"],
+  sourceRefIds: ["dataset.construct-sample", "sample.dataclass"],
   feedback: {
-    correct: "映射正确。Dataset 完成的是语义字段翻译，tokens 仍由生成路径准备。",
-    incorrect: "回到 Sample(...) 的构造调用：只看实际传入了哪些关键字参数。",
+    correct: "迁移成立：question 被翻译为 prompt；label_key=None 阻止 answer 进入 label；context 成为 metadata；tokens 仍等待 generation 路径。",
+    incorrect: "沿四条 lane 重算：先看配置选择哪个 row 字段，再区分 Sample(...) 显式参数与 dataclass 默认值。",
   },
 } as const satisfies StructuredExercise;
 
@@ -325,47 +379,247 @@ export const sampleToGenerationChapters: readonly SampleToGenerationChapter[] = 
     title: "一行数据怎样成为 Sample",
     shortTitle: "构造",
     durationMinutes: 11,
-    drivingQuestion: "当一行 JSONL 刚进入 slime，它已经是模型可训练的数据了吗？",
+    drivingQuestion: "当 read_file() 交出一个 Python dict 时，slime 得到的是训练样本，还是一份尚待演化的协议对象？",
     imageSrc: "/art/library-act-01-v1.webp",
-    conclusion: "没有。默认 Dataset 只把外部 schema 翻译成框架内部的 Sample；生成与训练字段仍保持空值。",
+    imageAlt: "资料库原画台上一名在层叠档案之间核对记录的研究者",
+    scopeLabel: "教学基线 · 纯文本 JSONL · 不应用 chat template · 不启用 processor",
+    objective: "给定任意 row schema 与 Dataset 的键配置，写出本课追踪字段的初始 Sample 投影，并指出哪些值此时不可能已经产生。",
+    conclusion: "构造完成时，origin-a 已有 prompt、label 与 metadata；tokens=[]、group_index=None、response=\"\"、reward=None、status=pending。",
     boundary: {
-      input: ["JSONL 或 Parquet 的一条 row", "prompt_key、label_key、metadata_key 配置"],
-      output: ["包含 prompt、label、metadata 的初始 Sample", "status=pending 与空的生成字段"],
-      excluded: ["tokenizer 的真实 token ID", "SGLang 响应", "reward 与 trainer batch"],
+      input: [
+        "read_file() 产出的有效 Python dict",
+        "prompt_key=\"text\"、label_key=\"label\"、metadata_key=\"metadata\" 的教学配置",
+        "apply_chat_template=False、processor=None、max_length=None 的研究条件",
+      ],
+      output: [
+        "prompt、label、metadata 已确定的 origin Sample 教学投影",
+        "status=pending，以及仍处于默认值的身份、生成、评价与训练字段",
+      ],
+      excluded: [
+        "DataSource 分组与 group_index / index",
+        "真实 checkpoint tokenizer 的 token ID",
+        "SGLang response、reward 与 trainer batch",
+      ],
     },
     stateTransition: {
-      before: "row = {text: \"3 + 2 = ?\", label: \"5\", metadata: {...}}",
-      operation: "Dataset 读取配置键并调用 Sample(prompt=..., label=..., metadata=...)",
-      after: "Sample.prompt 已有值；tokens=[]、response=\"\"、reward=null、status=pending",
+      before: "data = {text: \"3 + 2 = ?\", label: \"5\", metadata: {source_name: \"mechanism_course\", difficulty: \"warmup\"}}",
+      operation: "output_prompt = data.get(\"text\"); Sample(prompt=output_prompt, label=data[\"label\"], metadata=data.get(\"metadata\") or {}, multimodal_inputs=None)",
+      after: "prompt=\"3 + 2 = ?\"；label=\"5\"；metadata 字段值来自 row；tokens=[]；response=\"\"；response_length=0；group_index=None；reward=None；loss_mask=None；status=pending",
+    },
+    tracePassport: {
+      origin: {
+        id: "origin-a",
+        rowCode: "{\"text\":\"3 + 2 = ?\",\"label\":\"5\",\"metadata\":{\"source_name\":\"mechanism_course\",\"difficulty\":\"warmup\"}}",
+        rowShape: "row{text, label, metadata}",
+      },
+      config: [
+        { key: "schema keys", value: "prompt=\"text\" · label=\"label\" · metadata=\"metadata\"" },
+        { key: "apply_chat_template", value: "False" },
+        { key: "multimodal_keys / processor", value: "None / None" },
+        { key: "max_length", value: "None" },
+      ],
+      stopAt: "Dataset 已完成 Sample(...) 构造；DataSource 分组、tokenizer、SGLang、reward 与 trainer 均未运行。",
+    },
+    mappingLanes: [
+      {
+        id: "prompt-lane",
+        source: {
+          label: "row 字段",
+          code: "text",
+          value: "\"3 + 2 = ?\"",
+        },
+        rule: {
+          label: "Dataset 取值规则",
+          code: "data.get(prompt_key)",
+          explanation: "prompt_key=\"text\"，所以外部 text 获得内部 prompt 语义。",
+        },
+        target: {
+          label: "initial Sample 投影",
+          fields: [{ field: "prompt", value: "\"3 + 2 = ?\"" }],
+        },
+      },
+      {
+        id: "label-lane",
+        source: {
+          label: "row 字段",
+          code: "label",
+          value: "\"5\"",
+        },
+        rule: {
+          label: "Dataset 取值规则",
+          code: "label_key 非 None 时读取",
+          explanation: "label_key=\"label\" 是教学配置；若为 None，即使 row 有 answer/label 也不读取。",
+        },
+        target: {
+          label: "initial Sample 投影",
+          fields: [{ field: "label", value: "\"5\"" }],
+        },
+      },
+      {
+        id: "metadata-lane",
+        source: {
+          label: "row 字段",
+          code: "metadata",
+          value: "{source_name, difficulty}",
+        },
+        rule: {
+          label: "Dataset 取值规则",
+          code: "data.get(metadata_key) or {}",
+          explanation: "取到 truthy 对象时直接传入；键缺失或值为 falsy 时回退为空字典。",
+        },
+        target: {
+          label: "initial Sample 投影",
+          fields: [{ field: "metadata", value: "{source_name: \"mechanism_course\", difficulty: \"warmup\"}" }],
+        },
+      },
+      {
+        id: "defaults-lane",
+        source: {
+          label: "构造调用",
+          code: "Sample(...) 未传入",
+          value: "身份、生成、评价与训练字段",
+        },
+        rule: {
+          label: "Python dataclass",
+          code: "dataclass defaults",
+          explanation: "参数缺席不是 UI 猜测，而是 dataclass 定义给出的确定初始状态。",
+        },
+        target: {
+          label: "本课追踪的其余 Sample 字段",
+          fields: [
+            { field: "group_index", value: "None" },
+            { field: "index", value: "None" },
+            { field: "tokens", value: "[]" },
+            { field: "response", value: "\"\"" },
+            { field: "response_length", value: "0" },
+            { field: "reward", value: "None" },
+            { field: "loss_mask", value: "None" },
+            { field: "weight_versions", value: "[]" },
+            { field: "rollout_log_probs", value: "None" },
+            { field: "status", value: "pending" },
+            { field: "train_metadata", value: "None" },
+          ],
+        },
+      },
+    ],
+    defaultFieldGroups: [
+      {
+        id: "dataset-explicit",
+        title: "Dataset 显式传入",
+        summary: "这些值已经越过外部 schema → 内部协议的翻译边界。",
+        fields: [
+          {
+            field: "prompt",
+            value: "\"3 + 2 = ?\"",
+            provenance: "output_prompt",
+            interpretation: "任务文本已经就绪。",
+          },
+          {
+            field: "label",
+            value: "\"5\"",
+            provenance: "data[\"label\"]",
+            interpretation: "参考信息已就绪，但尚未产生 reward。",
+          },
+          {
+            field: "metadata",
+            value: "{source_name: \"mechanism_course\", difficulty: \"warmup\"}",
+            provenance: "data.get(metadata_key) or {}",
+            interpretation: "固定 upstream 对 truthy metadata 未显式 deepcopy；本课账本只追踪字段值，不追踪 Python 对象身份。",
+          },
+          {
+            field: "multimodal_inputs",
+            value: "None",
+            provenance: "Dataset 显式传入",
+            interpretation: "processor=None 的纯文本路径。",
+          },
+        ],
+      },
+      {
+        id: "dataclass-default",
+        title: "dataclass 默认值",
+        summary: "这些空白精确标记生产链尚未抵达的位置；每一项都能指出下一生产者。",
+        fields: [
+          { field: "group_index", value: "None", provenance: "dataclass 默认值", nextProducer: "DataSource 分组", interpretation: "尚未建立候选比较组。" },
+          { field: "index", value: "None", provenance: "dataclass 默认值", nextProducer: "DataSource 分组", interpretation: "尚未分配物理 Sample 身份。" },
+          { field: "tokens", value: "[]", provenance: "dataclass default_factory", nextProducer: "generation 准备 prompt IDs", interpretation: "长度检查即便调用 tokenizer，也不会写入这里。" },
+          { field: "response", value: "\"\"", provenance: "dataclass 默认值", nextProducer: "SGLang response 写回", interpretation: "模型尚未生成文本。" },
+          { field: "response_length", value: "0", provenance: "dataclass 默认值", nextProducer: "response 写回", interpretation: "回答空间仍为空。" },
+          { field: "reward", value: "None", provenance: "dataclass 默认值", nextProducer: "reward 计算", interpretation: "label 存在不等于答案已被评价。" },
+          { field: "loss_mask", value: "None", provenance: "dataclass 默认值", nextProducer: "response 写回", interpretation: "尚无回答 token 可对齐。" },
+          { field: "weight_versions", value: "[]", provenance: "dataclass default_factory", nextProducer: "generation meta_info 写回", interpretation: "尚无生成权重来源。" },
+          { field: "rollout_log_probs", value: "None", provenance: "dataclass 默认值", nextProducer: "SGLang log-prob 写回", interpretation: "尚无 rollout 概率证据。" },
+          { field: "status", value: "pending", provenance: "dataclass 默认值", nextProducer: "generation 终止状态写回", interpretation: "pending 只表示尚未处理，不表示答案正确。" },
+          { field: "train_metadata", value: "None", provenance: "dataclass 默认值", nextProducer: "训练数据转换", interpretation: "尚未进入 trainer 边界。" },
+        ],
+      },
+    ],
+    branch: {
+      title: "支线：chat template、多模态、坏行与长度过滤在哪里分叉",
+      body: "这些分支会改变 prompt 的具体形态、是否附带多模态输入，或一条记录能否保留；它们不改变本章责任边界：Dataset 仍未生成 response、reward 或 trainer batch。",
+      edgeCases: [
+        {
+          condition: "JSONL 空行或无法解析",
+          behavior: "空行被跳过；JSONDecodeError 被报告后该行继续被跳过，因此它不会产生 Sample。",
+        },
+        {
+          condition: "没有显式设置 label_key",
+          behavior: "参数默认值为 None，Sample.label 也保持 None；字段名叫 label 并不会触发自动推断。",
+        },
+        {
+          condition: "配置键与 row 不匹配",
+          behavior: "data.get(prompt_key) 在缺键时得到 None，并不会自动完成 schema 校验；若 label_key 已显式配置但对应列缺失，data[label_key] 会抛出 KeyError。",
+        },
+        {
+          condition: "max_length 不为 None",
+          behavior: "纯文本分支可能调用 tokenizer 计算 prompt 长度并过滤候选 Sample，但这一步仍不会把编码写入 Sample.tokens；list prompt 在未应用 chat template 时会跳过这项长度检查。",
+        },
+        {
+          condition: "multimodal_keys is not None",
+          behavior: "这一条件使 _build_messages 采用 conversation 形态；只有 truthy 的键映射才会把指定 row 媒体字段替换进消息占位符。它本身不执行图像或视频预处理。",
+        },
+        {
+          condition: "apply_chat_template=True",
+          behavior: "tokenizer.apply_chat_template(..., tokenize=False) 把 conversation 渲染为 output_prompt，但不写 Sample.tokens。",
+        },
+        {
+          condition: "processor 非空",
+          behavior: "Dataset 要求预模板 prompt 已是 list，调用 process_vision_info，并把返回的原始媒体字典显式传为 Sample.multimodal_inputs；processor 单独配合字符串 prompt 会触发断言，也不会产生 multimodal_train_inputs。",
+        },
+        {
+          condition: "从常用 CLI 参数进入",
+          behavior: "Dataset 自身默认 prompt_key=\"text\"；常用训练参数的 --input-key 默认通常是 \"input\"，DataSource 会将它转传为 prompt_key。本章值是明确教学配置。",
+        },
+      ],
     },
     explanation: [
       {
-        title: "外部记录不是内部协议",
-        body: "JSONL 与 Parquet 只决定文件怎样被读取；真正的接口边界是 Dataset 将配置指定的字段映射到 Sample。若训练数据把题目放在 question 而不是 text，改变的是 prompt_key，而不是 Sample.prompt 的内部语义。",
+        title: "Dataset 默认值与 CLI 默认值不是同一层",
+        body: "Dataset 类自身的 prompt_key 默认是 text；常用训练入口的 --input-key 默认通常是 input，DataSource 再把它转传为 prompt_key。两者并不矛盾：前者是 Python 构造器默认值，后者是上层调用配置。本章显式固定 --input-key text，因此所有结论只对这条教学路径负责。",
       },
       {
-        title: "默认值是生命周期证据",
-        body: "初始 tokens、response、loss_mask 与 rollout_log_probs 为空，并不表示数据损坏。它们证明生成尚未发生。把这些空值提前填满反而会模糊组件责任，使后续无法判断某个字段究竟由谁产生。",
+        title: "调用 tokenizer 做长度检查，也不等于写入 Sample.tokens",
+        body: "若启用 max_length，filter_long_prompt 可能调用 tokenizer 计算纯文本 prompt 的长度，再决定是否保留候选 Sample；它并不会把得到的 input IDs 写入 Sample.tokens。因此正确的边界不是“Dataset 永远不调用 tokenizer”，而是“Dataset 的长度检查不生产 generation 路径使用的 token 状态”。",
       },
       {
-        title: "label 不是 reward",
-        body: "label 是外部任务给出的参考信息；reward 是评价函数对具体 response 的结果。一个 Sample 可以在有 label 的同时仍然 reward=null，因为模型还没有回答，更没有接受评价。",
+        title: "label 的出现由配置决定，reward 的出现由计算决定",
+        body: "label_key 的默认值是 None；只有任务显式声明标签列，Dataset 才把参考答案带入 Sample。reward 无法以同样方式从 row“顺手取得”，因为它必须针对某个具体 response 运行评价函数。此时 label=\"5\" 与 reward=None 同时成立，恰好说明输入语义已经就绪，而评价边界尚未发生。",
+      },
+      {
+        title: "成为 Sample 不等于成为 trainer batch",
+        body: "Sample 是跨组件传递的 Python 协议对象，不是已经排布好的训练张量。当前对象尚无 token 序列、候选组身份、回答、loss mask 或 rollout log-prob。只有后续组件逐项补齐这些状态，并经过显式转换，trainer 才会收到可消费的数据结构。",
       },
     ],
     observationIds: ["rows-read", "samples-constructed"],
     sourceRefIds: ["dataset.read-file", "dataset.construct-sample", "sample.dataclass"],
     evidenceId: "evidence-row-to-sample",
+    additionalEvidenceIds: ["evidence-sample-fields"],
     exercise: chapterOneExercise,
     misconception: {
-      belief: "只要 row 被 Dataset 读入，token、mask 和训练张量就都准备好了。",
-      correction: "Dataset 构造的是统一协议对象。tokenization 属于生成路径，训练张量还要等待评价、收集与显式转换。",
+      belief: "Dataset 返回了 Sample，所以这条记录已经完成 tokenization，可以直接交给 trainer。",
+      correction: "Dataset 只建立统一协议对象。此时 tokens 仍是默认空列表，group_index 与 index 尚未分配，response、reward、loss_mask 与 rollout_log_probs 也没有生产者运行。训练张量还要等待生成、评价、收集与显式转换。",
     },
-    takeaway: "row 描述外部数据；Sample 描述 slime 内部正在演化的一条记录。",
-    transition: "下一章不急着生成，而是先给 Sample 的字段建立一张责任表。",
-    advancedAside: {
-      title: "支线：chat template 与多模态",
-      body: "启用 chat template 或 processor 会改变 prompt 的构造与多模态输入，但不会改变本章结论：Dataset 仍只负责初始 Sample 边界。",
-    },
+    takeaway: "Dataset 的产物不是训练张量，而是一份有明确空白的协议对象：每个已填字段有来源，每个空字段有等待的生产者。",
+    transition: "下一章将把这些生产者逐一标到 Sample 字段上；在此之前，不让任何空值冒充已经完成的计算。",
   },
   {
     id: "stg.chapter-2",
@@ -770,7 +1024,7 @@ export const sampleToGenerationCourse: SampleToGenerationCourse = {
     locale: "zh-CN",
     title: "Sample 如何得到回答——从一行输入到 SGLang 写回",
     summary: "沿固定 2×2 trace 逐边界验证 Dataset、Sample、DataSource 与 SGLang generation 的数据契约。",
-    lessonRevision: 1,
+    lessonRevision: 3,
     assessmentVersion: 1,
     durationMinutes: { chapters: 78, assessment: 10, total: 88 },
     requiresGpu: false,

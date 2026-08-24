@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   SAMPLE_TO_GENERATION_OBSERVATIONS,
+  SampleToGenerationSampleSchema,
   appendResponseAtomically,
   checkSampleToGenerationInvariants,
   cloneSeedSamplesIntoGroups,
@@ -12,6 +13,19 @@ import {
 } from "@/core/sample-to-generation";
 
 describe("sample-to-generation deterministic trace", () => {
+  it("accepts an explicitly unlabeled Sample projection", () => {
+    const state = seekSampleToGeneration(
+      sampleToGenerationFixture,
+      "samples-constructed",
+    );
+    expect(
+      SampleToGenerationSampleSchema.parse({
+        ...state.seed_samples["origin-a"],
+        label: null,
+      }).label,
+    ).toBeNull();
+  });
+
   it("materializes the seven fixed observation points in order", () => {
     const states = materializeSampleToGenerationStates(
       sampleToGenerationFixture,
@@ -37,6 +51,7 @@ describe("sample-to-generation deterministic trace", () => {
       prompt: "3 + 2 = ?",
       label: "5",
       tokens: [],
+      multimodal_inputs: null,
       response: "",
       response_length: 0,
       reward: null,
