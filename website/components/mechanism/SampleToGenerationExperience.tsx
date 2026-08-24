@@ -28,8 +28,12 @@ import {
 import { GuidedSourceExcerpt } from "./GuidedSourceExcerpt";
 import {
   ChapterOneTranslationDesk,
-  hasChapterOneTranslationData,
 } from "./ChapterOneTranslationDesk";
+import { ChapterTwoProvenanceRelay } from "./ChapterTwoProvenanceRelay";
+import {
+  hasChapterOneTranslationData,
+  hasChapterTwoProvenanceData,
+} from "./chapter-reader-contracts";
 import { SampleStateDrawer } from "./SampleStateDrawer";
 import { StructuredExercise as StructuredExerciseView } from "./StructuredExercise";
 import "./mechanism-course.css";
@@ -390,6 +394,8 @@ export function SampleToGenerationExperience({
   const chapterProgress = chapter ? lessonProgress?.exercise_attempts[chapter.exercise.id] : undefined;
   const drawerSampleId = activeIndex < 2 ? "origin-a" : "a0";
   const hasChapterOneReader = hasChapterOneTranslationData(chapter);
+  const hasChapterTwoReader = hasChapterTwoProvenanceData(chapter);
+  const hasDedicatedReader = hasChapterOneReader || hasChapterTwoReader;
 
   const state = chapter
     ? seekSampleToGeneration(
@@ -445,7 +451,7 @@ export function SampleToGenerationExperience({
 
   return (
     <div className="mechanism-course">
-      <nav className={`mechanism-rail${hasChapterOneReader ? " mechanism-rail--chapter-one" : ""}`} aria-label="课程六章与状态账本">
+      <nav className={`mechanism-rail${hasDedicatedReader ? " mechanism-rail--reader" : ""}`} aria-label="课程六章与状态账本">
         <a className="mechanism-rail-cover" href="/learn/sample-to-generation" onClick={(event) => { event.preventDefault(); openCover(); }}>
           <span>CORE / 01</span><strong>课程封面</strong>
         </a>
@@ -475,7 +481,7 @@ export function SampleToGenerationExperience({
         >
           <span>FINAL</span><strong>终测</strong>
         </button>
-        {!hasChapterOneReader ? (
+        {!hasDedicatedReader ? (
           <button
             aria-label={chapter ? `打开 ${drawerSampleId} 状态账本` : "终测没有单章状态账本"}
             className="mechanism-rail-state"
@@ -503,6 +509,17 @@ export function SampleToGenerationExperience({
             triggerRef={drawerTriggerRef}
             onNext={() => openSection(course.chapters[1].slug)}
             onOpenDrawer={() => setDrawerOpen(true)}
+            passed={Boolean(chapterProgress?.passed)}
+          />
+        ) : chapter && hasChapterTwoReader ? (
+          <ChapterTwoProvenanceRelay
+            chapter={chapter}
+            exerciseSlot={chapterExercise}
+            headingRef={chapterHeadingRef}
+            triggerRef={drawerTriggerRef}
+            onNext={() => openSection(course.chapters[2].slug)}
+            onOpenDrawer={() => setDrawerOpen(true)}
+            onPrevious={() => openSection(course.chapters[0].slug)}
             passed={Boolean(chapterProgress?.passed)}
           />
         ) : chapter ? (

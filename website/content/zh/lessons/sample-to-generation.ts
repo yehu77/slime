@@ -39,6 +39,75 @@ export type SampleToGenerationDefaultFieldGroup = {
   }[];
 };
 
+export type ProducerRelayStageId =
+  | "dataset-construction"
+  | "datasource-fanout"
+  | "raw-generate"
+  | "reward-wrapper"
+  | "train-data-conversion";
+
+export type ProducerRelayStage = {
+  id: ProducerRelayStageId;
+  order: number;
+  title: string;
+  producer: string;
+  input: readonly string[];
+  writes: readonly string[];
+  output: readonly string[];
+  trustworthyObservation: string;
+  scope: string;
+  caveat: string;
+  sourceRefIds: readonly string[];
+  derivedOutputs?: readonly {
+    id: string;
+    trainDataField: string;
+    derivedFrom: readonly string[];
+    rule: string;
+    caveat?: string;
+  }[];
+};
+
+export type FieldLifecycleProducer = {
+  stageId: ProducerRelayStageId;
+  producer: string;
+  mode: "dataclass-default" | "explicit-initialization" | "runtime-write";
+  value: string;
+  condition: string;
+};
+
+export type FieldLifecycleEntry = {
+  id: string;
+  field: string;
+  category: "input" | "identity" | "generation" | "evaluation" | "training";
+  dataclassDefault: string;
+  initializedBy: FieldLifecycleProducer;
+  firstNonDefaultProducer: FieldLifecycleProducer | null;
+  trustworthyFrom: {
+    stageId: ProducerRelayStageId;
+    observation: string;
+  };
+  legalTerminal?: {
+    value: string;
+    condition: string;
+  };
+  scope: string;
+  caveat: string;
+  sourceRefIds: readonly string[];
+};
+
+export type EarlyFieldDiagnosticCase = {
+  id: string;
+  title: string;
+  snapshot: string;
+  suspiciousField: string;
+  observedValue: string;
+  missingProducerStageId: ProducerRelayStageId;
+  explanation: string;
+  scope: string;
+  caveat: string;
+  sourceRefIds: readonly string[];
+};
+
 export type SampleToGenerationTracePassport = {
   origin: {
     id: string;
@@ -87,6 +156,9 @@ export type SampleToGenerationChapter = {
   tracePassport?: SampleToGenerationTracePassport;
   mappingLanes?: readonly SampleToGenerationMappingLane[];
   defaultFieldGroups?: readonly SampleToGenerationDefaultFieldGroup[];
+  producerRelayStages?: readonly ProducerRelayStage[];
+  fieldLifecycleEntries?: readonly FieldLifecycleEntry[];
+  earlyFieldDiagnosticCases?: readonly EarlyFieldDiagnosticCase[];
   branch?: SampleToGenerationBranch;
   explanation: readonly SampleToGenerationExplanation[];
   observationIds: readonly string[];
@@ -226,6 +298,305 @@ export const sampleToGenerationSourceEvidence: readonly SampleToGenerationSource
   },
 ];
 
+export const producerRelayStages: readonly ProducerRelayStage[] = [
+  {
+    id: "dataset-construction",
+    order: 1,
+    title: "Dataset 建立初始协议对象",
+    producer: "Dataset.__init__ → Sample(...) / dataclass defaults",
+    input: ["外部 row", "prompt_key / label_key / metadata_key", "chat template 与 processor 配置"],
+    writes: ["prompt", "label", "metadata", "multimodal_inputs", "其余未传字段的 dataclass 默认值"],
+    output: ["seed Sample", "可解释的显式值", "仍精确保留生命周期空白的默认值"],
+    trustworthyObservation: "Sample(...) 返回后，才可把 prompt、label、metadata 与 multimodal_inputs 解释为 Dataset 决策结果。",
+    scope: "固定 commit 06ffdbe2；本课主路径为纯文本、processor=None、apply_chat_template=False。",
+    caveat: "label 与 multimodal_inputs 都是显式实参，但其值可以是 None；显式初始化不等于非空，也不承诺后续一定会改写。",
+    sourceRefIds: ["dataset.construct-sample", "sample.dataclass"],
+  },
+  {
+    id: "datasource-fanout",
+    order: 2,
+    title: "DataSource 复制并编号候选",
+    producer: "RolloutDataSource.get_samples",
+    input: ["seed Sample", "n_samples_per_prompt", "DataSource 的 group/sample 计数器"],
+    writes: ["group_index", "index"],
+    output: ["按 prompt 成组的 deepcopy 候选", "每组共享 group_index", "每个物理 Sample 拥有唯一 index"],
+    trustworthyObservation: "get_samples() 返回后，group_index 与 index 才能作为本轮物理候选的可信身份。",
+    scope: "固定 commit 的默认 RolloutDataSource.get_samples；教学 fixture 使用 2 prompts × 2 candidates。",
+    caveat: "Sample.rollout_id 不在这里写入；不能把 group_index、index 与 conversion 派生的 train_data.rollout_ids 混为一谈。",
+    sourceRefIds: ["rollout.datasource-get-samples", "sample.dataclass"],
+  },
+  {
+    id: "raw-generate",
+    order: 3,
+    title: "原始 generate 写回生成证据",
+    producer: "slime.rollout.sglang_rollout.generate",
+    input: ["已编号的 pending Sample", "checkpoint tokenizer", "sampling_params", "SGLang HTTP response"],
+    writes: ["tokens", "response", "response_length", "loss_mask", "rollout_log_probs", "weight_versions", "status"],
+    output: ["仍是同一个 Sample", "prompt+response token 序列", "回答空间 mask/log-prob", "终止状态与权重版本"],
+    trustworthyObservation: "await generate(...) 返回后，才能把 response-side 字段解释为默认 SGLang 写回结果。",
+    scope: "固定 commit 的默认纯文本分支：multimodal_inputs=None，custom_generate_function_path=None。",
+    caveat: "generate() 不计算 reward；max_new_tokens=0 会直接标记 truncated，未必产生非空 response 或 loss_mask。",
+    sourceRefIds: ["rollout.generate", "rollout.prepare-prompt-ids", "sample.append-response-tokens", "sample.apply-meta-info"],
+  },
+  {
+    id: "reward-wrapper",
+    order: 4,
+    title: "generate_and_rm 包装生成与评价",
+    producer: "slime.rollout.sglang_rollout.generate_and_rm",
+    input: ["raw generate 返回的 Sample", "rollout sample hooks", "async reward model"],
+    writes: ["reward（仅在仍为 None 且默认非 group-RM 路径时）", "全局 abort 分支可在进入 raw generate 前写 status=aborted"],
+    output: ["带生成结果的 Sample", "默认非 group-RM 路径下已评价的 reward"],
+    trustworthyObservation: "await generate_and_rm(...) 返回后，才可在本课默认非 group-RM 路径要求 reward 已经过 wrapper 检查或计算。",
+    scope: "固定 commit；reward 主路径限定 custom_generate_function_path=None、group_rm=False 且非 aborted；同一 wrapper 的 pre-generate global abort guard 只写 status=aborted，不运行 reward。",
+    caveat: "custom generate 或 hook 可以预先写 reward；group_rm 会把评价推迟到 generate_and_rm_group。全局 abort guard 还可在调用 raw generate 前写 ABORTED；这条条件分支不属于本课实际进入的 raw generate trace。",
+    sourceRefIds: ["rollout.generate-and-rm", "rollout.generate"],
+  },
+  {
+    id: "train-data-conversion",
+    order: 5,
+    title: "conversion 派生 TrainData 语义",
+    producer: "RolloutManager._convert_samples_to_train_data",
+    input: ["已收集并 flatten 的 Sample 列表", "reward post-process 配置", "rollout / batch 配置"],
+    writes: ["新的 train_data 映射", "必要时回写 Sample.loss_mask fallback 或 remove_sample 零 mask"],
+    output: ["独立命名的 TrainData 语义产物", "训练侧字段名、奖励视图、训练身份与 mask 聚合"],
+    trustworthyObservation: "_convert_samples_to_train_data(...) 返回后，才可读取 train_data.*；这些键不是 Sample dataclass 字段。",
+    scope: "固定 commit 的默认 conversion；未启用 custom_convert_samples_to_train_data_path。",
+    caveat: "“独立产物”指新建 train_data 映射与新的字段语义，不表示对所有嵌套 list 做 deepcopy；conversion 还会按规则修改 sample.loss_mask。",
+    sourceRefIds: ["rollout.convert-train-data", "rollout.post-process-rewards"],
+    derivedOutputs: [
+      { id: "train-tokens", trainDataField: "tokens", derivedFrom: ["Sample.tokens"], rule: "逐 Sample 收集完整 token 序列。" },
+      { id: "train-response-lengths", trainDataField: "response_lengths", derivedFrom: ["Sample.response_length"], rule: "把单数形式字段投影为 batch 列表。" },
+      { id: "train-rewards", trainDataField: "rewards", derivedFrom: ["Sample.reward", "reward post-process"], rule: "保存训练使用的 reward 视图；可能经过组内中心化/标准化。" },
+      { id: "train-raw-reward", trainDataField: "raw_reward", derivedFrom: ["Sample.reward", "Sample.metadata.raw_reward（若存在）"], rule: "保留评价原值；metadata.raw_reward 可按源码规则覆盖对应项。" },
+      { id: "train-truncated", trainDataField: "truncated", derivedFrom: ["Sample.status"], rule: "把 TRUNCATED 映射为 1，其余状态映射为 0。" },
+      { id: "train-sample-indices", trainDataField: "sample_indices", derivedFrom: ["Sample.index"], rule: "保留物理 Sample 身份。" },
+      { id: "train-rollout-ids", trainDataField: "rollout_ids", derivedFrom: ["Sample.rollout_id"], rule: "对 None 分配本批次临时唯一 id，且不回写 Sample.rollout_id。", caveat: "固定 commit 的实现不是直接复制 index。" },
+      { id: "train-loss-masks", trainDataField: "loss_masks", derivedFrom: ["Sample.loss_mask", "Sample.response_length", "Sample.remove_sample"], rule: "loss_mask=None 时先回写全 1；remove_sample=True 时再回写同长度全 0；最后收集。" },
+      { id: "train-rollout-mask-sums", trainDataField: "rollout_mask_sums", derivedFrom: ["train_data.rollout_ids", "train_data.loss_masks"], rule: "按 rollout id 聚合 mask 总和，再广播回每个 Sample 位置。" },
+      { id: "train-rollout-log-probs", trainDataField: "rollout_log_probs", derivedFrom: ["Sample.rollout_log_probs"], rule: "仅当首个 Sample 的值非 None 时加入 train_data。" },
+      { id: "train-metadata", trainDataField: "metadata", derivedFrom: ["Sample.train_metadata"], rule: "仅当首个 Sample.train_metadata 非 None 时投影；conversion 不生产 train_metadata。" },
+    ],
+  },
+];
+
+export const fieldLifecycleEntries: readonly FieldLifecycleEntry[] = [
+  {
+    id: "lifecycle-prompt",
+    field: "prompt",
+    category: "input",
+    dataclassDefault: '""',
+    initializedBy: { stageId: "dataset-construction", producer: "Dataset → Sample(prompt=output_prompt)", mode: "explicit-initialization", value: '"3 + 2 = ?"', condition: "本课 row 与 prompt_key=\"text\"" },
+    firstNonDefaultProducer: { stageId: "dataset-construction", producer: "Dataset", mode: "explicit-initialization", value: "output_prompt", condition: "data.get(prompt_key) 得到非空教学 prompt" },
+    trustworthyFrom: { stageId: "dataset-construction", observation: "Sample(...) 返回后，prompt 已完成外部 schema → 内部协议翻译。" },
+    scope: "本课默认纯文本教学 row。",
+    caveat: "data.get(prompt_key) 缺键时可得到 None；dataclass 类型标注本身不替 Dataset 做 schema 校验。",
+    sourceRefIds: ["sample.dataclass", "dataset.construct-sample"],
+  },
+  {
+    id: "lifecycle-label",
+    field: "label",
+    category: "input",
+    dataclassDefault: "None",
+    initializedBy: { stageId: "dataset-construction", producer: "Dataset → Sample(label=...)", mode: "explicit-initialization", value: '"5"（本 fixture）或 None', condition: "label_key 非 None 时索引 row；否则显式传 None" },
+    firstNonDefaultProducer: { stageId: "dataset-construction", producer: "Dataset", mode: "explicit-initialization", value: "data[label_key]", condition: "只有显式配置 label_key 且 row 存在该列" },
+    trustworthyFrom: { stageId: "dataset-construction", observation: "Sample(...) 返回后，label 的值或 None 都是 Dataset 配置决策。" },
+    legalTerminal: { value: "None", condition: "label_key=None 的无标签任务；后续阶段没有义务补写 label。" },
+    scope: "Dataset 的显式 label 实参与默认 rollout 路径。",
+    caveat: "label=None 不等于字段漏产；reward model 是否需要参考标签由任务实现决定。",
+    sourceRefIds: ["sample.dataclass", "dataset.construct-sample"],
+  },
+  {
+    id: "lifecycle-metadata",
+    field: "metadata",
+    category: "input",
+    dataclassDefault: "{}（default_factory）",
+    initializedBy: { stageId: "dataset-construction", producer: "Dataset → Sample(metadata=metadata)", mode: "explicit-initialization", value: "data.get(metadata_key) or {}", condition: "每个 Dataset row 都显式传入计算结果" },
+    firstNonDefaultProducer: { stageId: "dataset-construction", producer: "Dataset", mode: "explicit-initialization", value: "row metadata", condition: "对应 row 值为 truthy" },
+    trustworthyFrom: { stageId: "dataset-construction", observation: "Sample(...) 返回后，可把 metadata 内容解释为 Dataset 选择结果。" },
+    legalTerminal: { value: "{}", condition: "row 没有 truthy metadata，且后续 hook 不追加。" },
+    scope: "固定 commit 的 Dataset 构造。",
+    caveat: "固定源码未在这次传参前显式 deepcopy metadata；这里追踪字段语义，不承诺对象身份。",
+    sourceRefIds: ["sample.dataclass", "dataset.construct-sample"],
+  },
+  {
+    id: "lifecycle-multimodal-inputs",
+    field: "multimodal_inputs",
+    category: "input",
+    dataclassDefault: "None",
+    initializedBy: { stageId: "dataset-construction", producer: "Dataset → Sample(multimodal_inputs=multimodal_inputs)", mode: "explicit-initialization", value: "None", condition: "本课 processor=None 的纯文本路径" },
+    firstNonDefaultProducer: null,
+    trustworthyFrom: { stageId: "dataset-construction", observation: "Sample(...) 返回后，None 已可信地表示本路径无原始媒体输入。" },
+    legalTerminal: { value: "None", condition: "纯文本 rollout 全程合法保持 None。" },
+    scope: "本课固定 processor=None、multimodal_keys=None。",
+    caveat: "多模态分支可由 Dataset 显式写入字典，但它不属于本章默认文本路径。",
+    sourceRefIds: ["sample.dataclass", "dataset.construct-sample"],
+  },
+  {
+    id: "lifecycle-group-index",
+    field: "group_index",
+    category: "identity",
+    dataclassDefault: "None",
+    initializedBy: { stageId: "dataset-construction", producer: "Sample dataclass", mode: "dataclass-default", value: "None", condition: "Dataset 的 Sample(...) 未传此字段" },
+    firstNonDefaultProducer: { stageId: "datasource-fanout", producer: "RolloutDataSource.get_samples", mode: "runtime-write", value: "sample_group_index", condition: "deepcopy 每个 prompt_sample 后" },
+    trustworthyFrom: { stageId: "datasource-fanout", observation: "get_samples() 返回后才可用它建立候选比较关系。" },
+    scope: "固定 commit 默认 DataSource。",
+    caveat: "它表达组关系，不是物理 Sample id，也不是 TrainData rollout_ids。",
+    sourceRefIds: ["sample.dataclass", "rollout.datasource-get-samples"],
+  },
+  {
+    id: "lifecycle-index",
+    field: "index",
+    category: "identity",
+    dataclassDefault: "None",
+    initializedBy: { stageId: "dataset-construction", producer: "Sample dataclass", mode: "dataclass-default", value: "None", condition: "Dataset 的 Sample(...) 未传此字段" },
+    firstNonDefaultProducer: { stageId: "datasource-fanout", producer: "RolloutDataSource.get_samples", mode: "runtime-write", value: "sample_index", condition: "每个 deepcopy 副本写入后递增" },
+    trustworthyFrom: { stageId: "datasource-fanout", observation: "get_samples() 返回后才是可信的物理 Sample 身份。" },
+    scope: "固定 commit 默认 DataSource。",
+    caveat: "conversion 同时派生 sample_indices 与 rollout_ids；二者用途不同。",
+    sourceRefIds: ["sample.dataclass", "rollout.datasource-get-samples", "rollout.convert-train-data"],
+  },
+  {
+    id: "lifecycle-tokens",
+    field: "tokens",
+    category: "generation",
+    dataclassDefault: "[]（default_factory）",
+    initializedBy: { stageId: "dataset-construction", producer: "Sample dataclass", mode: "dataclass-default", value: "[]", condition: "Dataset 的 Sample(...) 未传此字段" },
+    firstNonDefaultProducer: { stageId: "raw-generate", producer: "generate", mode: "runtime-write", value: "prompt_ids，随后追加 response token IDs", condition: "默认纯文本 generate 且 Sample.tokens 为空" },
+    trustworthyFrom: { stageId: "raw-generate", observation: "generate 返回后才可把 tokens 解释为 generation 所用前缀与已写回回答。" },
+    scope: "默认文本 generate；教学 token IDs 不是真实 checkpoint 输出。",
+    caveat: "Dataset 的 max_length tokenizer 检查不会写 Sample.tokens。",
+    sourceRefIds: ["sample.dataclass", "rollout.prepare-prompt-ids", "rollout.generate", "sample.append-response-tokens"],
+  },
+  {
+    id: "lifecycle-response",
+    field: "response",
+    category: "generation",
+    dataclassDefault: '""',
+    initializedBy: { stageId: "dataset-construction", producer: "Sample dataclass", mode: "dataclass-default", value: '""', condition: "Dataset 的 Sample(...) 未传此字段" },
+    firstNonDefaultProducer: { stageId: "raw-generate", producer: "generate → append_response_tokens", mode: "runtime-write", value: "output.text", condition: "SGLang 返回非空文本并完成写回" },
+    trustworthyFrom: { stageId: "raw-generate", observation: "generate 返回后才可读取默认 SGLang response。" },
+    legalTerminal: { value: '""', condition: "max_new_tokens=0、空输出或无回答文本的合法分支。" },
+    scope: "固定 commit raw generate。",
+    caveat: "response 文本不等于 reward，也不能替代 token/log-prob 证据。",
+    sourceRefIds: ["sample.dataclass", "rollout.generate", "sample.append-response-tokens"],
+  },
+  {
+    id: "lifecycle-response-length",
+    field: "response_length",
+    category: "generation",
+    dataclassDefault: "0",
+    initializedBy: { stageId: "dataset-construction", producer: "Sample dataclass", mode: "dataclass-default", value: "0", condition: "Dataset 的 Sample(...) 未传此字段" },
+    firstNonDefaultProducer: { stageId: "raw-generate", producer: "append_response_tokens", mode: "runtime-write", value: "response token 数", condition: "写回至少一个 token" },
+    trustworthyFrom: { stageId: "raw-generate", observation: "generate 返回后与 response-side 数组一起验证。" },
+    legalTerminal: { value: "0", condition: "没有生成 response token。" },
+    scope: "回答 token 空间，不含 prompt 前缀。",
+    caveat: "不能用 len(tokens) 替代；tokens 同时包含 prompt。",
+    sourceRefIds: ["sample.dataclass", "sample.append-response-tokens", "sample.validate-response-metadata-lengths"],
+  },
+  {
+    id: "lifecycle-loss-mask",
+    field: "loss_mask",
+    category: "generation",
+    dataclassDefault: "None",
+    initializedBy: { stageId: "dataset-construction", producer: "Sample dataclass", mode: "dataclass-default", value: "None", condition: "Dataset 的 Sample(...) 未传此字段" },
+    firstNonDefaultProducer: { stageId: "raw-generate", producer: "append_response_tokens", mode: "runtime-write", value: "每个默认模型 response token 对应 1", condition: "raw generate 写回至少一个 token" },
+    trustworthyFrom: { stageId: "raw-generate", observation: "generate 返回后先按 response_length 验证；若仍为 None，conversion 才应用 fallback。" },
+    legalTerminal: { value: "None", condition: "生成阶段没有 response token；进入 conversion 时仍可合法为 None。" },
+    scope: "默认 raw generate 与默认 conversion。",
+    caveat: "conversion 会把 None 回写为全 1，并把 remove_sample=True 的 mask 回写为全 0；这不是 dataclass 初始化。",
+    sourceRefIds: ["sample.dataclass", "sample.append-response-tokens", "rollout.convert-train-data"],
+  },
+  {
+    id: "lifecycle-rollout-log-probs",
+    field: "rollout_log_probs",
+    category: "generation",
+    dataclassDefault: "None",
+    initializedBy: { stageId: "dataset-construction", producer: "Sample dataclass", mode: "dataclass-default", value: "None", condition: "Dataset 的 Sample(...) 未传此字段" },
+    firstNonDefaultProducer: { stageId: "raw-generate", producer: "generate → append_response_tokens", mode: "runtime-write", value: "output_token_logprobs 的 item[0] 列表", condition: "默认请求返回 response token log-prob" },
+    trustworthyFrom: { stageId: "raw-generate", observation: "generate 返回且长度与 response_length 一致后。" },
+    legalTerminal: { value: "None", condition: "没有写回 response token。" },
+    scope: "默认 generate 请求 return_logprob=True。",
+    caveat: "HTTP tuple 只是材料；可信 Sample 字段要等 append_response_tokens 校验完成。",
+    sourceRefIds: ["sample.dataclass", "rollout.generate", "sample.validate-response-metadata-lengths"],
+  },
+  {
+    id: "lifecycle-weight-versions",
+    field: "weight_versions",
+    category: "generation",
+    dataclassDefault: "[]（default_factory）",
+    initializedBy: { stageId: "dataset-construction", producer: "Sample dataclass", mode: "dataclass-default", value: "[]", condition: "Dataset 的 Sample(...) 未传此字段" },
+    firstNonDefaultProducer: { stageId: "raw-generate", producer: "Sample._apply_meta_info", mode: "runtime-write", value: "meta_info.weight_version", condition: "SGLang meta_info 包含 weight_version" },
+    trustworthyFrom: { stageId: "raw-generate", observation: "generate 返回后，可把已追加值解释为生成权重来源。" },
+    legalTerminal: { value: "[]", condition: "meta_info 不包含 weight_version。" },
+    scope: "固定 commit 的 meta_info 写回。",
+    caveat: "空列表不证明生成失败，只说明没有收到该可选元数据。",
+    sourceRefIds: ["sample.dataclass", "sample.apply-meta-info"],
+  },
+  {
+    id: "lifecycle-status",
+    field: "status",
+    category: "generation",
+    dataclassDefault: "pending",
+    initializedBy: { stageId: "dataset-construction", producer: "Sample dataclass", mode: "dataclass-default", value: "pending", condition: "Dataset 的 Sample(...) 未传此字段" },
+    firstNonDefaultProducer: { stageId: "raw-generate", producer: "generate / Sample._apply_meta_info", mode: "runtime-write", value: "completed / truncated / aborted", condition: "本课 trace 已实际进入 raw generate；finish_reason 的 stop / length / abort 分别映射终态，max_new_tokens=0 直接写 truncated" },
+    trustworthyFrom: { stageId: "raw-generate", observation: "generate 返回后才可把终态解释为生成终止原因。" },
+    scope: "固定 commit 默认生成状态映射。",
+    caveat: "completed 只表示 stop 终止，不表示答案正确。ABORTED 有两条互斥来源：进入 raw generate 后由 finish_reason=abort 写回，或在此前由 generate_and_rm 的 global abort guard 提前写入。",
+    sourceRefIds: ["sample.dataclass", "rollout.generate", "sample.apply-meta-info"],
+  },
+  {
+    id: "lifecycle-reward",
+    field: "reward",
+    category: "evaluation",
+    dataclassDefault: "None",
+    initializedBy: { stageId: "dataset-construction", producer: "Sample dataclass", mode: "dataclass-default", value: "None", condition: "Dataset 的 Sample(...) 未传此字段" },
+    firstNonDefaultProducer: { stageId: "reward-wrapper", producer: "generate_and_rm → async_rm", mode: "runtime-write", value: "reward model 返回值", condition: "默认非 aborted、非 group-RM，且 hook/custom generate 尚未填 reward" },
+    trustworthyFrom: { stageId: "reward-wrapper", observation: "generate_and_rm 返回后；raw generate 返回还不够。" },
+    scope: "custom_generate_function_path=None、group_rm=False 的默认 wrapper 路径。",
+    caveat: "custom generate/hook 可提前填 reward，group_rm 则推迟到 group wrapper；都不改变 raw generate 不负责评价。",
+    sourceRefIds: ["sample.dataclass", "rollout.generate", "rollout.generate-and-rm"],
+  },
+];
+
+export const earlyFieldDiagnosticCases: readonly EarlyFieldDiagnosticCase[] = [
+  {
+    id: "group-index-at-samples-constructed",
+    title: "samples-constructed 提前出现组号",
+    snapshot: "samples-constructed：Dataset 刚完成 Sample(...)，DataSource.get_samples 尚未运行。",
+    suspiciousField: "group_index",
+    observedValue: "0",
+    missingProducerStageId: "datasource-fanout",
+    explanation: "group_index 的非默认值只能在默认 DataSource deepcopy 候选时首次写入；它出现在 samples-constructed，说明未来身份被提前放进了 Dataset snapshot。",
+    scope: "固定 commit 的 Dataset → RolloutDataSource 默认路径。",
+    caveat: "group_index=None 才是 samples-constructed 的正确阶段值。",
+    sourceRefIds: ["dataset.construct-sample", "rollout.datasource-get-samples"],
+  },
+  {
+    id: "status-at-groups-built",
+    title: "groups-built 提前宣称生成完成",
+    snapshot: "groups-built：DataSource 已复制并编号候选，但 raw generate 尚未运行。",
+    suspiciousField: "status",
+    observedValue: "completed",
+    missingProducerStageId: "raw-generate",
+    explanation: "completed 依赖 raw generate 的 finish_reason 写回；在 groups-built 出现说明把未来终止状态冒充为分组阶段事实。",
+    scope: "默认纯文本 SGLang generate。",
+    caveat: "pending 才是 groups-built 的正确状态；completed 也只表示 stop，不表示答案正确。",
+    sourceRefIds: ["rollout.datasource-get-samples", "rollout.generate", "sample.apply-meta-info"],
+  },
+  {
+    id: "reward-at-responses-written",
+    title: "responses-written 提前宣称已评价",
+    snapshot: "responses-written（raw generate trace）：generate 已写回 response，但 generate_and_rm 的 reward 分支尚未运行。",
+    suspiciousField: "reward",
+    observedValue: "1",
+    missingProducerStageId: "reward-wrapper",
+    explanation: "raw responses-written 只证明生成结果已落回 Sample；默认路径要等 generate_and_rm 在 hooks 之后调用 async_rm，reward 才首次成为可信评价结果。",
+    scope: "custom generate=None、group_rm=False 的默认单 Sample wrapper。",
+    caveat: "若 custom generate 或 hook 显式预填 reward，必须另行标注该非默认生产者，不能归因给 raw generate。",
+    sourceRefIds: ["rollout.generate", "rollout.generate-and-rm"],
+  },
+];
+
 const chapterOneExercise = {
   id: "stg.chapter-1-gate",
   kind: "field-entry",
@@ -246,33 +617,30 @@ const chapterOneExercise = {
 } as const satisfies StructuredExercise;
 
 const chapterTwoExercise = {
-  id: "stg.chapter-2-gate",
+  id: "stg.chapter-2-diagnosis-v2",
   kind: "mapping",
-  title: "责任边界：谁第一次写入这些字段",
-  prompt: "把字段放到本课所讨论的首个负责阶段。",
-  instruction: "这里问的是默认路径中的首次写入者，不是字段最后的消费者。",
+  title: "过早字段诊断：缺席的是哪一棒",
+  prompt: "三张 snapshot 都出现了尚不该可信的非默认字段。把异常映射到仍未运行的生产者阶段。",
+  instruction: "按固定 commit 06ffdbe2 的默认纯文本路径判断；选择首次能生产该值的接力阶段。",
   items: [
-    { id: "field-prompt", label: "prompt / label / metadata" },
-    { id: "field-identity", label: "group_index / index" },
-    { id: "field-response", label: "response / rollout_log_probs" },
-    { id: "field-reward", label: "reward" },
+    { id: "group-index-at-samples-constructed", label: "samples-constructed：group_index=0" },
+    { id: "status-at-groups-built", label: "groups-built：status=completed" },
+    { id: "reward-at-responses-written", label: "raw responses-written：reward=1" },
   ],
   targets: [
-    { id: "owner-dataset", label: "Dataset" },
-    { id: "owner-datasource", label: "DataSource" },
-    { id: "owner-generation", label: "SGLang generation 写回" },
-    { id: "owner-later", label: "本课边界之后" },
+    { id: "datasource-fanout", label: "DataSource 复制与编号" },
+    { id: "raw-generate", label: "原始 generate 写回" },
+    { id: "reward-wrapper", label: "generate_and_rm reward wrapper" },
   ],
   correctMapping: {
-    "field-prompt": "owner-dataset",
-    "field-identity": "owner-datasource",
-    "field-response": "owner-generation",
-    "field-reward": "owner-later",
+    "group-index-at-samples-constructed": "datasource-fanout",
+    "status-at-groups-built": "raw-generate",
+    "reward-at-responses-written": "reward-wrapper",
   },
-  sourceRefIds: ["sample.dataclass", "dataset.construct-sample"],
+  sourceRefIds: ["dataset.construct-sample", "rollout.datasource-get-samples", "rollout.generate", "rollout.generate-and-rm"],
   feedback: {
-    correct: "责任划分正确。一个字段在 dataclass 中存在，并不意味着 Dataset 已经写入它。",
-    incorrect: "先区分“结构允许这个字段”和“当前边界产生这个字段”。",
+    correct: "三处异常都定位到了缺席的生产者。字段声明、未来 fixture 与可信当前状态没有被混在一起。",
+    incorrect: "先读取 snapshot 的停止点，再沿接力台找该字段的 firstNonDefaultProducer；不要把 dataclass 声明当作运行时写入。",
   },
 } as const satisfies StructuredExercise;
 
@@ -549,7 +917,7 @@ export const sampleToGenerationChapters: readonly SampleToGenerationChapter[] = 
           { field: "weight_versions", value: "[]", provenance: "dataclass default_factory", nextProducer: "generation meta_info 写回", interpretation: "尚无生成权重来源。" },
           { field: "rollout_log_probs", value: "None", provenance: "dataclass 默认值", nextProducer: "SGLang log-prob 写回", interpretation: "尚无 rollout 概率证据。" },
           { field: "status", value: "pending", provenance: "dataclass 默认值", nextProducer: "generation 终止状态写回", interpretation: "pending 只表示尚未处理，不表示答案正确。" },
-          { field: "train_metadata", value: "None", provenance: "dataclass 默认值", nextProducer: "训练数据转换", interpretation: "尚未进入 trainer 边界。" },
+          { field: "train_metadata", value: "None", provenance: "dataclass 默认值", nextProducer: "本课外 custom rollout / hook（若使用）", interpretation: "默认路径可合法保持 None；conversion 只在非空时消费并投影，不生产 train_metadata。" },
         ],
       },
     ],
@@ -625,50 +993,70 @@ export const sampleToGenerationChapters: readonly SampleToGenerationChapter[] = 
     id: "stg.chapter-2",
     number: 2,
     slug: "field-ownership",
-    title: "Sample 的字段由谁负责",
-    shortTitle: "字段责任",
+    title: "字段生命周期接力台",
+    shortTitle: "生命周期",
     durationMinutes: 12,
-    drivingQuestion: "Sample 有二十多个字段，为什么初学者不该把它当成一张同时填写的表？",
+    drivingQuestion: "字段存在，是否意味着它已经由正确的生产者计算出来？",
     imageSrc: "/art/library-act-02-v1.webp",
-    conclusion: "Sample 是跨阶段协议。理解它的关键不是背字段列表，而是知道每个字段第一次在哪个系统边界变得有意义。",
+    imageAlt: "资料库接力台上，字段卡片依次经过构造、分组、生成、评价与转换工位",
+    scopeLabel: "固定 commit 06ffdbe2 · 默认纯文本 rollout · custom generate / group RM / custom conversion 均关闭",
+    objective: "给定任意阶段 snapshot，区分 dataclass 默认、构造器显式初始化、首次非默认生产者与可信观察点，并定位过早出现的字段。",
+    conclusion: "Sample 字段不是一次填满的表：构造、分组、raw generate 与 reward wrapper 依次接棒；conversion 再派生独立的 TrainData 语义，而不是把 Sample 改名。",
     boundary: {
-      input: ["Sample dataclass 的结构与默认值", "Dataset 构造后的初始快照"],
-      output: ["输入、身份、生成、评价、训练五类字段责任", "哪些空值属于当前阶段的正常状态"],
-      excluded: ["具体 reward 算法", "trainer tensor 的布局", "异步权重一致性"],
+      input: ["Sample dataclass 默认值", "Dataset 的四个显式 Sample(...) 实参", "固定 commit 的默认文本 rollout 调用链"],
+      output: ["五棒 Producer relay", "逐字段 lifecycle 账本", "三个过早字段的首个缺席生产者", "TrainData derived outputs"],
+      excluded: ["custom generate / group RM / custom conversion 的具体实现", "reward 算法内部", "trainer tensor 布局与 optimizer step"],
     },
     stateTransition: {
-      before: "看到 reward、loss_mask、weight_versions 等字段，却不知道何时读取",
-      operation: "按首次写入边界划分字段，而非按 dataclass 声明顺序背诵",
-      after: "能判断 prompt 已就绪，而 group_index、response、reward 仍分别等待后续组件",
+      before: "只看到字段声明与当前值，容易把 None 当缺失、把未来 fixture 当成当前状态",
+      operation: "依次记录 dataclassDefault → initializedBy → firstNonDefaultProducer → trustworthyFrom，并核对每棒 scope/caveat",
+      after: "能解释 label=None 与 multimodal_inputs=None 的合法终态，区分 raw generate / reward wrapper，并确认 train_data 是 conversion 派生语义",
     },
     explanation: [
       {
-        title: "输入字段保存任务语义",
-        body: "prompt、label 与 metadata 描述模型面对什么问题、任务提供什么参考，以及这条记录携带哪些上下文。它们通常由 Dataset 构造，并在后续阶段被保留而不是反复重建。",
+        title: "默认值、显式初始化与非默认值是三件事",
+        body: "dataclass 声明给出构造时 fallback；Dataset 的 Sample(...) 又显式传入 prompt、label、metadata 与 multimodal_inputs。显式实参仍可等于默认值：processor=None 时 multimodal_inputs 被明确传为 None，label_key=None 时 label 也被明确传为 None。它们已经是可信决策结果，不是等待某个必然生产者来“补空”。",
       },
       {
-        title: "身份字段建立可追踪关系",
-        body: "group_index 表示比较集合，index 表示具体物理 Sample。它们在 DataSource 复制候选时写入；在此之前为 null 是正确的，因为记录还没有被放进 rollout 分组。",
+        title: "首次非默认生产者必须晚于可信初始化",
+        body: "Dataset 返回后，prompt/label/metadata 已可信，但 group_index 与 index 仍要等 DataSource deepcopy 并编号。raw generate 再写 tokens、response、response_length、loss_mask、rollout_log_probs、status 与可选 weight_versions。字段在 Sample 类中可见，只证明协议容纳它，不证明对应生产者已经运行。",
       },
       {
-        title: "生成字段既保存结果，也保存证据",
-        body: "response 是可读文本，tokens 是 prompt 与 response 的完整 token 序列，response_length、loss_mask 与 rollout_log_probs 则只在回答空间对齐。weight_versions 和 status 记录回答来自哪个版本的权重，以及为何终止。",
+        title: "raw generate 与 reward wrapper 是相邻但不同的棒",
+        body: "generate() 准备纯文本 prompt IDs、请求 SGLang，并通过 append_response_tokens 写回生成证据；它不会计算 reward。默认 generate_and_rm() 在 generate 和 sample hooks 之后，才在 reward 仍为 None 时调用 async_rm。custom generate、hook 或 group RM 会改变评价落点，所以本章结论严格限定默认非 group-RM 路径。",
       },
       {
-        title: "评价与训练字段故意留到边界之外",
-        body: "reward 必须观察具体 response 才能产生；train_metadata 与 trainer batch 更晚。本课截止在 generate 返回，因此任何 observation 中 reward 都必须仍为 null。",
+        title: "conversion 产生新的 TrainData 语义",
+        body: "_convert_samples_to_train_data() 新建 train_data 映射，把 Sample 字段投影为 tokens、response_lengths、reward 视图、sample_indices、rollout_ids 与 mask 聚合等训练键。它不是继续给 Sample 添加 trainer 字段，也不把 train_metadata 当作自己的产物：只有上游已显式提供 train_metadata 时，它才投影为 train_data.metadata。",
+      },
+      {
+        title: "loss_mask 同时展示 fallback 与副作用边界",
+        body: "进入 conversion 时 Sample.loss_mask 可以仍是 None；默认 conversion 会按 response_length 回写全 1。若 remove_sample=True，它再回写同长度全 0，然后把结果收集为 train_data.loss_masks。因此 TrainData 在语义上是独立产物，但不能误称 conversion 对 Sample 完全无修改或对嵌套列表做了深拷贝。",
       },
     ],
+    producerRelayStages,
+    fieldLifecycleEntries,
+    earlyFieldDiagnosticCases,
     observationIds: ["samples-constructed"],
-    sourceRefIds: ["sample.dataclass", "dataset.construct-sample"],
+    sourceRefIds: [
+      "sample.dataclass",
+      "dataset.construct-sample",
+      "rollout.datasource-get-samples",
+      "rollout.generate",
+      "sample.append-response-tokens",
+      "sample.apply-meta-info",
+      "rollout.generate-and-rm",
+      "rollout.post-process-rewards",
+      "rollout.convert-train-data",
+    ],
     evidenceId: "evidence-sample-fields",
     exercise: chapterTwoExercise,
     misconception: {
-      belief: "字段既然定义在 Sample 上，就应在对象构造时全部有值。",
-      correction: "dataclass 定义的是跨阶段契约。空值经常是精确的阶段标记，而不是缺失数据。",
+      belief: "字段一旦是 None 就表示漏产；conversion 之后它们都会在同一个 Sample 上补齐。",
+      correction: "None 可能是合法终态，也可能只是在等待首个非默认生产者。必须结合 trustworthyFrom 判断；conversion 的主要产物是新的 train_data 映射，不是“填满 Sample”。",
     },
-    takeaway: "判断字段是否可靠，先问它的生产者是否已经运行。",
-    transition: "责任表建立后，DataSource 才能安全地把两个 origin 扩展成四次独立生成。",
+    takeaway: "判断字段可靠性要同时问四件事：默认是什么、谁初始化、谁首次改成非默认、从哪个返回边界起可以相信。",
+    transition: "接力关系固定后，下一章放大第二棒：DataSource 如何让同组候选共享比较条件，却保持对象身份完全独立。",
   },
   {
     id: "stg.chapter-3",
@@ -1024,7 +1412,7 @@ export const sampleToGenerationCourse: SampleToGenerationCourse = {
     locale: "zh-CN",
     title: "Sample 如何得到回答——从一行输入到 SGLang 写回",
     summary: "沿固定 2×2 trace 逐边界验证 Dataset、Sample、DataSource 与 SGLang generation 的数据契约。",
-    lessonRevision: 3,
+    lessonRevision: 4,
     assessmentVersion: 1,
     durationMinutes: { chapters: 78, assessment: 10, total: 88 },
     requiresGpu: false,

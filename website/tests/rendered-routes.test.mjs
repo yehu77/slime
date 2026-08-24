@@ -8,7 +8,7 @@ const routes = [
   ["/learn/sample-journey", /同样答对，为什么一个 Sample 完全不学习/],
   ["/learn/sample-to-generation", /Sample 如何得到回答/],
   ["/learn/sample-to-generation?chapter=row-to-sample", /一行数据怎样成为 Sample/],
-  ["/learn/sample-to-generation?chapter=field-ownership", /Sample 的字段由谁负责/],
+  ["/learn/sample-to-generation?chapter=field-ownership", /字段生命周期接力台/],
   ["/learn/sample-to-generation?chapter=group-without-aliasing", /成组，但不粘连/],
   ["/learn/sample-to-generation?chapter=sample-to-request", /Sample 怎样变成 SGLang 请求/],
   ["/learn/sample-to-generation?chapter=response-projection", /HTTP 响应为什么还不是 Sample/],
@@ -74,6 +74,17 @@ for (const [route, expected] of routes) {
       assert.match(renderedText, /下一生产者：/);
       assert.match(renderedText, /pending<\/code>\s*只表示这条 Sample 尚未被 generation 处理/);
       assert.doesNotMatch(renderedText, /STATEorigin-a 账本/);
+    }
+    if (route === "/learn/sample-to-generation?chapter=field-ownership") {
+      assert.match(html, /class="[^"]*\bprovenance-reader\b/);
+      assert.match(renderedText, /字段生命周期接力台/);
+      assert.match(renderedText, /过早读取：三个诊断案例/);
+      assert.match(renderedText, /接力终点不是“填满 Sample”，而是派生 TrainData/);
+      assert.doesNotMatch(html, /mechanism-rail-state/);
+      assert.equal(
+        (renderedText.match(/打开 origin-a 状态账本/g) ?? []).length,
+        1,
+      );
     }
   });
 }

@@ -17,7 +17,10 @@ import {
 } from "@/content/zh/lessons/sample-to-generation";
 import anchorsPayload from "@/data/source-refs/slime-06ffdbe2.anchors.generated.json";
 import refsPayload from "@/data/source-refs/slime-06ffdbe2.refs.json";
-import { hasChapterOneTranslationData } from "@/components/mechanism/ChapterOneTranslationDesk";
+import {
+  hasChapterOneTranslationData,
+  hasChapterTwoProvenanceData,
+} from "@/components/mechanism/chapter-reader-contracts";
 
 function correctAnswer(exercise: StructuredExercise): StructuredExerciseAnswer {
   switch (exercise.kind) {
@@ -153,10 +156,184 @@ describe("sample-to-generation course contract", () => {
     }
   });
 
-  it("uses the translation reader only when all structured chapter-one data is present", () => {
-    const chapter = sampleToGenerationChapters[0];
-    expect(hasChapterOneTranslationData(chapter)).toBe(true);
-    expect(hasChapterOneTranslationData({ ...chapter, mappingLanes: undefined })).toBe(false);
+  it("selects dedicated readers only for complete chapter-one and chapter-two contracts", () => {
+    const chapterOne = sampleToGenerationChapters[0];
+    const chapterTwo = sampleToGenerationChapters[1];
+
+    expect(hasChapterOneTranslationData(chapterOne)).toBe(true);
+    expect(hasChapterOneTranslationData({ ...chapterOne, mappingLanes: undefined })).toBe(false);
+    expect(hasChapterOneTranslationData(chapterTwo)).toBe(false);
+
+    expect(hasChapterTwoProvenanceData(chapterTwo)).toBe(true);
+    expect(hasChapterTwoProvenanceData({
+      ...chapterTwo,
+      producerRelayStages: undefined,
+    })).toBe(false);
+    expect(hasChapterTwoProvenanceData(chapterOne)).toBe(false);
+  });
+
+  it("models chapter two as a fixed provenance relay with one lifecycle owner per raw field", () => {
+    const chapter = sampleToGenerationChapters[1];
+    expect(chapter.slug).toBe("field-ownership");
+    expect(hasChapterTwoProvenanceData(chapter)).toBe(true);
+    if (!hasChapterTwoProvenanceData(chapter)) {
+      throw new Error("chapter two must provide its dedicated provenance contract");
+    }
+
+    expect(chapter.producerRelayStages.map((stage) => [stage.order, stage.id])).toEqual([
+      [1, "dataset-construction"],
+      [2, "datasource-fanout"],
+      [3, "raw-generate"],
+      [4, "reward-wrapper"],
+      [5, "train-data-conversion"],
+    ]);
+
+    const fields = chapter.fieldLifecycleEntries;
+    expect(new Set(fields.map((entry) => entry.id)).size).toBe(fields.length);
+    expect(new Set(fields.map((entry) => entry.field)).size).toBe(fields.length);
+
+    const allowedDefaultOnlyFields = fields.filter(
+      (entry) => entry.firstNonDefaultProducer === null,
+    );
+    expect(allowedDefaultOnlyFields.length).toBeGreaterThan(0);
+    expect(allowedDefaultOnlyFields.every((entry) => {
+      const legalTerminal = entry.legalTerminal;
+      return legalTerminal !== undefined &&
+        legalTerminal.value === entry.dataclassDefault &&
+        legalTerminal.condition.length > 0;
+    })).toBe(true);
+
+    const relayStageIds = new Set(
+      chapter.producerRelayStages.map((stage) => stage.id),
+    );
+    for (const entry of fields) {
+      expect(relayStageIds.has(entry.initializedBy.stageId)).toBe(true);
+      const firstProducer = entry.firstNonDefaultProducer;
+      if (firstProducer === null) continue;
+      expect(firstProducer.mode).not.toBe("dataclass-default");
+      expect(relayStageIds.has(firstProducer.stageId)).toBe(true);
+    }
+
+    const conversion = chapter.producerRelayStages.find(
+      (stage) => stage.id === "train-data-conversion",
+    );
+    expect(conversion?.output.join(" ")).toMatch(/独立.*TrainData/);
+    expect(conversion?.derivedOutputs?.map((output) => output.trainDataField)).toEqual([
+      "tokens",
+      "response_lengths",
+      "rewards",
+      "raw_reward",
+      "truncated",
+      "sample_indices",
+      "rollout_ids",
+      "loss_masks",
+      "rollout_mask_sums",
+      "rollout_log_probs",
+      "metadata",
+    ]);
+    expect(conversion?.derivedOutputs?.find((output) => output.id === "train-rollout-ids")).toMatchObject({
+      trainDataField: "rollout_ids",
+      derivedFrom: ["Sample.rollout_id"],
+    });
+    const rawSampleFields = new Set(fields.map((entry) => entry.field));
+    expect(
+      [
+        "response_lengths",
+        "rewards",
+        "raw_reward",
+        "sample_indices",
+        "rollout_ids",
+        "loss_masks",
+        "rollout_mask_sums",
+      ].every((field) => !rawSampleFields.has(field)),
+    ).toBe(true);
+  });
+
+  it("grades all three chapter-two early-read diagnostics and rejects partial or mismatched mappings", () => {
+    const chapter = sampleToGenerationChapters[1];
+    expect(hasChapterTwoProvenanceData(chapter)).toBe(true);
+    if (!hasChapterTwoProvenanceData(chapter)) {
+      throw new Error("chapter two must provide diagnostic cases");
+    }
+    const exercise = chapter.exercise;
+    expect(exercise).toMatchObject({
+      id: "stg.chapter-2-diagnosis-v2",
+      kind: "mapping",
+    });
+    if (exercise.kind !== "mapping") throw new Error("unexpected chapter-two exercise kind");
+
+    const expectedMapping = {
+      "group-index-at-samples-constructed": "datasource-fanout",
+      "status-at-groups-built": "raw-generate",
+      "reward-at-responses-written": "reward-wrapper",
+    };
+    expect(chapter.earlyFieldDiagnosticCases.map((diagnosticCase) => [
+      diagnosticCase.id,
+      diagnosticCase.missingProducerStageId,
+    ])).toEqual(Object.entries(expectedMapping));
+    expect(exercise.items.map((item) => item.id)).toEqual(Object.keys(expectedMapping));
+    expect(exercise.targets.map((target) => target.id)).toEqual(Object.values(expectedMapping));
+    expect(exercise.correctMapping).toEqual(expectedMapping);
+
+    expect(gradeStructuredExercise(exercise, {
+      kind: "mapping",
+      mapping: expectedMapping,
+    })).toMatchObject({
+      correct: true,
+      fieldResults: {
+        "group-index-at-samples-constructed": true,
+        "status-at-groups-built": true,
+        "reward-at-responses-written": true,
+      },
+    });
+    expect(gradeStructuredExercise(exercise, {
+      kind: "mapping",
+      mapping: {
+        "group-index-at-samples-constructed": "datasource-fanout",
+        "status-at-groups-built": "raw-generate",
+      },
+    })).toMatchObject({
+      correct: false,
+      fieldResults: { "reward-at-responses-written": false },
+    });
+    expect(gradeStructuredExercise(exercise, {
+      kind: "mapping",
+      mapping: {
+        "group-index-at-samples-constructed": "raw-generate",
+        "status-at-groups-built": "datasource-fanout",
+        "reward-at-responses-written": "reward-wrapper",
+      },
+    })).toMatchObject({
+      correct: false,
+      fieldResults: {
+        "group-index-at-samples-constructed": false,
+        "status-at-groups-built": false,
+      },
+    });
+  });
+
+  it("keeps every chapter-two relay, field, and diagnostic source ref resolvable", () => {
+    const chapter = sampleToGenerationChapters[1];
+    expect(hasChapterTwoProvenanceData(chapter)).toBe(true);
+    if (!hasChapterTwoProvenanceData(chapter)) {
+      throw new Error("chapter two must provide provenance sources");
+    }
+    const refs = new Map(refsPayload.refs.map((ref) => [ref.id, ref]));
+    const anchors = new Map(
+      anchorsPayload.anchors.map((anchor) => [anchor.id, anchor]),
+    );
+    const sourceRefIds = new Set([
+      ...chapter.sourceRefIds,
+      ...chapter.exercise.sourceRefIds,
+      ...chapter.producerRelayStages.flatMap((stage) => stage.sourceRefIds),
+      ...chapter.fieldLifecycleEntries.flatMap((entry) => entry.sourceRefIds),
+      ...chapter.earlyFieldDiagnosticCases.flatMap((diagnosticCase) => diagnosticCase.sourceRefIds),
+    ]);
+    expect(sourceRefIds.has("rollout.convert-train-data")).toBe(true);
+    for (const sourceRefId of sourceRefIds) {
+      expect(refs.has(sourceRefId), `missing source ref ${sourceRefId}`).toBe(true);
+      expect(anchors.has(sourceRefId), `missing generated anchor ${sourceRefId}`).toBe(true);
+    }
   });
 
   it("grades the new row-schema migration exercise without inferring label", () => {

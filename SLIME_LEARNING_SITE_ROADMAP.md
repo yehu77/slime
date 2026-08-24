@@ -9,21 +9,21 @@
 | 文档状态 | Draft / Living document |
 | 当前阶段 | M1：第一个纵向切片（已公网发布，进入内容深化与目标用户验收） |
 | 建立日期 | 2026-08-08 |
-| 最近更新 | 2026-08-10 |
+| 最近更新 | 2026-08-24 |
 | slime 调研基线 | `v0.3.1-1-g06ffdbe2` |
 | 产品工作名 | `slime Lab` |
 | 当前共同维护者 | 项目发起人 + Codex |
 | 公网网站 | [slime Lab](https://slime-lab.hunyu6792.workers.dev)（Cloudflare Workers） |
 | 公网源码 | [yehu77/slime](https://github.com/yehu77/slime)（个人 fork） |
-| 下一份产物 | 首课第二幕“分组”的叙事化改写 |
+| 下一份产物 | 机制课第三章“成组，但不粘连”的分组机制重构 |
 
 ## 0. 当前焦点
 
-**现在：** M1 已按 [M1 Implementation Brief](./SLIME_LAB_M1_IMPLEMENTATION_BRIEF.md) 完成实现、自动 gate 与公网发布。源码以个人 GitHub fork 为唯一事实来源，`main` 由 Cloudflare Workers 自动构建并发布；接下来把主要精力转向课程内容与学习效果。
+**现在：** M1 已完成公网纵向切片，并进入“先讲透机制，再运行实验”的内容深化阶段。首门 88 分钟机制课《Sample 如何得到回答》的前两章已经完成实现与本地验收：第一章用“连续翻译台”解释 `external row → Dataset rule → initial Sample`，第二章用“字段生命周期接力台”区分 dataclass 声明、构造初始化、首次非默认生产和下游消费。
 
-第一幕“出生”已经按 [内容文风指南](./SLIME_LAB_CONTENT_STYLE_GUIDE.md) 完成样板改写：先建立场景并直接回答核心问题，再展示 `dataset row → Sample`、字段快照、源码证据与下一幕过渡；四条候选延后到第二幕出现。
+这两章都固定到源码 commit `06ffdbe2`，共享同一条 `origin-a` 教学 trace，并把源码证据、诊断练习和按课程隔离的 v2 进度纳入自动验证。第二章明确说明 conversion 的主要产物是独立 TrainData 语义，而不是继续“填满 Sample”。
 
-**接下来：** 以第一幕为模板改写第二幕“分组”，重点解释为什么一条 prompt 要复制成同组候选，以及 `group_index`、`index` 分别在回答什么问题；同时继续目标用户学习、360 / 768 / 1280 多视口、触摸和完整键盘焦点流验收，按发现迭代后把首课从 `ready` 推进到 `verified`。
+**接下来：** 建设第三章“成组，但不粘连”，重点讲透 `deepcopy`、`n_samples_per_prompt`、`group_index`、`index` 与对象独立性；完成后再继续请求、响应与写回三章。Cloudflare 登录、分支预览和合并发布在本地内容验收之后恢复，不阻塞当前开发。
 
 **暂时不做：** 大规模铺课程、账号系统、真实在线训练、全量英文内容和高级 recipe explorer。
 
@@ -724,9 +724,9 @@ M0 已完成。[《一条 Sample 的旅程》storyboard](./SLIME_SAMPLE_JOURNEY_
 
 1. 在 `website/` 完成内容或交互修改；
 2. 通过内容校验、测试、类型检查、lint、安全检查和生产构建；
-3. 将修改推送到 [yehu77/slime](https://github.com/yehu77/slime) 的 `main`；
-4. 由 Cloudflare Workers Builds 自动发布；
-5. 检查 `/`、`/start`、`/learn`、`/learn/sample-journey`、`/learn/sample-to-generation`、`/glossary`、`/source` 后记录验收结果。
+3. 推送 `codex/*` 安全分支并创建 PR，不直接向官方 `upstream` 推送；
+4. 通过 GitHub CI 与 Cloudflare branch preview 后合并到个人 fork 的 `main`；
+5. 由 Cloudflare Workers Builds 自动发布，并检查 `/`、`/start`、`/learn`、`/learn/sample-journey`、`/learn/sample-to-generation`、`/glossary`、`/source` 后记录验收结果。
 
 ## 22. 研究入口
 
@@ -777,6 +777,7 @@ M0 已完成。[《一条 Sample 的旅程》storyboard](./SLIME_SAMPLE_JOURNEY_
 | 2026-08-10 | 采用“叙事层 + 技术层”的双层内容文风 | 让课程既值得读下去，又不牺牲源码、字段与因果的准确性 | 已确认 |
 | 2026-08-20 | 正式采用“先讲透机制，再运行实验”的教学顺序 | 避免学习者只会复制命令却无法解释字段、网络边界和失败原因 | 已确认并进入实施 |
 | 2026-08-20 | 新增七阶段 `/learn` 路线与首门 88 分钟机制课 | 把系统导论、核心机制、综合检查、实验和修改框架放回同一条可见路线 | 已实现 |
+| 2026-08-24 | 首门机制课采用“翻译台 → 生命周期接力台 → 分组机制”的逐章专属叙事 | 让每章围绕一个可验证机制建立独立认知模型，而不是复用通用说明模板 | 前两章已实现，第三章待建设 |
 
 ## 24. 更新记录
 
@@ -789,3 +790,4 @@ M0 已完成。[《一条 Sample 的旅程》storyboard](./SLIME_SAMPLE_JOURNEY_
 - 2026-08-10：建立共同维护的内容文风指南，确认以有文学性的叙事型技术写作为默认表达方式，并从学习入口与首课开场开始校准。
 - 2026-08-10：完成首课第一幕“出生”的叙事化样板；修正第一幕过早展示四条候选的问题，补齐字段变化、源码证据与第二幕过渡的渐进阅读线。
 - 2026-08-20：新增 `/learn` 七阶段路线与《Sample 如何得到回答》六章机制课；引入独立 2×2 fixture、固定源码摘录、结构化练习、终测和 lesson-keyed v2 本地进度，正式把真实实验放到机制理解与综合检查之后。
+- 2026-08-24：完成机制课第一章“连续翻译台”和第二章“字段生命周期接力台”的本地实现与多视口验收；当前目标转为第三章分组机制，Cloudflare 预览与合并发布暂缓到恢复登录后执行。
