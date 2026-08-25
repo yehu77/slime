@@ -11,7 +11,7 @@ const routes = [
   ["/learn/sample-to-generation?chapter=field-ownership", /字段生命周期接力台/],
   ["/learn/sample-to-generation?chapter=group-without-aliasing", /成组，但不粘连/],
   ["/learn/sample-to-generation?chapter=sample-to-request", /请求装配与边境检查台/],
-  ["/learn/sample-to-generation?chapter=response-projection", /HTTP 响应为什么还不是 Sample/],
+  ["/learn/sample-to-generation?chapter=response-projection", /响应分轨场/],
   ["/learn/sample-to-generation?chapter=writeback-contract", /写回怎样维持数据契约/],
   ["/learn/sample-to-generation?chapter=assessment", /用一条新 trace 检查机制/],
   ["/learn/sample-to-generation?chapter=not-a-chapter", /没有名为“not-a-chapter”的章节/],
@@ -115,6 +115,24 @@ for (const [route, expected] of routes) {
       assert.doesNotMatch(html, /mechanism-rail-state/);
       assert.equal(
         (renderedText.match(/打开 a0 请求前后账本/g) ?? []).length,
+        1,
+      );
+    }
+    if (route === "/learn/sample-to-generation?chapter=response-projection") {
+      assert.match(html, /class="[^"]*\bresponse-reader\b/);
+      assert.match(renderedText, /一份返回，两层记录/);
+      assert.match(renderedText, /HTTP RESPONSE BODY/);
+      assert.match(renderedText, /sample_id/);
+      assert.match(renderedText, /不在 HTTP body 内/);
+      assert.match(renderedText, /一个 tuple，分到两条保持同序的轨道/);
+      assert.match(renderedText, /四种来源、八条证据轨/);
+      assert.match(renderedText, /Sample 仍未过闸/);
+      assert.match(renderedText, /Sample\.status/);
+      assert.match(renderedText, /pending/);
+      assert.match(renderedText, /正在恢复本章练习记录/);
+      assert.doesNotMatch(html, /mechanism-rail-state/);
+      assert.equal(
+        (renderedText.match(/打开 a0 响应前账本/g) ?? []).length,
         1,
       );
     }

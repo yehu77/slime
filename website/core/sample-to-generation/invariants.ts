@@ -220,24 +220,92 @@ export function checkSampleToGenerationInvariants(
     );
   }
 
-  if (Object.keys(state.response_projections).length === 0) {
+  const receiptEntries = Object.entries(state.response_receipts);
+  const evidenceEntries = Object.entries(state.response_evidence);
+  if (receiptEntries.length === 0 && evidenceEntries.length === 0) {
     checks.push(
       notApplicable(
-        "response.projection-aligned",
-        "SGLang response projections have not arrived yet",
+        "response.receipt-coverage",
+        "SGLang response receipts have not arrived yet",
+      ),
+      notApplicable(
+        "response.evidence-decoded",
+        "No response receipt is available to decode yet",
+      ),
+      notApplicable(
+        "response.evidence-aligned",
+        "No response evidence is available yet",
       ),
     );
   } else {
+    const expectedSampleIds = Object.keys(state.samples).sort();
     checks.push(
       result(
-        "response.projection-aligned",
-        Object.values(state.response_projections).every(
-          (projection) => projection.output_token_logprobs.length > 0,
+        "response.receipt-coverage",
+        receiptEntries.length === expectedSampleIds.length &&
+          evidenceEntries.length === expectedSampleIds.length &&
+          receiptEntries.every(([sampleId, receipt]) =>
+            expectedSampleIds.includes(sampleId) && receipt.sample_id === sampleId,
+          ) &&
+          evidenceEntries.every(([sampleId, evidence]) =>
+            expectedSampleIds.includes(sampleId) && evidence.sample_id === sampleId,
+          ),
+        "Every physical Sample has one caller-associated HTTP receipt and one decoded evidence record",
+        "Response sidecars must cover exactly the current physical Samples",
+        expectedSampleIds,
+        {
+          receiptIds: receiptEntries.map(([sampleId]) => sampleId),
+          evidenceIds: evidenceEntries.map(([sampleId]) => sampleId),
+        },
+      ),
+      result(
+        "response.evidence-decoded",
+        receiptEntries.every(([sampleId, receipt]) => {
+          const evidence = state.response_evidence[sampleId];
+          if (!evidence) return false;
+          const tuples = receipt.raw_body.meta_info.output_token_logprobs ?? [];
+          return (
+            evidence.text === receipt.raw_body.text &&
+            JSON.stringify(evidence.meta_info) ===
+              JSON.stringify(receipt.raw_body.meta_info) &&
+            JSON.stringify(evidence.tokens) ===
+              JSON.stringify(tuples.map((item) => item[1])) &&
+            JSON.stringify(evidence.log_probabilities) ===
+              JSON.stringify(tuples.map((item) => item[0]))
+          );
+        }),
+        "Each response evidence record preserves the complete meta_info envelope and decodes tuple[1] as token IDs and tuple[0] as log-probs",
+        "Response evidence must be a faithful local projection of its raw HTTP receipt, including server metadata outside this lesson's focus",
+      ),
+      result(
+        "response.evidence-aligned",
+        evidenceEntries.every(
+          ([, evidence]) =>
+            evidence.tokens.length === evidence.log_probabilities.length,
         ),
-        "Every SGLang response projects at least one token/log-prob tuple",
-        "A generated response requires token/log-prob evidence",
+        "Decoded response token IDs and log-probs share one response coordinate space",
+        "Decoded response token/log-prob arrays must have equal length",
       ),
     );
+
+    if (state.observation_id === "responses-received") {
+      checks.push(
+        result(
+          "response.sidecar-does-not-mutate-sample",
+          Object.values(state.samples).every(
+            (sample) =>
+              sample.response === "" &&
+              sample.response_length === 0 &&
+              sample.loss_mask === null &&
+              sample.rollout_log_probs === null &&
+              sample.weight_versions.length === 0 &&
+              sample.status === "pending",
+          ),
+          "Receiving and decoding HTTP bodies leaves all Sample writeback fields untouched",
+          "The response-evidence observation must not write response fields, terminal status, or actor version onto Samples",
+        ),
+      );
+    }
   }
 
   if (state.observation_id !== "responses-written") {

@@ -227,6 +227,75 @@ export type RequestFixturePacket = {
   };
 };
 
+export type ResponseDecodeStageId =
+  | "http-json"
+  | "output-mapping"
+  | "tuple-split"
+  | "candidate-package"
+  | "writeback-gate";
+
+export type ResponseDecodeStage = {
+  id: ResponseDecodeStageId;
+  order: number;
+  title: string;
+  input: readonly string[];
+  operation: string;
+  output: readonly string[];
+  proof: string;
+  notYet: string;
+  sourceRefIds: readonly string[];
+};
+
+export type ResponseEvidenceLane = {
+  id: string;
+  kind: "server-field" | "caller-association" | "decoded-evidence" | "deferred-write";
+  label: string;
+  sourcePath: string;
+  fixtureValue: string;
+  projectedAs: string;
+  proves: string;
+  doesNotProve: string;
+  sourceRefIds: readonly string[];
+};
+
+export type ResponseFixtureReceipt = {
+  sampleId: string;
+  fromObservation: string;
+  toObservation: string;
+  rawBody: {
+    text: string;
+    metaInfo: {
+      outputTokenLogprobs: readonly (readonly [number, number])[];
+      finishReason: { type: "stop" | "length" | "abort" };
+      weightVersion: string;
+    };
+  };
+  decoded: {
+    responseTokenIds: readonly number[];
+    responseLogProbs: readonly number[];
+    text: string;
+    metaInfoKept: boolean;
+  };
+  sampleBeforeWrite: {
+    tokens: readonly number[];
+    response: string;
+    responseLength: number;
+    lossMask: null;
+    rolloutLogProbs: null;
+    weightVersions: readonly string[];
+    status: "pending";
+    reward: null;
+  };
+};
+
+export type ResponseDiagnosticCase = {
+  id: string;
+  title: string;
+  snapshot: string;
+  firstErrorBoundary: string;
+  explanation: string;
+};
+
 export type SampleToGenerationTracePassport = {
   origin: {
     id: string;
@@ -286,6 +355,10 @@ export type SampleToGenerationChapter = {
   requestManifestEntries?: readonly RequestManifestEntry[];
   requestSamplingParameters?: readonly RequestSamplingParameter[];
   requestFixturePacket?: RequestFixturePacket;
+  responseDecodeStages?: readonly ResponseDecodeStage[];
+  responseEvidenceLanes?: readonly ResponseEvidenceLane[];
+  responseFixtureReceipt?: ResponseFixtureReceipt;
+  responseDiagnosticCases?: readonly ResponseDiagnosticCase[];
   branch?: SampleToGenerationBranch;
   explanation: readonly SampleToGenerationExplanation[];
   observationIds: readonly string[];
@@ -472,16 +545,40 @@ export const sampleToGenerationSourceEvidence: readonly SampleToGenerationSource
     boundary: "本课 fixture 没有 session_id，也不运行真实服务器；request sidecar 是课程观察工具，不是 upstream Sample 字段。",
   },
   {
-    id: "evidence-response-projection",
-    title: "HTTP 响应先被投影为 token 与 log-prob 数组",
-    sourceRefId: "rollout.generate",
-    claim: "generate 从 output_token_logprobs 分别提取 token ID 与 log-prob，再交给 Sample 的写回方法。",
+    id: "evidence-http-json-decode",
+    title: "源码底片：HTTP bytes 先通过 JSON 解码",
+    sourceRefId: "http.post-json-decode",
+    claim: "_post 对成功 response 读取 bytes，并优先通过 json.loads 建立 generate 随后访问的 output 值。",
     focus: [
-      "payload 明确请求 return_logprob",
-      "tuple 的索引 1 是 token ID，索引 0 是 log-prob",
-      "output.text 与 meta_info 仍是服务器返回，不是完整 Sample",
+      "raise_for_status 先于 body 解析",
+      "aread 取得 response bytes",
+      "非 JSON body 会回退为 decoded string，因此本课 nested mapping 是固定主路径，不是 helper 的唯一返回类型",
     ],
-    boundary: "mock HTTP 响应只固定教学数据；tuple 的投影顺序由源码验证。",
+    boundary: "摘录只证明传输层到 Python 值的第一层解码；它不证明 SGLang response 的完整 schema，也不涉及 Sample。",
+  },
+  {
+    id: "evidence-response-decode",
+    title: "源码底片：同一 tuple 分出 token 与 log-prob 两条轨",
+    sourceRefId: "rollout.generate-response-decode",
+    claim: "generate 在 output_token_logprobs 存在时以 item[1] 投影 token ID、item[0] 投影 log-prob；字段缺失时两者都回退为空数组。",
+    focus: [
+      "tuple 的索引 1 是 token ID，索引 0 是 log-prob",
+      "列表推导式维持输入 tuple 的顺序与数量",
+      "真实 tuple 可以带未被本路径读取的尾随元素；课程二元值只覆盖前两个位置",
+    ],
+    boundary: "output.text 没有在这里重新 tokenizer，也没有与 tokens 互证；return_logprob=true 是请求意图，不是强制客户端 schema。",
+  },
+  {
+    id: "evidence-response-handoff",
+    title: "源码边界：证据怎样站到写回方法门前",
+    sourceRefId: "rollout.generate-writeback-handoff",
+    claim: "generate 把 tokens、log_probs、text、meta_info 与调用方常量 trainable=True 一并交给 append_response_tokens。",
+    focus: [
+      "trainable=True 来自调用方代码，不来自 HTTP response",
+      "原始 meta_info 被整体交接，终止状态与权重版本尚未在本章兑现",
+      "方法调用是第五章的停止线，也是第六章的起点",
+    ],
+    boundary: "摘录展示参数交接与方法调用，但第五章课程观察点冻结在调用发生之前；Sample 字段变化由第六章负责解释。",
   },
   {
     id: "evidence-atomic-writeback",
@@ -1238,6 +1335,209 @@ export const requestFixturePacket: RequestFixturePacket = {
   },
 };
 
+export const responseDecodeStages: readonly ResponseDecodeStage[] = [
+  {
+    id: "http-json",
+    order: 1,
+    title: "HTTP bytes 先成为 Python 值",
+    input: ["成功响应的 body bytes", "HTTP status"],
+    operation: "_post() 先执行 raise_for_status()，读取 body，再尝试 json.loads(content)。",
+    output: ["output mapping", "或非 JSON 时的 decoded string fallback"],
+    proof: "固定源码能证明 JSON 解码发生在 generate 取得 output 之前。",
+    notYet: "这一层还没有读取 text、tuple，也不知道 response 属于哪条 Sample。",
+    sourceRefIds: ["http.post-json-decode"],
+  },
+  {
+    id: "output-mapping",
+    order: 2,
+    title: "generate 取得 text 与 meta_info",
+    input: ["output[\"text\"]", "output[\"meta_info\"]"],
+    operation: "调用方把返回 mapping 当作两类材料读取：人类可读文本，以及生成过程元数据。",
+    output: ["text=\"5\"", "nested meta_info"],
+    proof: "generate 直接访问这两个键；课程只重建固定路径访问到的最小 shape，不冒充完整 SGLang schema。",
+    notYet: "text 没有被重新 tokenizer，也没有与 token IDs 做一致性验证。",
+    sourceRefIds: ["rollout.generate-response-decode"],
+  },
+  {
+    id: "tuple-split",
+    order: 3,
+    title: "同一 tuple 序列分成两条等长轨",
+    input: ["meta_info.output_token_logprobs[*]", "教学 tuple [-0.356675, 25]"],
+    operation: "逐项以 item[1] 取 response token ID，以 item[0] 取 rollout log-prob；字段缺失时两条轨都回退为空数组。",
+    output: ["response_token_ids=[25]", "response_log_probs=[-0.356675]"],
+    proof: "两条列表推导式共享同一输入顺序，因此课程 fixture 的投影长度与顺序可以确定性复算。",
+    notYet: "真实 tuple 可以带尾随元素；本课严格二元教学值不是完整 wire schema。return_logprob=true 也不等于客户端强制收到该字段。",
+    sourceRefIds: ["rollout.generate-response-decode"],
+  },
+  {
+    id: "candidate-package",
+    order: 4,
+    title: "调用方补上关联键，形成候写证据包",
+    input: ["sample_id=a0（调用方）", "text / token IDs / log-probs / meta_info（服务器与解码器）"],
+    operation: "课程把各来源并列保存为 response evidence sidecar，便于在写回前逐项核对。",
+    output: ["a0 的候写证据", "原始 meta_info 未丢弃"],
+    proof: "sample_id 只负责课程关联；它既不在 HTTP body 内，也不是新写入的 upstream Sample 字段。",
+    notYet: "候写证据包是教学观察工具，不是 slime 中命名为 ResponseProjection 的正式持久对象。",
+    sourceRefIds: ["rollout.generate-response-decode"],
+  },
+  {
+    id: "writeback-gate",
+    order: 5,
+    title: "停在 append_response_tokens 调用之前",
+    input: ["tokens", "log_probs", "text", "meta_info", "trainable=True"],
+    operation: "下一行源码将这些参数交给 Sample.append_response_tokens；本章在方法真正执行前冻结观察。",
+    output: ["可交接的调用参数", "未改变的 a0"],
+    proof: "源码底片能看见参数交接位置；trainable=True 来自调用方代码，不来自 HTTP response。",
+    notYet: "response、status、weight_versions、loss_mask 与 response_length 都必须等第六章的写回方法处理。",
+    sourceRefIds: ["rollout.generate-writeback-handoff"],
+  },
+] as const;
+
+export const responseEvidenceLanes: readonly ResponseEvidenceLane[] = [
+  {
+    id: "text-evidence",
+    kind: "server-field",
+    label: "人类可读文本",
+    sourcePath: "output.text",
+    fixtureValue: '"5"',
+    projectedAs: "text argument",
+    proves: "服务器返回了一段可读续写。",
+    doesNotProve: "不证明 token 对齐，也不证明答案正确。源码没有在这里重新 tokenizer 文本。",
+    sourceRefIds: ["rollout.generate-response-decode", "rollout.generate-writeback-handoff"],
+  },
+  {
+    id: "token-evidence",
+    kind: "decoded-evidence",
+    label: "response token 身份",
+    sourcePath: "output.meta_info.output_token_logprobs[*][1]",
+    fixtureValue: "25",
+    projectedAs: "tokens=[25]",
+    proves: "固定 tuple 的第二个位置被 generate 当作 token ID。",
+    doesNotProve: "token ID 依赖实际 tokenizer；25 只是明确标注的教学值，也不表达 reward。",
+    sourceRefIds: ["rollout.generate-response-decode"],
+  },
+  {
+    id: "logprob-evidence",
+    kind: "decoded-evidence",
+    label: "rollout policy 概率证据",
+    sourcePath: "output.meta_info.output_token_logprobs[*][0]",
+    fixtureValue: "-0.356675",
+    projectedAs: "log_probs=[-0.356675]",
+    proves: "固定 tuple 的第一个位置被 generate 当作已选 token 的 log-prob。",
+    doesNotProve: "log-prob 不是 reward，也不衡量数学答案是否正确。",
+    sourceRefIds: ["rollout.generate-response-decode"],
+  },
+  {
+    id: "terminal-evidence",
+    kind: "server-field",
+    label: "终止原因",
+    sourcePath: "output.meta_info.finish_reason.type",
+    fixtureValue: '"stop"',
+    projectedAs: "meta_info（原样交接）",
+    proves: "服务器报告这次生成因 stop 条件正常结束。",
+    doesNotProve: "第五章尚未把 stop 映射为 Sample.status；正常结束也不等于内容正确。",
+    sourceRefIds: ["rollout.generate-writeback-handoff", "sample.apply-meta-info"],
+  },
+  {
+    id: "version-evidence",
+    kind: "server-field",
+    label: "生成权重来源",
+    sourcePath: "output.meta_info.weight_version",
+    fixtureValue: '"actor@0"',
+    projectedAs: "meta_info（原样交接）",
+    proves: "教学响应声明自己由 actor@0 生成。",
+    doesNotProve: "第五章尚未把它追加到 Sample.weight_versions；版本号也不代表质量。",
+    sourceRefIds: ["rollout.generate-writeback-handoff", "sample.apply-meta-info"],
+  },
+  {
+    id: "sample-association",
+    kind: "caller-association",
+    label: "调用方关联键",
+    sourcePath: "course receipt.sample_id",
+    fixtureValue: '"a0"',
+    projectedAs: "把返回值与原 Sample 对上",
+    proves: "课程知道这份 output 要交回哪条物理候选。",
+    doesNotProve: "sample_id 不来自 HTTP JSON，也不是本步新写入的 Sample 字段。",
+    sourceRefIds: ["rollout.generate-response-decode"],
+  },
+  {
+    id: "caller-constant",
+    kind: "caller-association",
+    label: "调用方策略常量",
+    sourcePath: "generate call site",
+    fixtureValue: "trainable=True",
+    projectedAs: "append_response_tokens argument",
+    proves: "默认 generate 路径选择以可训练 response 交接。",
+    doesNotProve: "这个布尔值不是服务器返回字段；如何形成 loss_mask 要等写回方法。",
+    sourceRefIds: ["rollout.generate-writeback-handoff"],
+  },
+  {
+    id: "deferred-sample-write",
+    kind: "deferred-write",
+    label: "尚未出现的 Sample 结果",
+    sourcePath: "Sample.response / status / weight_versions / loss_mask",
+    fixtureValue: '"" / pending / [] / None',
+    projectedAs: "第六章写回后才改变",
+    proves: "responses-received 观察点只新增课程 sidecar，原 Sample 仍保持请求后的状态。",
+    doesNotProve: "不能把候写材料提前显示成已写入字段，更不能在本章出现 reward。",
+    sourceRefIds: ["rollout.generate-writeback-handoff", "sample.append-response-tokens", "sample.apply-meta-info"],
+  },
+] as const;
+
+export const responseFixtureReceipt: ResponseFixtureReceipt = {
+  sampleId: "a0",
+  fromObservation: "requests-prepared",
+  toObservation: "responses-received",
+  rawBody: {
+    text: "5",
+    metaInfo: {
+      outputTokenLogprobs: [[-0.356675, 25]],
+      finishReason: { type: "stop" },
+      weightVersion: "actor@0",
+    },
+  },
+  decoded: {
+    responseTokenIds: [25],
+    responseLogProbs: [-0.356675],
+    text: "5",
+    metaInfoKept: true,
+  },
+  sampleBeforeWrite: {
+    tokens: [11, 12, 13, 14, 15],
+    response: "",
+    responseLength: 0,
+    lossMask: null,
+    rolloutLogProbs: null,
+    weightVersions: [],
+    status: "pending",
+    reward: null,
+  },
+};
+
+export const responseDiagnosticCases: readonly ResponseDiagnosticCase[] = [
+  {
+    id: "tuple-order-inverted",
+    title: "把 -0.356675 当成 token ID",
+    snapshot: "decoder → tokens=[-0.356675], log_probs=[25]",
+    firstErrorBoundary: "tuple decoder",
+    explanation: "错误最早发生在位置语义被倒置：固定源码明确以 item[1] 取 token ID、item[0] 取 log-prob。",
+  },
+  {
+    id: "stop-means-correct",
+    title: "把 stop 当成答案正确",
+    snapshot: "finish_reason.type=stop → correct=true",
+    firstErrorBoundary: "evidence classification",
+    explanation: "stop 只解释生成为什么结束；没有 label 比较和 reward producer，就没有正确性结论。",
+  },
+  {
+    id: "response-written-too-early",
+    title: "收到响应时就显示 Sample.response=\"5\"",
+    snapshot: "responses-received → Sample.response=\"5\"",
+    firstErrorBoundary: "writeback boundary",
+    explanation: "课程在 append_response_tokens 执行前切开观察缝隙；此时只允许 sidecar 新增，Sample 必须保持未写回状态。",
+  },
+] as const;
+
 const chapterFourExercise = {
   id: "stg.chapter-4-request-boundary-v2",
   kind: "mapping",
@@ -1285,33 +1585,22 @@ const chapterFourExercise = {
 } as const satisfies StructuredExercise;
 
 const chapterFiveExercise = {
-  id: "stg.chapter-5-gate",
-  kind: "mapping",
-  title: "tuple 解码：服务器证据怎样投影",
-  prompt: "将 output_token_logprobs 中的 tuple 位置映射到本地变量。",
-  instruction: "以教学响应 [-0.356675, 25] 为例。",
-  items: [
-    { id: "tuple-0", label: "item[0] = -0.356675" },
-    { id: "tuple-1", label: "item[1] = 25" },
-    { id: "output-text", label: "output.text = \"5\"" },
-    { id: "finish", label: "meta_info.finish_reason.type = \"stop\"" },
+  id: "stg.chapter-5-response-decoder-v2",
+  kind: "field-entry",
+  title: "迁移解码：两枚 token，仍停在写回门外",
+  prompt: "新响应为 text=\"57\"、output_token_logprobs=[[-0.2,25],[-1.1,27]]、finish_reason.type=\"length\"、weight_version=\"actor@3\"。请重建候写证据，并保持 Sample 的微观观察状态。",
+  instruction: "数组用英文逗号分隔；空字符串可填写 \"\"；None 按字面填写。不要把 length 提前映射进 Sample.status。",
+  fields: [
+    { id: "response-tokens", label: "new_response_tokens", placeholder: "25,27", acceptedAnswers: ["25,27", "25, 27", "[25,27]", "[25, 27]"] },
+    { id: "response-logprobs", label: "new_response_log_probs", placeholder: "-0.2,-1.1", acceptedAnswers: ["-0.2,-1.1", "-0.2, -1.1", "[-0.2,-1.1]", "[-0.2, -1.1]"] },
+    { id: "sample-response", label: "本章观察点的 Sample.response", placeholder: '""', acceptedAnswers: ['""', "''", "空字符串"] },
+    { id: "sample-status", label: "本章观察点的 Sample.status", placeholder: "pending", acceptedAnswers: ["pending"] },
+    { id: "sample-reward", label: "本章观察点的 Sample.reward", placeholder: "None", acceptedAnswers: ["None", "null"] },
   ],
-  targets: [
-    { id: "logprob", label: "new_response_log_probs" },
-    { id: "token", label: "new_response_tokens" },
-    { id: "text", label: "response 文本" },
-    { id: "terminal", label: "终止原因" },
-  ],
-  correctMapping: {
-    "tuple-0": "logprob",
-    "tuple-1": "token",
-    "output-text": "text",
-    finish: "terminal",
-  },
-  sourceRefIds: ["rollout.generate"],
+  sourceRefIds: ["rollout.generate-response-decode", "rollout.generate-writeback-handoff"],
   feedback: {
-    correct: "解码正确。HTTP response 提供写回材料，但仍没有 Sample 的身份、label 或 reward。",
-    incorrect: "直接检查两个列表推导式：item[1] 取 token ID，item[0] 取 log-prob。",
+    correct: "证据包已经重建，观察边界也守住了：tuple 可以解码，meta_info 可以交接，但原 Sample 仍未被写回。",
+    incorrect: "先逐 tuple 读取 item[1] 与 item[0]；再把观察点钉在 append_response_tokens 调用之前，此时 response、status 与 reward 都不能越界。",
   },
 } as const satisfies StructuredExercise;
 
@@ -1779,50 +2068,62 @@ export const sampleToGenerationChapters: readonly SampleToGenerationChapter[] = 
     id: "stg.chapter-5",
     number: 5,
     slug: "response-projection",
-    title: "HTTP 响应为什么还不是 Sample",
+    title: "响应分轨场",
     shortTitle: "响应",
     durationMinutes: 12,
-    drivingQuestion: "服务器已经返回文本“5”，为什么 generate 还不能直接 return？",
+    drivingQuestion: "在 output = await post(...) 之后、append_response_tokens(...) 之前，哪些事实已经成立，哪些仍未成立？",
     imageSrc: "/art/library-act-05-v1.webp",
-    conclusion: "HTTP response 只提供新文本、token/log-prob tuple 与终止元数据；调用方必须把这些材料投影回原来的 Sample。",
+    imageAlt: "少女站在长满植物的铁轨旁，电线与轨道向远处汇流，像一份返回信号正在分轨。",
+    scopeLabel: "固定源码的微观观察缝隙 · response 已返回 · Sample 尚未写回",
+    objective: "把真实 HTTP body、调用方关联、tuple 解码与写回参数分成四本账；能够判断每条证据证明什么、不证明什么。",
+    conclusion: "HTTP output 可以被确定性解码成 text、response token IDs、rollout log-probs 与原始 meta_info；但这些仍只是调用方持有的候写证据，原 Sample 没有因此自动改变。",
     boundary: {
-      input: ["SGLang output.text", "meta_info.output_token_logprobs", "finish_reason 与 weight_version"],
-      output: ["response token IDs", "response log-prob 数组", "待写回的 response projection"],
-      excluded: ["原始 prompt、label 与 group/index", "reward", "训练 mask 的最终验证"],
+      input: ["成功 HTTP response bytes", "SGLang output.text 与 nested meta_info", "调用方仍持有的 a0"],
+      output: ["response token ID 与 log-prob 两条等长轨", "保留原始 meta_info 的课程 response evidence sidecar", "明确属于 a0 的待调用参数"],
+      excluded: ["任何 Sample 字段写入", "finish_reason 到 status 的映射", "loss_mask / response_length 最终验证", "reward 与正确性判断"],
     },
     stateTransition: {
-      before: "HTTP 响应包含 text=\"5\" 与 output_token_logprobs=[[-0.356675,25]]",
-      operation: "分别以 item[1]、item[0] 投影 token ID 与 log-prob，并保留终止元数据",
-      after: "projection={tokens:[25], log_probs:[-0.356675], text:\"5\", finish_reason:stop}",
+      before: "a0 仍为 response=\"\"、status=pending；HTTP body 已返回 text=\"5\" 与 nested meta_info",
+      operation: "_post 解析 JSON；generate 按 item[1]/item[0] 分离 tuple，并把调用方 sample_id 与响应材料并列为课程 sidecar",
+      after: "response evidence={sample_id:a0, text:\"5\", response_token_ids:[25], response_log_probs:[-0.356675], meta_info:{...}}；a0 本身保持不变",
     },
     explanation: [
       {
-        title: "服务器不知道调用方的完整对象",
-        body: "SGLang 接收到的是 payload，而不是带有 label、group_index 和 metadata 的 Sample。因此 response 不可能自行成为 Sample；它只能作为生成结果被合并回调用方仍持有的对象。",
+        title: "第一层解码属于 HTTP helper",
+        body: "成功响应先经过 raise_for_status、aread 与 json.loads，generate 得到的 output 已经是 Python mapping。若 body 不是 JSON，helper 还有 decoded string fallback；默认 generate 随后按 mapping 访问，所以本课主路径只讨论结构化 JSON。",
       },
       {
-        title: "tuple 顺序必须由源码而不是直觉决定",
-        body: "output_token_logprobs 的每项在默认路径中以 item[1] 取 token ID、item[0] 取 log-prob。教学值把这种投影变得可见，但真正的契约来自 generate 的两条列表推导式。",
+        title: "第二层解码属于 generate",
+        body: "generate 不靠字段名猜 tuple 顺序，而是明确以 item[1] 取 token ID、item[0] 取 log-prob。真实 tuple 可能带尾随元素；课程只固定前两个被本路径读取的位置。字段缺失时源码回退为两个空数组，并不会在这几行自动宣告异常。",
       },
       {
-        title: "text 与 token evidence 各有用途",
-        body: "text 供人和任务逻辑读取；token ID 用于拼接完整序列；log-prob 记录 rollout policy 对已选 token 的概率证据。三者相关，却不能互相替代。",
+        title: "text、token 与 log-prob 是并列证据",
+        body: "text 供人类与任务逻辑阅读；token ID 标识模型实际选择的离散动作；rollout log-prob 记录生成时 policy 对该动作的概率证据。固定源码没有把 output.text 重新 tokenizer，也没有在此处验证 text 与 token IDs 是否互相一致。",
       },
       {
-        title: "stop 只回答为什么结束",
-        body: "finish_reason=stop 表明生成按正常停止条件终止。它没有比较 response 与 label，更没有运行 reward 函数，所以它不能证明“5”正确，也不能证明“6”错误。",
+        title: "meta_info 可以交接，但意义不能提前兑现",
+        body: "finish_reason=stop 与 weight_version=actor@0 都是可携带的生成元数据。它们要到下一章由 _apply_meta_info 解释为 Sample.status 与 weight_versions；stop 只回答为什么结束，actor@0 只回答来自哪版权重，两者都不回答内容是否正确。",
       },
     ],
+    responseDecodeStages,
+    responseEvidenceLanes,
+    responseFixtureReceipt,
+    responseDiagnosticCases,
     observationIds: ["responses-received"],
-    sourceRefIds: ["rollout.generate"],
-    evidenceId: "evidence-response-projection",
+    sourceRefIds: ["http.post-json-decode", "rollout.generate-response-decode", "rollout.generate-writeback-handoff"],
+    evidenceId: "evidence-response-decode",
+    additionalEvidenceIds: ["evidence-http-json-decode", "evidence-response-handoff"],
     exercise: chapterFiveExercise,
     misconception: {
-      belief: "output.text 就是完整结果，token 和 log-prob 只是可选日志。",
-      correction: "对训练链路而言，response token 与 rollout log-prob 是协议证据；只有文本无法建立正确的 response-space 对齐。",
+      belief: "服务器返回了 text=\"5\"，说明 a0.response 已经是 5，stop 也说明答案正确。",
+      correction: "收到 output、整理候写证据、修改 Sample、评价答案是四条不同边界。本章只完成前两条；a0.response 仍为空，status 仍为 pending，reward 仍为 None。",
     },
-    takeaway: "HTTP response 是写回材料，不是 Sample 本身。",
-    transition: "最后一章执行合并，并用三条长度关系验证 Sample 没有在边界上被写坏。",
+    takeaway: "候写证据已经齐备；Sample 尚未改变。",
+    transition: "下一章打开写回闸门：append_response_tokens 怎样消费这份证据，并维持 prompt 前缀与 response-space 数组的契约。",
+    advancedAside: {
+      title: "支线：缺失 output_token_logprobs 时会怎样",
+      body: "固定源码在该键缺失时令 new_response_tokens=[]、new_response_log_probs=[]。这只描述默认路径的局部回退，不等于本 fixture 已具备单 token 训练证据，也不等于所有下游 metadata 检查必然通过。return_logprob=true 是请求意图，不是客户端强制响应 schema。",
+    },
   },
   {
     id: "stg.chapter-6",
@@ -2027,7 +2328,7 @@ export const sampleToGenerationCourse: SampleToGenerationCourse = {
     locale: "zh-CN",
     title: "Sample 如何得到回答——从一行输入到 SGLang 写回",
     summary: "沿固定 2×2 trace 逐边界验证 Dataset、Sample、DataSource 与 SGLang generation 的数据契约。",
-    lessonRevision: 6,
+    lessonRevision: 7,
     assessmentVersion: 1,
     durationMinutes: { chapters: 78, assessment: 10, total: 88 },
     requiresGpu: false,

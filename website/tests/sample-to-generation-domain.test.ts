@@ -7,10 +7,14 @@ import {
   appendResponseAtomically,
   checkSampleToGenerationInvariants,
   cloneSeedSamplesIntoGroups,
+  decodeSglangResponseEvidence,
   materializeSampleToGenerationStates,
+  reduceSampleToGeneration,
   sampleToGenerationFixture,
   seekSampleToGeneration,
+  type ResponseReceipt,
   type ResponseWrite,
+  type SampleToGenerationFixture,
 } from "@/core/sample-to-generation";
 
 describe("sample-to-generation deterministic trace", () => {
@@ -185,20 +189,202 @@ describe("sample-to-generation deterministic trace", () => {
     }
   });
 
-  it("keeps the HTTP response in a sidecar until the writeback observation", () => {
+  it("receives raw HTTP bodies, decodes course evidence, and leaves Samples unchanged", () => {
+    const prepared = seekSampleToGeneration(
+      sampleToGenerationFixture,
+      "requests-prepared",
+    );
     const received = seekSampleToGeneration(
       sampleToGenerationFixture,
       "responses-received",
     );
-    expect(received.response_projections.a0).toEqual({
+    expect(received.changed_sample_ids).toEqual([]);
+    expect(received.samples).toEqual(prepared.samples);
+    expect(received.requests).toEqual(prepared.requests);
+    expect(Object.keys(received.response_receipts).sort()).toEqual(["a0", "a1", "b0", "b1"]);
+    expect(Object.keys(received.response_evidence).sort()).toEqual(["a0", "a1", "b0", "b1"]);
+
+    expect(received.response_receipts.a0).toEqual({
+      sample_id: "a0",
+      raw_body: {
+        text: "5",
+        meta_info: {
+          output_token_logprobs: [[-0.356675, 25]],
+          finish_reason: { type: "stop" },
+          weight_version: "actor@0",
+        },
+      },
+    });
+    expect(received.response_receipts.a0.raw_body).not.toHaveProperty("sample_id");
+    expect(received.response_receipts.a0).not.toBe(
+      sampleToGenerationFixture.response_receipts[0],
+    );
+    expect(received.response_evidence.a0).toEqual({
       sample_id: "a0",
       text: "5",
-      output_token_logprobs: [[-0.356675, 25]],
-      finish_reason: "stop",
-      weight_version: "actor@0",
+      tokens: [25],
+      log_probabilities: [-0.356675],
+      meta_info: {
+        output_token_logprobs: [[-0.356675, 25]],
+        finish_reason: { type: "stop" },
+        weight_version: "actor@0",
+      },
     });
-    expect(received.samples.a0.response).toBe("");
-    expect(received.samples.a0.status).toBe("pending");
+    for (const sample of Object.values(received.samples)) {
+      expect(sample).toMatchObject({
+        response: "",
+        response_length: 0,
+        reward: null,
+        loss_mask: null,
+        rollout_log_probs: null,
+        weight_versions: [],
+        status: "pending",
+      });
+    }
+  });
+
+  it("decodes tuple positions and preserves the source fallback when log-probs are absent", () => {
+    const receipt = sampleToGenerationFixture.response_receipts[0];
+    expect(decodeSglangResponseEvidence(receipt)).toEqual({
+      sample_id: "a0",
+      text: "5",
+      tokens: [25],
+      log_probabilities: [-0.356675],
+      meta_info: {
+        output_token_logprobs: [[-0.356675, 25]],
+        finish_reason: { type: "stop" },
+        weight_version: "actor@0",
+      },
+    });
+
+    const noLogprobReceipt = structuredClone(receipt) as ResponseReceipt;
+    delete noLogprobReceipt.raw_body.meta_info.output_token_logprobs;
+    const beforeDecode = JSON.stringify(noLogprobReceipt);
+    expect(decodeSglangResponseEvidence(noLogprobReceipt)).toEqual({
+      sample_id: "a0",
+      text: "5",
+      tokens: [],
+      log_probabilities: [],
+      meta_info: {
+        finish_reason: { type: "stop" },
+        weight_version: "actor@0",
+      },
+    });
+    expect(JSON.stringify(noLogprobReceipt)).toBe(beforeDecode);
+
+    const extendedTupleReceipt = structuredClone(receipt) as ResponseReceipt;
+    extendedTupleReceipt.raw_body.meta_info.output_token_logprobs = [
+      [-0.356675, 25, { top_logprobs: [[25, -0.356675]] }],
+    ];
+    const withoutWeightVersion = structuredClone(extendedTupleReceipt) as ResponseReceipt;
+    delete withoutWeightVersion.raw_body.meta_info.weight_version;
+    expect(decodeSglangResponseEvidence(withoutWeightVersion)).toEqual({
+      sample_id: "a0",
+      text: "5",
+      tokens: [25],
+      log_probabilities: [-0.356675],
+      meta_info: {
+        output_token_logprobs: [
+          [-0.356675, 25, { top_logprobs: [[25, -0.356675]] }],
+        ],
+        finish_reason: { type: "stop" },
+      },
+    });
+
+    const lengthReceipt = structuredClone(receipt) as ResponseReceipt;
+    lengthReceipt.raw_body.meta_info.finish_reason = {
+      type: "length",
+      matched_stop: false,
+    };
+    expect(decodeSglangResponseEvidence(lengthReceipt).meta_info.finish_reason).toEqual({
+      type: "length",
+      matched_stop: false,
+    });
+  });
+
+  it("retains every server meta_info field through decode and Chapter 6 consumption", () => {
+    const prepared = seekSampleToGeneration(
+      sampleToGenerationFixture,
+      "requests-prepared",
+    );
+    const receipt = structuredClone(
+      sampleToGenerationFixture.response_receipts[0],
+    ) as ResponseReceipt;
+    receipt.raw_body.meta_info.cache_hit = true;
+    receipt.raw_body.meta_info.server_trace = {
+      request_id: "sgl-42",
+      timings_ms: [2, 7],
+    };
+    receipt.raw_body.meta_info.finish_reason = {
+      type: "stop",
+      matched_stop: "<eos>",
+    };
+    const receiptBeforeDecode = structuredClone(receipt);
+
+    const evidence = decodeSglangResponseEvidence(receipt);
+    expect(evidence.meta_info).toEqual(receipt.raw_body.meta_info);
+    expect(receipt).toEqual(receiptBeforeDecode);
+
+    const evidenceBeforeWrite = structuredClone(evidence);
+    const written = appendResponseAtomically(prepared.samples.a0, evidence);
+    expect(evidence).toEqual(evidenceBeforeWrite);
+    expect(evidence.meta_info.cache_hit).toBe(true);
+    expect(evidence.meta_info.server_trace).toEqual({
+      request_id: "sgl-42",
+      timings_ms: [2, 7],
+    });
+    expect(written.status).toBe("completed");
+  });
+
+  it.each(["missing", "empty"] as const)(
+    "keeps loss_mask null while exposing [] rollout log-probs when output_token_logprobs is %s",
+    (kind) => {
+      const prepared = seekSampleToGeneration(
+        sampleToGenerationFixture,
+        "requests-prepared",
+      );
+      const receipt = structuredClone(
+        sampleToGenerationFixture.response_receipts[0],
+      ) as ResponseReceipt;
+      if (kind === "missing") {
+        delete receipt.raw_body.meta_info.output_token_logprobs;
+      } else {
+        receipt.raw_body.meta_info.output_token_logprobs = [];
+      }
+
+      const evidence = decodeSglangResponseEvidence(receipt);
+      const written = appendResponseAtomically(prepared.samples.a0, evidence);
+
+      expect(evidence.tokens).toEqual([]);
+      expect(evidence.log_probabilities).toEqual([]);
+      expect(written.tokens).toEqual(prepared.samples.a0.tokens);
+      expect(written.response).toBe("5");
+      expect(written.response_length).toBe(0);
+      expect(written.loss_mask).toBeNull();
+      expect(written.rollout_log_probs).toEqual([]);
+      expect(written.status).toBe("completed");
+      expect(written.weight_versions).toEqual(["actor@0"]);
+    },
+  );
+
+  it("does not publish partial response sidecars when one receipt is malformed", () => {
+    const prepared = seekSampleToGeneration(
+      sampleToGenerationFixture,
+      "requests-prepared",
+    );
+    const before = structuredClone(prepared);
+    const malformedFixture = structuredClone(sampleToGenerationFixture);
+    malformedFixture.response_receipts[2].raw_body.meta_info.weight_version =
+      42 as unknown as string;
+
+    expect(() => reduceSampleToGeneration(
+      prepared,
+      { type: "next" },
+      malformedFixture as SampleToGenerationFixture,
+    )).toThrow(/expected string/i);
+    expect(prepared).toEqual(before);
+    expect(prepared.response_receipts).toEqual({});
+    expect(prepared.response_evidence).toEqual({});
   });
 
   it("writes four terminal responses while preserving prompt prefixes and null rewards", () => {
@@ -251,8 +437,10 @@ describe("sample-to-generation deterministic trace", () => {
       text: "56",
       tokens: [25, 26],
       log_probabilities: [-0.356675],
-      finish_reason: "stop",
-      weight_version: "actor@0",
+      meta_info: {
+        finish_reason: { type: "stop" },
+        weight_version: "actor@0",
+      },
     } satisfies ResponseWrite;
 
     expect(() => appendResponseAtomically(original, malformed)).toThrow(

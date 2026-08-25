@@ -166,6 +166,52 @@
       }
     },
     {
+      "id": "http.post-json-decode",
+      "kind": "production-source",
+      "path": "slime/utils/http_utils.py",
+      "symbol": "_post",
+      "symbol_kind": "async-function",
+      "claim": "HTTP helper 在成功响应上读取 body，并在内容是合法 JSON 时把它解析成 Python 值交还调用方。",
+      "concept_ids": ["sample-object"],
+      "lesson_uses": ["stg.chapter-5"],
+      "caveat": "这里只证明传输层的 JSON 解码；非 JSON body 会退回字符串，而 generate 随后要求可下标的 response 对象。",
+      "guided_excerpt": {
+        "start_contains": "async def _post(",
+        "end_contains": "output = content.decode() if isinstance(content, bytes) else content"
+      }
+    },
+    {
+      "id": "rollout.generate-response-decode",
+      "kind": "production-source",
+      "path": "slime/rollout/sglang_rollout.py",
+      "symbol": "generate",
+      "symbol_kind": "async-function",
+      "claim": "generate 从 meta_info.output_token_logprobs 逐项提取 item[1] 作为 response token ID、item[0] 作为 rollout log-prob；字段缺失时两列都退回空列表。",
+      "concept_ids": ["sample-object", "rollout-log-prob"],
+      "lesson_uses": ["stg.chapter-5", "stg.final-q5"],
+      "caveat": "源码只依赖每项的前两个位置，不能据此把真实 wire item 宣称为严格二元 tuple；output.text 与 token evidence 也未在这里做一致性校验。",
+      "guided_excerpt": {
+        "start_contains": "with trace_span(sample, \"sglang_generate\"",
+        "end_contains": "new_response_tokens, new_response_log_probs = [], []"
+      }
+    },
+    {
+      "id": "rollout.generate-writeback-handoff",
+      "kind": "production-source",
+      "path": "slime/rollout/sglang_rollout.py",
+      "symbol": "generate",
+      "symbol_kind": "async-function",
+      "claim": "generate 把投影出的 token IDs、log-probs、原始 text 与 meta_info 一并交给 Sample.append_response_tokens，然后返回同一个 Sample。",
+      "concept_ids": ["sample-object", "response-length", "rollout-log-prob"],
+      "lesson_uses": ["stg.chapter-5", "stg.chapter-6"],
+      "caveat": "这段代码证明交接次序；字段对齐、terminal metadata 与实际写回规则由 Sample.append_response_tokens 及其下游方法负责。",
+      "guided_excerpt": {
+        "start_contains": "sample.append_response_tokens(",
+        "end_contains": "text=output[\"text\"],",
+        "end_offset": 3
+      }
+    },
+    {
       "id": "rollout.generate",
       "kind": "production-source",
       "path": "slime/rollout/sglang_rollout.py",

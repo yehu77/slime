@@ -172,16 +172,45 @@ export function SampleStateDrawer({
 
         {state.requests[sampleId] ? (
           <section className="mechanism-sidecar">
-            <h3>请求 sidecar · 本步创建</h3>
+            <h3>
+              {state.observation_id === "requests-prepared"
+                ? "请求 sidecar · 本步创建"
+                : "请求 sidecar · 前一观察点建立，本步保持不变"}
+            </h3>
             <p className="mechanism-sidecar-note">课程为了检查网络边界而建立的观察记录；它不是 upstream Sample 字段。</p>
             <pre><code>{JSON.stringify(state.requests[sampleId], null, 2)}</code></pre>
           </section>
         ) : null}
 
-        {state.response_projections[sampleId] ? (
+        {state.response_receipts[sampleId] ? (
           <section className="mechanism-sidecar">
-            <h3>响应最小投影</h3>
-            <pre><code>{JSON.stringify(state.response_projections[sampleId], null, 2)}</code></pre>
+            <h3>
+              {state.observation_id === "responses-received"
+                ? "HTTP response receipt · 本步接收"
+                : "HTTP response receipt · 前一观察点接收"}
+            </h3>
+            <p className="mechanism-sidecar-note">
+              <code>raw_body</code> 保留课程重建的服务器返回层级；外层 <code>sample_id</code> 只由调用方负责关联，不来自 HTTP JSON。
+            </p>
+            <pre><code>{JSON.stringify(state.response_receipts[sampleId], null, 2)}</code></pre>
+          </section>
+        ) : null}
+
+        {state.response_evidence[sampleId] ? (
+          <section className="mechanism-sidecar">
+            <h3>
+              {state.observation_id === "responses-received"
+                ? "课程 response evidence · 本步解码，尚未写回"
+                : "课程 response evidence · 前一步解码，本步已被消费"}
+            </h3>
+            <p className="mechanism-sidecar-note">
+              {state.observation_id === "responses-received" ? (
+                <>这是课程为了核对 tuple 与调用参数建立的 normalized sidecar；它不是 upstream Sample 字段，此刻 <code>response</code>、<code>status</code> 与 <code>weight_versions</code> 仍未写回。</>
+              ) : (
+                <>这份 normalized sidecar 已作为第六章的写回输入被消费；当前 Sample 的 <code>response</code>、<code>status</code> 与 <code>weight_versions</code> 已经更新，但 sidecar 本身仍只是课程保存的证据与输入，不是 upstream Sample 字段。</>
+              )}
+            </p>
+            <pre><code>{JSON.stringify(state.response_evidence[sampleId], null, 2)}</code></pre>
           </section>
         ) : null}
       </aside>

@@ -10,6 +10,10 @@ import type {
   RequestFixturePacket,
   RequestManifestEntry,
   RequestSamplingParameter,
+  ResponseDecodeStage,
+  ResponseDiagnosticCase,
+  ResponseEvidenceLane,
+  ResponseFixtureReceipt,
   SampleToGenerationChapter,
 } from "../../content/zh/lessons/sample-to-generation";
 
@@ -37,6 +41,13 @@ export type ChapterFourRequestBoundaryChapter = SampleToGenerationChapter & {
   requestManifestEntries: readonly RequestManifestEntry[];
   requestSamplingParameters: readonly RequestSamplingParameter[];
   requestFixturePacket: RequestFixturePacket;
+};
+
+export type ChapterFiveResponseEvidenceChapter = SampleToGenerationChapter & {
+  responseDecodeStages: readonly ResponseDecodeStage[];
+  responseEvidenceLanes: readonly ResponseEvidenceLane[];
+  responseFixtureReceipt: ResponseFixtureReceipt;
+  responseDiagnosticCases: readonly ResponseDiagnosticCase[];
 };
 
 export function hasChapterOneTranslationData(
@@ -82,5 +93,17 @@ export function hasChapterFourRequestBoundaryData(
     chapter.requestManifestEntries &&
     chapter.requestSamplingParameters &&
     chapter.requestFixturePacket,
+  );
+}
+
+export function hasChapterFiveResponseEvidenceData(
+  chapter: SampleToGenerationChapter | undefined,
+): chapter is ChapterFiveResponseEvidenceChapter {
+  return Boolean(
+    chapter?.slug === "response-projection" &&
+    chapter.responseDecodeStages &&
+    chapter.responseEvidenceLanes &&
+    chapter.responseFixtureReceipt &&
+    chapter.responseDiagnosticCases,
   );
 }

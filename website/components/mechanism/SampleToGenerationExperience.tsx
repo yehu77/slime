@@ -32,7 +32,9 @@ import {
 import { ChapterTwoProvenanceRelay } from "./ChapterTwoProvenanceRelay";
 import { ChapterThreeGroupingLab } from "./ChapterThreeGroupingLab";
 import { ChapterFourRequestBoundary } from "./ChapterFourRequestBoundary";
+import { ChapterFiveResponseEvidence } from "./ChapterFiveResponseEvidence";
 import {
+  hasChapterFiveResponseEvidenceData,
   hasChapterFourRequestBoundaryData,
   hasChapterOneTranslationData,
   hasChapterThreeGroupingData,
@@ -246,6 +248,23 @@ export function SampleToGenerationExperience({
   const [assessmentResult, setAssessmentResult] = useState<ReturnType<typeof gradeFinalAssessment> | null>(null);
   const chapterHeadingRef = useRef<HTMLHeadingElement>(null);
   const drawerTriggerRef = useRef<HTMLButtonElement>(null);
+  const railListRef = useRef<HTMLOListElement>(null);
+
+  useEffect(() => {
+    if (!activeSlug || activeSlug === assessmentSlug) return;
+    const rail = railListRef.current;
+    const current = rail?.querySelector<HTMLElement>(
+      `[data-chapter-slug="${activeSlug}"]`,
+    );
+    if (!rail || !current) return;
+    const left = current.offsetLeft - (rail.clientWidth - current.clientWidth) / 2;
+    rail.scrollTo({
+      left: Math.max(0, left),
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
+  }, [activeSlug]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -401,7 +420,8 @@ export function SampleToGenerationExperience({
   const hasChapterTwoReader = hasChapterTwoProvenanceData(chapter);
   const hasChapterThreeReader = hasChapterThreeGroupingData(chapter);
   const hasChapterFourReader = hasChapterFourRequestBoundaryData(chapter);
-  const hasDedicatedReader = hasChapterOneReader || hasChapterTwoReader || hasChapterThreeReader || hasChapterFourReader;
+  const hasChapterFiveReader = hasChapterFiveResponseEvidenceData(chapter);
+  const hasDedicatedReader = hasChapterOneReader || hasChapterTwoReader || hasChapterThreeReader || hasChapterFourReader || hasChapterFiveReader;
 
   const state = chapter
     ? seekSampleToGeneration(
@@ -461,7 +481,7 @@ export function SampleToGenerationExperience({
         <a className="mechanism-rail-cover" href="/learn/sample-to-generation" onClick={(event) => { event.preventDefault(); openCover(); }}>
           <span>CORE / 01</span><strong>课程封面</strong>
         </a>
-        <ol>
+        <ol ref={railListRef}>
           {course.chapters.map((item) => {
             const passed = Boolean(lessonProgress?.exercise_attempts[item.exercise.id]?.passed);
             return (
@@ -548,6 +568,17 @@ export function SampleToGenerationExperience({
             onNext={() => openSection(course.chapters[4].slug)}
             onOpenDrawer={() => setDrawerOpen(true)}
             onPrevious={() => openSection(course.chapters[2].slug)}
+            passed={Boolean(chapterProgress?.passed)}
+          />
+        ) : chapter && hasChapterFiveReader ? (
+          <ChapterFiveResponseEvidence
+            chapter={chapter}
+            exerciseSlot={chapterExercise}
+            headingRef={chapterHeadingRef}
+            triggerRef={drawerTriggerRef}
+            onNext={() => openSection(course.chapters[5].slug)}
+            onOpenDrawer={() => setDrawerOpen(true)}
+            onPrevious={() => openSection(course.chapters[3].slug)}
             passed={Boolean(chapterProgress?.passed)}
           />
         ) : chapter ? (

@@ -51,7 +51,7 @@ export const SampleToGenerationSampleSchema = z
     loss_mask: z.array(z.union([z.literal(0), z.literal(1)])).nullable(),
     weight_versions: z.array(z.string().min(1)),
     rollout_log_probs: z.array(z.number()).nullable(),
-    status: z.enum(["pending", "completed"]),
+    status: z.enum(["pending", "completed", "truncated", "aborted"]),
     metadata: MetadataSchema,
     train_metadata: z.null(),
   })
@@ -88,28 +88,71 @@ export const RequestSidecarSchema = z
   })
   .strict();
 
-export const ResponseProjectionSchema = z
+const OutputTokenLogProbTupleSchema = z
+  .tuple([z.number(), z.number().int()])
+  .rest(z.unknown());
+
+export const SglangFinishReasonSchema = z
+  .object({ type: z.enum(["stop", "length", "abort"]) })
+  .passthrough();
+
+/**
+ * Keep the complete server-owned envelope intact. The fields we teach are
+ * typed explicitly, while `.passthrough()` preserves SGLang metadata that
+ * this course does not interpret (for example cache or replay details).
+ */
+export const SglangResponseMetaInfoSchema = z
   .object({
-    sample_id: z.string().min(1),
+    output_token_logprobs: z
+      .array(OutputTokenLogProbTupleSchema)
+      .optional(),
+    finish_reason: SglangFinishReasonSchema,
+    weight_version: z.string().min(1).optional(),
+  })
+  .passthrough();
+
+/**
+ * The HTTP body returned by SGLang. `sample_id` deliberately does not live
+ * here: SGLang does not know which caller-owned Sample receives this body.
+ */
+export const SglangResponseBodySchema = z
+  .object({
     text: z.string(),
-    output_token_logprobs: z.array(
-      z.tuple([z.number(), z.number().int()]),
-    ),
-    finish_reason: z.literal("stop"),
-    weight_version: z.literal("actor@0"),
+    meta_info: SglangResponseMetaInfoSchema,
   })
   .strict();
 
-export const ResponseWriteSchema = z
+/** A caller-owned association plus the unmodified HTTP body it received. */
+export const ResponseReceiptSchema = z
+  .object({
+    sample_id: z.string().min(1),
+    raw_body: SglangResponseBodySchema,
+  })
+  .strict();
+
+/**
+ * Course-side evidence decoded from a receipt. It is deliberately not a
+ * Sample: Chapter 6 consumes this material to write the Sample later.
+ */
+export const ResponseEvidenceSchema = z
   .object({
     sample_id: z.string().min(1),
     text: z.string(),
-    tokens: z.array(z.number().int()).min(1),
-    log_probabilities: z.array(z.number()).min(1),
-    finish_reason: z.literal("stop"),
-    weight_version: z.literal("actor@0"),
+    tokens: z.array(z.number().int()),
+    log_probabilities: z.array(z.number()),
+    // This is the same complete envelope carried by the receipt, not a
+    // hand-picked subset. Chapter 6 can read its typed terminal fields while
+    // downstream consumers still retain every server-provided datum.
+    meta_info: SglangResponseMetaInfoSchema,
   })
   .strict();
+
+/**
+ * The writeback boundary accepts the same normalized evidence shape. Keeping
+ * a named schema makes Chapter 6's consumer contract explicit without
+ * re-decoding raw HTTP tuple positions there.
+ */
+export const ResponseWriteSchema = ResponseEvidenceSchema;
 
 export const SampleToGenerationObservationSchema = z
   .object({
@@ -153,7 +196,7 @@ export const SampleToGenerationFixtureSchema = z
         .strict(),
     ).length(2),
     sampling_params: SamplingParamsSchema,
-    response_projections: z.array(ResponseProjectionSchema).length(4),
+    response_receipts: z.array(ResponseReceiptSchema).length(4),
     observations: z.array(SampleToGenerationObservationSchema).length(
       SAMPLE_TO_GENERATION_OBSERVATIONS.length,
     ),
@@ -229,18 +272,18 @@ export const SampleToGenerationFixtureSchema = z
       });
     }
 
-    const projectionIds = fixture.response_projections.map(
-      (projection) => projection.sample_id,
+    const receiptIds = fixture.response_receipts.map(
+      (receipt) => receipt.sample_id,
     );
     if (
-      projectionIds.length !== sampleIds.length ||
-      projectionIds.some((sampleId) => !sampleIds.includes(sampleId)) ||
-      new Set(projectionIds).size !== projectionIds.length
+      receiptIds.length !== sampleIds.length ||
+      receiptIds.some((sampleId) => !sampleIds.includes(sampleId)) ||
+      new Set(receiptIds).size !== receiptIds.length
     ) {
       context.addIssue({
         code: "custom",
-        path: ["response_projections"],
-        message: "response projections must cover each physical sample exactly once",
+        path: ["response_receipts"],
+        message: "response receipts must cover each physical sample exactly once",
       });
     }
 
@@ -266,7 +309,13 @@ export type SampleToGenerationSample = z.infer<
 export type SamplingParams = z.infer<typeof SamplingParamsSchema>;
 export type SglangPayload = z.infer<typeof SglangPayloadSchema>;
 export type RequestSidecar = z.infer<typeof RequestSidecarSchema>;
-export type ResponseProjection = z.infer<typeof ResponseProjectionSchema>;
+export type SglangFinishReason = z.infer<typeof SglangFinishReasonSchema>;
+export type SglangResponseMetaInfo = z.infer<
+  typeof SglangResponseMetaInfoSchema
+>;
+export type SglangResponseBody = z.infer<typeof SglangResponseBodySchema>;
+export type ResponseReceipt = z.infer<typeof ResponseReceiptSchema>;
+export type ResponseEvidence = z.infer<typeof ResponseEvidenceSchema>;
 export type ResponseWrite = z.infer<typeof ResponseWriteSchema>;
 export type SampleToGenerationObservation = z.infer<
   typeof SampleToGenerationObservationSchema

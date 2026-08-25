@@ -19,6 +19,7 @@ import {
 import anchorsPayload from "@/data/source-refs/slime-06ffdbe2.anchors.generated.json";
 import refsPayload from "@/data/source-refs/slime-06ffdbe2.refs.json";
 import {
+  hasChapterFiveResponseEvidenceData,
   hasChapterFourRequestBoundaryData,
   hasChapterOneTranslationData,
   hasChapterThreeGroupingData,
@@ -160,11 +161,12 @@ describe("sample-to-generation course contract", () => {
     }
   });
 
-  it("selects dedicated readers only for complete chapter-one through chapter-four contracts", () => {
+  it("selects dedicated readers only for complete chapter-one through chapter-five contracts", () => {
     const chapterOne = sampleToGenerationChapters[0];
     const chapterTwo = sampleToGenerationChapters[1];
     const chapterThree = sampleToGenerationChapters[2];
     const chapterFour = sampleToGenerationChapters[3];
+    const chapterFive = sampleToGenerationChapters[4];
 
     expect(hasChapterOneTranslationData(chapterOne)).toBe(true);
     expect(hasChapterOneTranslationData({ ...chapterOne, mappingLanes: undefined })).toBe(false);
@@ -190,6 +192,13 @@ describe("sample-to-generation course contract", () => {
       requestManifestEntries: undefined,
     })).toBe(false);
     expect(hasChapterFourRequestBoundaryData(chapterThree)).toBe(false);
+
+    expect(hasChapterFiveResponseEvidenceData(chapterFive)).toBe(true);
+    expect(hasChapterFiveResponseEvidenceData({
+      ...chapterFive,
+      responseFixtureReceipt: undefined,
+    })).toBe(false);
+    expect(hasChapterFiveResponseEvidenceData(chapterFour)).toBe(false);
   });
 
   it("projects chapter three from the fixed 2×2 fixture without inventing identities", () => {
@@ -393,6 +402,125 @@ describe("sample-to-generation course contract", () => {
       "rollout.generate-request-dispatch",
     ]) {
       expect(sourceRefIds.has(requiredRefId), `missing chapter-four ref ${requiredRefId}`).toBe(true);
+    }
+    for (const sourceRefId of sourceRefIds) {
+      expect(refs.has(sourceRefId), `missing source ref ${sourceRefId}`).toBe(true);
+      expect(anchors.has(sourceRefId), `missing generated anchor ${sourceRefId}`).toBe(true);
+    }
+  });
+
+  it("models chapter five as a two-layer response decoder that stops before Sample writeback", () => {
+    const chapter = sampleToGenerationChapters[4];
+    expect(chapter.slug).toBe("response-projection");
+    expect(hasChapterFiveResponseEvidenceData(chapter)).toBe(true);
+    if (!hasChapterFiveResponseEvidenceData(chapter)) {
+      throw new Error("chapter five must provide its dedicated response-evidence contract");
+    }
+
+    expect(chapter.responseDecodeStages.map((stage) => stage.id)).toEqual([
+      "http-json",
+      "output-mapping",
+      "tuple-split",
+      "candidate-package",
+      "writeback-gate",
+    ]);
+    expect(chapter.responseDecodeStages.map((stage) => stage.order)).toEqual([1, 2, 3, 4, 5]);
+    expect(chapter.responseDecodeStages[2]).toMatchObject({
+      operation: expect.stringContaining("item[1]"),
+      notYet: expect.stringContaining("尾随元素"),
+    });
+    expect(chapter.responseDecodeStages.at(-1)?.notYet).toContain("第六章");
+
+    const laneIds = chapter.responseEvidenceLanes.map((lane) => lane.id);
+    expect(new Set(laneIds).size).toBe(laneIds.length);
+    expect(new Set(chapter.responseEvidenceLanes.map((lane) => lane.kind))).toEqual(
+      new Set(["server-field", "caller-association", "decoded-evidence", "deferred-write"]),
+    );
+    expect(chapter.responseEvidenceLanes.find((lane) => lane.id === "sample-association")).toMatchObject({
+      sourcePath: "course receipt.sample_id",
+      doesNotProve: expect.stringContaining("不来自 HTTP JSON"),
+    });
+    expect(chapter.responseEvidenceLanes.find((lane) => lane.id === "terminal-evidence")?.doesNotProve).toContain(
+      "尚未把 stop 映射为 Sample.status",
+    );
+
+    const received = seekSampleToGeneration(sampleToGenerationFixture, "responses-received");
+    const prepared = seekSampleToGeneration(sampleToGenerationFixture, "requests-prepared");
+    expect(received.samples).toEqual(prepared.samples);
+    expect(received.changed_sample_ids).toEqual([]);
+    expect(chapter.responseFixtureReceipt).toMatchObject({
+      sampleId: "a0",
+      fromObservation: "requests-prepared",
+      toObservation: "responses-received",
+      rawBody: {
+        text: received.response_receipts.a0.raw_body.text,
+        metaInfo: {
+          outputTokenLogprobs: received.response_receipts.a0.raw_body.meta_info.output_token_logprobs,
+          finishReason: received.response_receipts.a0.raw_body.meta_info.finish_reason,
+          weightVersion: received.response_receipts.a0.raw_body.meta_info.weight_version,
+        },
+      },
+      decoded: {
+        responseTokenIds: received.response_evidence.a0.tokens,
+        responseLogProbs: received.response_evidence.a0.log_probabilities,
+        text: received.response_evidence.a0.text,
+      },
+      sampleBeforeWrite: {
+        response: "",
+        responseLength: 0,
+        lossMask: null,
+        rolloutLogProbs: null,
+        weightVersions: [],
+        status: "pending",
+        reward: null,
+      },
+    });
+
+    expect(chapter.responseDiagnosticCases.map((item) => item.firstErrorBoundary)).toEqual([
+      "tuple decoder",
+      "evidence classification",
+      "writeback boundary",
+    ]);
+
+    const exercise = chapter.exercise;
+    expect(exercise).toMatchObject({
+      id: "stg.chapter-5-response-decoder-v2",
+      kind: "field-entry",
+    });
+    if (exercise.kind !== "field-entry") throw new Error("unexpected chapter-five exercise kind");
+    const correctValues = {
+      "response-tokens": "25,27",
+      "response-logprobs": "-0.2,-1.1",
+      "sample-response": '""',
+      "sample-status": "pending",
+      "sample-reward": "None",
+    };
+    expect(gradeStructuredExercise(exercise, { kind: "field-entry", values: correctValues }).correct).toBe(true);
+    expect(gradeStructuredExercise(exercise, {
+      kind: "field-entry",
+      values: { ...correctValues, "sample-status": "completed" },
+    })).toMatchObject({ correct: false, fieldResults: { "sample-status": false } });
+    const missingReward = { ...correctValues };
+    delete (missingReward as Partial<typeof correctValues>)["sample-reward"];
+    expect(gradeStructuredExercise(exercise, {
+      kind: "field-entry",
+      values: missingReward,
+    })).toMatchObject({ correct: false, fieldResults: { "sample-reward": false } });
+
+    const refs = new Map(refsPayload.refs.map((ref) => [ref.id, ref]));
+    const anchors = new Map(anchorsPayload.anchors.map((anchor) => [anchor.id, anchor]));
+    const sourceRefIds = new Set([
+      ...chapter.sourceRefIds,
+      ...chapter.exercise.sourceRefIds,
+      ...chapter.responseDecodeStages.flatMap((stage) => stage.sourceRefIds),
+      ...chapter.responseEvidenceLanes.flatMap((lane) => lane.sourceRefIds),
+    ]);
+    for (const requiredRefId of [
+      "http.post-json-decode",
+      "rollout.generate-response-decode",
+      "rollout.generate-writeback-handoff",
+    ]) {
+      expect(sourceRefIds.has(requiredRefId), `missing chapter-five ref ${requiredRefId}`).toBe(true);
     }
     for (const sourceRefId of sourceRefIds) {
       expect(refs.has(sourceRefId), `missing source ref ${sourceRefId}`).toBe(true);
