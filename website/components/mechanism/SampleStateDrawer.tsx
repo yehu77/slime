@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 
 import type { SampleToGenerationState } from "../../core/sample-to-generation";
+import type { SampleToGenerationObservationId } from "../../core/sample-to-generation";
 
 type SampleStateDrawerProps = {
   state: SampleToGenerationState;
@@ -16,6 +17,7 @@ const fieldOrder = [
   "index",
   "prompt",
   "tokens",
+  "multimodal_inputs",
   "response",
   "response_length",
   "label",
@@ -27,6 +29,43 @@ const fieldOrder = [
   "metadata",
   "train_metadata",
 ] as const;
+
+type SampleField = (typeof fieldOrder)[number];
+
+export type DrawerFieldProvenance =
+  | "Dataset 显式传入"
+  | "dataclass 默认值"
+  | "保持不变"
+  | "本步更新";
+
+const datasetExplicitFields = new Set<SampleField>([
+  "prompt",
+  "label",
+  "metadata",
+  "multimodal_inputs",
+]);
+
+export function getDrawerFieldProvenance({
+  observationId,
+  field,
+  currentValue,
+  previousValue,
+  hasPreviousSample,
+}: {
+  observationId: SampleToGenerationObservationId;
+  field: SampleField;
+  currentValue: unknown;
+  previousValue: unknown;
+  hasPreviousSample: boolean;
+}): DrawerFieldProvenance {
+  if (observationId === "samples-constructed") {
+    return datasetExplicitFields.has(field) ? "Dataset 显式传入" : "dataclass 默认值";
+  }
+  if (!hasPreviousSample) return "本步更新";
+  return JSON.stringify(currentValue) === JSON.stringify(previousValue)
+    ? "保持不变"
+    : "本步更新";
+}
 
 function viewSample(state: SampleToGenerationState, sampleId: string) {
   return state.samples[sampleId] ?? state.seed_samples["origin-a"] ?? null;
@@ -55,6 +94,7 @@ export function SampleStateDrawer({
     const targets = [
       document.querySelector<HTMLElement>(".site-header"),
       document.querySelector<HTMLElement>(".site-footer"),
+      document.querySelector<HTMLElement>(".mechanism-rail"),
       document.querySelector<HTMLElement>(".mechanism-course-content"),
     ].filter((target): target is HTMLElement => Boolean(target));
     targets.forEach((target) => target.setAttribute("inert", ""));
@@ -91,7 +131,7 @@ export function SampleStateDrawer({
         <header>
           <div>
             <span>Sample 状态页 · {state.observation_id}</span>
-            <h2 id="mechanism-drawer-title">{sampleId} 当前留下了什么</h2>
+            <h2 id="mechanism-drawer-title">{sampleId} 的课程状态投影</h2>
           </div>
           <button ref={closeRef} type="button" onClick={onClose}>
             关闭
@@ -99,7 +139,7 @@ export function SampleStateDrawer({
         </header>
 
         <p className="mechanism-drawer-intro">
-          这里只比较当前观察点与前一观察点。浅色字段保持不变，标记为“本步写入”的字段才属于当前边界。
+          初始投影区分 Dataset 显式参数与 dataclass 默认值；后续观察点再区分保持不变与本步更新。本账本只列本课持续验证的字段，不冒充完整 Sample dataclass；完整定义请在本章“源码摘录”中核对。
         </p>
 
         {sample ? (
@@ -107,14 +147,19 @@ export function SampleStateDrawer({
             {fieldOrder.map((field) => {
               const currentValue = sample[field];
               const previousValue = previousSample?.[field];
-              const changed =
-                !previousSample ||
-                JSON.stringify(currentValue) !== JSON.stringify(previousValue);
+              const provenance = getDrawerFieldProvenance({
+                observationId: state.observation_id,
+                field,
+                currentValue,
+                previousValue,
+                hasPreviousSample: Boolean(previousSample),
+              });
+              const changed = provenance === "本步更新";
               return (
-                <div className={changed ? "is-changed" : ""} key={field}>
+                <div className={changed ? "is-changed" : provenance === "Dataset 显式传入" ? "is-explicit" : ""} key={field}>
                   <dt>{field}</dt>
                   <dd>{formatValue(currentValue)}</dd>
-                  <small>{changed ? "本步写入" : "保持不变"}</small>
+                  <small>{provenance}</small>
                 </div>
               );
             })}

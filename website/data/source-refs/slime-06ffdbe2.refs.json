@@ -20,7 +20,7 @@
       "symbol_kind": "class",
       "claim": "Sample 定义 rollout 协议对象的输入、生成、评价、身份与状态字段。",
       "concept_ids": ["sample-object", "rollout-id", "terminal-status"],
-      "lesson_uses": ["act-1", "act-5", "stg.chapter-2"],
+      "lesson_uses": ["act-1", "act-5", "stg.chapter-1", "stg.chapter-2"],
       "guided_excerpt": {
         "start_contains": "# prompt",
         "end_contains": "rollout_log_probs: list[float] | None"

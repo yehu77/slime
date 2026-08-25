@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { sampleToGenerationProgressManifest } from "@/content/zh/course-progress-manifests";
+
 import {
   LOCAL_PROGRESS_V1_STORAGE_KEY,
   LOCAL_PROGRESS_V2_STORAGE_KEY,
@@ -264,6 +266,33 @@ describe("progress v2 completion", () => {
         now,
       ),
     ).toThrow("Unknown assessment question: q9");
+  });
+
+  it("requires review after the chapter-one mapping exercise becomes a field-entry migration", () => {
+    const revisionTwoManifest = {
+      ...sampleToGenerationProgressManifest,
+      lesson_revision: 2,
+    };
+    const oldProgress = applyLessonProgressEvent(
+      createEmptyLocalProgressV2(),
+      "core.sample-to-generation",
+      revisionTwoManifest,
+      {
+        type: "exercise-submitted",
+        exercise_id: "stg.chapter-1-gate",
+        response: {
+          type: "mapping",
+          assignments: { "prompt-expression": "sample-prompt" },
+        },
+        passed: true,
+      },
+      now,
+    );
+    expect(sampleToGenerationProgressManifest.lesson_revision).toBe(3);
+    expect(evaluateLessonProgressV2(
+      oldProgress.lessons["core.sample-to-generation"],
+      sampleToGenerationProgressManifest,
+    ).status).toBe("review_required");
   });
 });
 

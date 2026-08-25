@@ -26,6 +26,10 @@ import {
   type StructuredExerciseResponse,
 } from "../../core/progress";
 import { GuidedSourceExcerpt } from "./GuidedSourceExcerpt";
+import {
+  ChapterOneTranslationDesk,
+  hasChapterOneTranslationData,
+} from "./ChapterOneTranslationDesk";
 import { SampleStateDrawer } from "./SampleStateDrawer";
 import { StructuredExercise as StructuredExerciseView } from "./StructuredExercise";
 import "./mechanism-course.css";
@@ -59,6 +63,15 @@ const chapterImagePositions = [
   "50% 56%",
   "43% 50%",
 ] as const;
+const observationLabels: Readonly<Record<string, string>> = {
+  "rows-read": "文件记录",
+  "samples-constructed": "初始 Sample",
+  "groups-built": "候选分组",
+  "prompts-tokenized": "prompt tokens",
+  "requests-prepared": "SGLang 请求",
+  "responses-received": "HTTP 响应",
+  "responses-written": "Sample 写回",
+};
 
 const progressManifest = sampleToGenerationProgressManifest;
 
@@ -186,6 +199,21 @@ function CourseCover({
         </ol>
       </section>
     </div>
+  );
+}
+
+function CourseEvidence({ evidenceId }: { evidenceId: string }) {
+  const evidence = course.sourceEvidence.find((item) => item.id === evidenceId);
+  if (!evidence) return null;
+  const anchor = sourceAnchors.find((item) => item.id === evidence.sourceRefId);
+  return (
+    <GuidedSourceExcerpt
+      evidence={evidence}
+      sourceUrl={anchor?.url}
+      symbol={anchor?.symbol}
+      code={anchor?.guided_excerpt?.code}
+      lineStart={anchor?.guided_excerpt?.start_line}
+    />
   );
 }
 
@@ -361,6 +389,7 @@ export function SampleToGenerationExperience({
   const activeIndex = chapter ? course.chapters.findIndex((candidate) => candidate.id === chapter.id) : -1;
   const chapterProgress = chapter ? lessonProgress?.exercise_attempts[chapter.exercise.id] : undefined;
   const drawerSampleId = activeIndex < 2 ? "origin-a" : "a0";
+  const hasChapterOneReader = hasChapterOneTranslationData(chapter);
 
   const state = chapter
     ? seekSampleToGeneration(
@@ -387,9 +416,36 @@ export function SampleToGenerationExperience({
     }]);
   };
 
+  const chapterExercise = chapter
+    ? progressHydrated ? (
+        <StructuredExerciseView
+          exercise={chapter.exercise}
+          initialAnswer={fromStoredResponse(chapterProgress?.last_response)}
+          key={chapter.exercise.id}
+          onGrade={(exercise, answer, grade) => record([
+            { type: "section-visited", section_id: chapter.id },
+            {
+              type: "resume-updated",
+              resume: { kind: "chaptered", chapter_id: chapter.id, section_id: null },
+            },
+            {
+              type: "exercise-submitted",
+              exercise_id: exercise.id,
+              response: toStoredResponse(answer),
+              passed: grade.correct,
+            },
+          ])}
+        />
+      ) : (
+        <section className="mechanism-exercise mechanism-exercise-loading" role="status">
+          正在恢复本章练习记录…
+        </section>
+      )
+    : null;
+
   return (
     <div className="mechanism-course">
-      <nav className="mechanism-rail" aria-label="课程六章与状态账本">
+      <nav className={`mechanism-rail${hasChapterOneReader ? " mechanism-rail--chapter-one" : ""}`} aria-label="课程六章与状态账本">
         <a className="mechanism-rail-cover" href="/learn/sample-to-generation" onClick={(event) => { event.preventDefault(); openCover(); }}>
           <span>CORE / 01</span><strong>课程封面</strong>
         </a>
@@ -419,16 +475,18 @@ export function SampleToGenerationExperience({
         >
           <span>FINAL</span><strong>终测</strong>
         </button>
-        <button
-          aria-label={chapter ? `打开 ${drawerSampleId} 状态账本` : "终测没有单章状态账本"}
-          className="mechanism-rail-state"
-          disabled={!chapter}
-          ref={drawerTriggerRef}
-          type="button"
-          onClick={() => setDrawerOpen(true)}
-        >
-          <span>STATE</span><strong>{chapter ? `${drawerSampleId} 账本` : "无单章状态"}</strong>
-        </button>
+        {!hasChapterOneReader ? (
+          <button
+            aria-label={chapter ? `打开 ${drawerSampleId} 状态账本` : "终测没有单章状态账本"}
+            className="mechanism-rail-state"
+            disabled={!chapter}
+            ref={drawerTriggerRef}
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+          >
+            <span>STATE</span><strong>{chapter ? `${drawerSampleId} 账本` : "无单章状态"}</strong>
+          </button>
+        ) : null}
       </nav>
 
       <div className="mechanism-course-content">
@@ -437,22 +495,42 @@ export function SampleToGenerationExperience({
             这门课已经更新。旧完成记录仍被保留；你可以先阅读新版内容，直到明确切换章节或提交练习时才开始记录新版进度。
           </p>
         ) : null}
-        {chapter ? (
-          <article className="mechanism-chapter" aria-labelledby="mechanism-chapter-title">
+        {chapter && hasChapterOneReader ? (
+          <ChapterOneTranslationDesk
+            chapter={chapter}
+            exerciseSlot={chapterExercise}
+            headingRef={chapterHeadingRef}
+            triggerRef={drawerTriggerRef}
+            onNext={() => openSection(course.chapters[1].slug)}
+            onOpenDrawer={() => setDrawerOpen(true)}
+            passed={Boolean(chapterProgress?.passed)}
+          />
+        ) : chapter ? (
+          <article
+            className="mechanism-chapter"
+            aria-labelledby="mechanism-chapter-title"
+          >
             <header className="mechanism-chapter-hero">
               <div className="mechanism-chapter-frame">
                 <img
                   src={chapter.imageSrc}
-                  alt=""
+                  alt={chapter.imageAlt ?? ""}
                   loading="eager"
                   style={{ objectPosition: chapterImagePositions[chapter.number] }}
                 />
                 <span>CHAPTER {String(chapter.number).padStart(2, "0")} / 06</span>
               </div>
               <div className="mechanism-chapter-heading">
-                <p>{chapter.durationMinutes} 分钟 · observation {chapter.observationIds.join(" → ")}</p>
+                <p>
+                  {chapter.durationMinutes} 分钟 · {chapter.scopeLabel ?? chapter.observationIds
+                    .map((observationId) => observationLabels[observationId] ?? observationId)
+                    .join(" → ")}
+                </p>
                 <h1 id="mechanism-chapter-title" ref={chapterHeadingRef} tabIndex={-1}>{chapter.title}</h1>
                 <blockquote>{chapter.drivingQuestion}</blockquote>
+                {chapter.objective ? (
+                  <p className="mechanism-objective"><strong>完成标准</strong>{chapter.objective}</p>
+                ) : null}
                 <p className="mechanism-verdict"><strong>可验证结论</strong>{chapter.conclusion}</p>
               </div>
             </header>
@@ -486,46 +564,18 @@ export function SampleToGenerationExperience({
               ))}
             </section>
 
-            {(() => {
-              const evidence = course.sourceEvidence.find((item) => item.id === chapter.evidenceId);
-              if (!evidence) return null;
-              const anchor = sourceAnchors.find((item) => item.id === evidence.sourceRefId);
-              return (
-                <GuidedSourceExcerpt
-                  evidence={evidence}
-                  sourceUrl={anchor?.url}
-                  symbol={anchor?.symbol}
-                  code={anchor?.guided_excerpt?.code}
-                  lineStart={anchor?.guided_excerpt?.start_line}
-                />
-              );
-            })()}
+            <CourseEvidence evidenceId={chapter.evidenceId} />
+            {chapter.additionalEvidenceIds?.length ? (
+              <details className="mechanism-additional-evidence">
+                <summary>继续核对 Sample dataclass 的阶段默认值</summary>
+                {chapter.additionalEvidenceIds.map((evidenceId) => (
+                  <CourseEvidence evidenceId={evidenceId} key={evidenceId} />
+                ))}
+              </details>
+            ) : null}
 
             {chapterProgress?.passed ? <p className="mechanism-passed-note">本章结构化练习已经通过；你仍可重新推演。</p> : null}
-            {progressHydrated ? (
-              <StructuredExerciseView
-                exercise={chapter.exercise}
-                initialAnswer={fromStoredResponse(chapterProgress?.last_response)}
-                key={chapter.exercise.id}
-                onGrade={(exercise, answer, grade) => record([
-                  { type: "section-visited", section_id: chapter.id },
-                  {
-                    type: "resume-updated",
-                    resume: { kind: "chaptered", chapter_id: chapter.id, section_id: null },
-                  },
-                  {
-                    type: "exercise-submitted",
-                    exercise_id: exercise.id,
-                    response: toStoredResponse(answer),
-                    passed: grade.correct,
-                  },
-                ])}
-              />
-            ) : (
-              <section className="mechanism-exercise mechanism-exercise-loading" role="status">
-                正在恢复本章练习记录…
-              </section>
-            )}
+            {chapterExercise}
 
             <section className="mechanism-misconception" id="misconception" aria-labelledby="mechanism-misconception-title">
               <header><span>FALSE FRIEND</span><h2 id="mechanism-misconception-title">最容易混淆的那句话</h2></header>
