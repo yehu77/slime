@@ -27,6 +27,20 @@
       }
     },
     {
+      "id": "sample.identity-defaults",
+      "kind": "production-source",
+      "path": "slime/utils/types.py",
+      "symbol": "Sample",
+      "symbol_kind": "class",
+      "claim": "Sample 在构造时把 group_index 与 index 初始化为 None；DataSource 之后才赋予候选身份。",
+      "concept_ids": ["sample-object", "group-index", "sample-index"],
+      "lesson_uses": ["stg.chapter-3"],
+      "guided_excerpt": {
+        "start_contains": "class Sample:",
+        "end_contains": "rollout_id: int | None = None"
+      }
+    },
+    {
       "id": "dataset.read-file",
       "kind": "production-source",
       "path": "slime/utils/data.py",
@@ -63,6 +77,21 @@
       "guided_excerpt": {
         "start_contains": "samples = []",
         "end_contains": "return samples"
+      }
+    },
+    {
+      "id": "rollout.datasource-counter-init",
+      "kind": "production-source",
+      "path": "slime/rollout/data_source.py",
+      "symbol": "RolloutDataSource.__init__",
+      "symbol_kind": "method",
+      "claim": "新建 RolloutDataSource 时，group 与 sample 两个身份计数器都从 0 开始。",
+      "concept_ids": ["group-index", "sample-index"],
+      "lesson_uses": ["stg.chapter-3"],
+      "caveat": "本章精确编号使用 fresh DataSource；恢复状态或后续调用可以从非零计数器继续。",
+      "guided_excerpt": {
+        "start_contains": "self.args = args",
+        "end_contains": "self.metadata = {}"
       }
     },
     {

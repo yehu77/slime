@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   SAMPLE_TO_GENERATION_OBSERVATIONS,
+  SampleToGenerationFixtureSchema,
   SampleToGenerationSampleSchema,
   appendResponseAtomically,
   checkSampleToGenerationInvariants,
@@ -83,6 +84,48 @@ describe("sample-to-generation deterministic trace", () => {
     expect(clones.a0.metadata).not.toBe(clones.a1.metadata);
     clones.a0.metadata.only_a0 = true;
     expect(clones.a1.metadata).not.toHaveProperty("only_a0");
+  });
+
+  it("isolates nested metadata and mutable arrays from siblings and the seed", () => {
+    const seedState = seekSampleToGeneration(
+      sampleToGenerationFixture,
+      "samples-constructed",
+    );
+    const seedA = {
+      ...seedState.seed_samples["origin-a"],
+      metadata: {
+        ...seedState.seed_samples["origin-a"].metadata,
+        audit: { notes: [] as string[] },
+      },
+    };
+    const seeds = { ...seedState.seed_samples, "origin-a": seedA };
+    const clones = cloneSeedSamplesIntoGroups(sampleToGenerationFixture, seeds);
+    const a0Metadata = clones.a0.metadata as { audit: { notes: string[] } };
+    const a1Metadata = clones.a1.metadata as { audit: { notes: string[] } };
+    const seedMetadata = seedA.metadata as { audit: { notes: string[] } };
+
+    a0Metadata.audit.notes.push("a0-only");
+    clones.a0.tokens.push(999);
+    clones.a0.weight_versions.push("actor@test");
+
+    expect(a0Metadata.audit.notes).toEqual(["a0-only"]);
+    expect(a1Metadata.audit.notes).toEqual([]);
+    expect(seedMetadata.audit.notes).toEqual([]);
+    expect(clones.a0.metadata).not.toBe(clones.a1.metadata);
+    expect(a0Metadata.audit).not.toBe(a1Metadata.audit);
+    expect(clones.a0.tokens).not.toBe(clones.a1.tokens);
+    expect(clones.a1.tokens).toEqual([]);
+    expect(seedA.tokens).toEqual([]);
+    expect(clones.a0.weight_versions).not.toBe(clones.a1.weight_versions);
+    expect(clones.a1.weight_versions).toEqual([]);
+  });
+
+  it("rejects a group plan whose distinct seeds reuse one group_index", () => {
+    const invalidFixture = structuredClone(sampleToGenerationFixture);
+    invalidFixture.group_plan[1].group_index = invalidFixture.group_plan[0].group_index;
+    expect(() => SampleToGenerationFixtureSchema.parse(invalidFixture)).toThrow(
+      /group indices must be unique/,
+    );
   });
 
   it("stores prompt tokens before dispatch and keeps Sample bookkeeping out of payload", () => {

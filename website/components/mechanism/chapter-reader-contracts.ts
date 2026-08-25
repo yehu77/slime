@@ -1,6 +1,10 @@
 import type {
   EarlyFieldDiagnosticCase,
   FieldLifecycleEntry,
+  GroupingAliasProbe,
+  GroupingComparisonRule,
+  GroupingCounterFrame,
+  GroupingLabGroup,
   ProducerRelayStage,
   SampleToGenerationChapter,
 } from "../../content/zh/lessons/sample-to-generation";
@@ -15,6 +19,13 @@ export type ChapterTwoProvenanceChapter = SampleToGenerationChapter & {
   producerRelayStages: readonly ProducerRelayStage[];
   fieldLifecycleEntries: readonly FieldLifecycleEntry[];
   earlyFieldDiagnosticCases: readonly EarlyFieldDiagnosticCase[];
+};
+
+export type ChapterThreeGroupingChapter = SampleToGenerationChapter & {
+  groupingLabGroups: readonly GroupingLabGroup[];
+  groupingCounterFrames: readonly GroupingCounterFrame[];
+  groupingComparisonRules: readonly GroupingComparisonRule[];
+  groupingAliasProbe: GroupingAliasProbe;
 };
 
 export function hasChapterOneTranslationData(
@@ -36,5 +47,17 @@ export function hasChapterTwoProvenanceData(
     chapter.producerRelayStages &&
     chapter.fieldLifecycleEntries &&
     chapter.earlyFieldDiagnosticCases,
+  );
+}
+
+export function hasChapterThreeGroupingData(
+  chapter: SampleToGenerationChapter | undefined,
+): chapter is ChapterThreeGroupingChapter {
+  return Boolean(
+    chapter?.slug === "group-without-aliasing" &&
+    chapter.groupingLabGroups &&
+    chapter.groupingCounterFrames &&
+    chapter.groupingComparisonRules &&
+    chapter.groupingAliasProbe,
   );
 }

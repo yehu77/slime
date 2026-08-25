@@ -206,6 +206,15 @@ export const SampleToGenerationFixtureSchema = z
       });
     }
 
+    const groupIndices = fixture.group_plan.map((group) => group.group_index);
+    if (new Set(groupIndices).size !== groupIndices.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["group_plan"],
+        message: "group indices must be unique",
+      });
+    }
+
     const members = fixture.group_plan.flatMap((group) => group.members);
     const sampleIds = members.map((member) => member.sample_id);
     const sampleIndices = members.map((member) => member.index);

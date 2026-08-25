@@ -269,7 +269,7 @@ describe("progress v2 completion", () => {
     ).toThrow("Unknown assessment question: q9");
   });
 
-  it("moves chapter-two progress from revision 3 to review-required revision 4", () => {
+  it("moves chapter-two progress from revision 3 to review-required current revision", () => {
     const revisionThreeManifest = {
       ...sampleToGenerationProgressManifest,
       lesson_revision: 3,
@@ -327,7 +327,7 @@ describe("progress v2 completion", () => {
       now,
     );
 
-    expect(sampleToGenerationProgressManifest.lesson_revision).toBe(4);
+    expect(sampleToGenerationProgressManifest.lesson_revision).toBe(5);
     expect(
       oldProgress.lessons["core.sample-to-generation"]?.exercise_attempts[
         "stg.chapter-2-gate"
@@ -342,7 +342,7 @@ describe("progress v2 completion", () => {
     ).status).toBe("review_required");
   });
 
-  it("starts revision four fresh on the first chapter-two event and keeps a retried mapping pass sticky across refresh", () => {
+  it("starts the current revision fresh on the first chapter-two event and keeps a retried mapping pass sticky across refresh", () => {
     const revisionThreeManifest = {
       ...sampleToGenerationProgressManifest,
       lesson_revision: 3,
@@ -399,7 +399,7 @@ describe("progress v2 completion", () => {
     );
     const currentLesson = firstCurrentAttempt.lessons["core.sample-to-generation"];
     expect(currentLesson).toMatchObject({
-      lesson_revision: 4,
+      lesson_revision: 5,
       visited_sections: [],
       final_assessment: null,
       exercise_attempts: {
@@ -465,6 +465,99 @@ describe("progress v2 completion", () => {
       last_attempt_at: LATEST,
       last_response: { type: "mapping", assignments: incorrectMapping },
     });
+  });
+
+  it("marks revision-four chapter-three progress for review and starts the v5 exercise cleanly", () => {
+    const revisionFourManifest = {
+      ...sampleToGenerationProgressManifest,
+      lesson_revision: 4,
+      completion: {
+        ...sampleToGenerationProgressManifest.completion,
+        required_exercise_ids:
+          sampleToGenerationProgressManifest.completion.required_exercise_ids.map(
+            (exerciseId) =>
+              exerciseId === "stg.chapter-3-identity-matrix-v2"
+                ? "stg.chapter-3-gate"
+                : exerciseId,
+          ),
+      },
+    };
+    let oldProgress = applyLessonProgressEvent(
+      createEmptyLocalProgressV2(),
+      "core.sample-to-generation",
+      revisionFourManifest,
+      {
+        type: "exercise-submitted",
+        exercise_id: "stg.chapter-3-gate",
+        response: {
+          type: "field-entry",
+          values: { "a0-group": "0", "a0-index": "0" },
+        },
+        passed: true,
+      },
+      now,
+    );
+    oldProgress = applyLessonProgressEvent(
+      oldProgress,
+      "core.sample-to-generation",
+      revisionFourManifest,
+      {
+        type: "assessment-submitted",
+        correct_question_ids: [
+          ...revisionFourManifest.completion.final_assessment.question_ids,
+        ],
+      },
+      now,
+    );
+
+    const oldLesson = oldProgress.lessons["core.sample-to-generation"];
+    expect(evaluateLessonProgressV2(
+      oldLesson,
+      sampleToGenerationProgressManifest,
+    ).status).toBe("review_required");
+
+    const answer = {
+      "a0-group": "0",
+      "a0-index": "0",
+      "a1-group": "0",
+      "a1-index": "1",
+      "b0-group": "1",
+      "b0-index": "2",
+      "b1-group": "1",
+      "b1-index": "3",
+    };
+    const current = applyLessonProgressEvent(
+      oldProgress,
+      "core.sample-to-generation",
+      sampleToGenerationProgressManifest,
+      {
+        type: "exercise-submitted",
+        exercise_id: "stg.chapter-3-identity-matrix-v2",
+        response: { type: "field-entry", values: answer },
+        passed: true,
+      },
+      () => LATER,
+    );
+    expect(current.lessons["core.sample-to-generation"]).toMatchObject({
+      lesson_revision: 5,
+      final_assessment: null,
+      exercise_attempts: {
+        "stg.chapter-3-identity-matrix-v2": {
+          attempt_count: 1,
+          passed: true,
+          last_response: { type: "field-entry", values: answer },
+        },
+      },
+    });
+    expect(
+      current.lessons["core.sample-to-generation"]?.exercise_attempts[
+        "stg.chapter-3-gate"
+      ],
+    ).toBeUndefined();
+
+    const { storage } = createStorage();
+    saveLocalProgressV2(storage, current);
+    expect(loadLocalProgressV2(storage, () => LATEST)).toEqual(current);
   });
 });
 

@@ -6,6 +6,7 @@ import {
   gradeFinalAssessment,
   gradeStructuredExercise,
   sampleToGenerationFixture,
+  seekSampleToGeneration,
   type StructuredExercise,
   type StructuredExerciseAnswer,
 } from "@/core/sample-to-generation";
@@ -19,6 +20,7 @@ import anchorsPayload from "@/data/source-refs/slime-06ffdbe2.anchors.generated.
 import refsPayload from "@/data/source-refs/slime-06ffdbe2.refs.json";
 import {
   hasChapterOneTranslationData,
+  hasChapterThreeGroupingData,
   hasChapterTwoProvenanceData,
 } from "@/components/mechanism/chapter-reader-contracts";
 
@@ -156,9 +158,10 @@ describe("sample-to-generation course contract", () => {
     }
   });
 
-  it("selects dedicated readers only for complete chapter-one and chapter-two contracts", () => {
+  it("selects dedicated readers only for complete chapter-one, chapter-two and chapter-three contracts", () => {
     const chapterOne = sampleToGenerationChapters[0];
     const chapterTwo = sampleToGenerationChapters[1];
+    const chapterThree = sampleToGenerationChapters[2];
 
     expect(hasChapterOneTranslationData(chapterOne)).toBe(true);
     expect(hasChapterOneTranslationData({ ...chapterOne, mappingLanes: undefined })).toBe(false);
@@ -170,6 +173,106 @@ describe("sample-to-generation course contract", () => {
       producerRelayStages: undefined,
     })).toBe(false);
     expect(hasChapterTwoProvenanceData(chapterOne)).toBe(false);
+
+    expect(hasChapterThreeGroupingData(chapterThree)).toBe(true);
+    expect(hasChapterThreeGroupingData({
+      ...chapterThree,
+      groupingAliasProbe: undefined,
+    })).toBe(false);
+    expect(hasChapterThreeGroupingData(chapterTwo)).toBe(false);
+  });
+
+  it("projects chapter three from the fixed 2×2 fixture without inventing identities", () => {
+    const chapter = sampleToGenerationChapters[2];
+    expect(chapter.slug).toBe("group-without-aliasing");
+    expect(hasChapterThreeGroupingData(chapter)).toBe(true);
+    if (!hasChapterThreeGroupingData(chapter)) {
+      throw new Error("chapter three must provide its dedicated grouping contract");
+    }
+
+    const groupedState = seekSampleToGeneration(
+      sampleToGenerationFixture,
+      "groups-built",
+    );
+    expect(chapter.groupingLabGroups).toHaveLength(
+      sampleToGenerationFixture.expected.groups,
+    );
+    expect(chapter.groupingLabGroups.map((group) => ({
+      origin_id: group.originId,
+      group_index: group.groupIndex,
+      members: group.candidates.map((candidate) => ({
+        sample_id: candidate.id,
+        index: candidate.index,
+      })),
+    }))).toEqual(sampleToGenerationFixture.group_plan);
+
+    for (const group of chapter.groupingLabGroups) {
+      const row = sampleToGenerationFixture.rows.find(
+        (candidate) => candidate.origin_id === group.originId,
+      );
+      expect(row).toBeDefined();
+      expect(group).toMatchObject({
+        prompt: row?.text,
+        label: row?.label,
+        metadata: row?.metadata,
+      });
+      for (const candidate of group.candidates) {
+        expect(groupedState.samples[candidate.id]).toMatchObject({
+          origin_id: group.originId,
+          group_index: group.groupIndex,
+          index: candidate.index,
+          status: "pending",
+          reward: null,
+        });
+      }
+      expect(group.identityChecks).toHaveLength(2);
+      expect(group.identityChecks.every((check) => check.result === false)).toBe(true);
+      expect(group.identityChecks.map((check) => check.expression).join(" ")).not.toMatch(
+        /Sample#|metadata#/,
+      );
+    }
+
+    expect(chapter.groupingCounterFrames).toHaveLength(
+      sampleToGenerationFixture.expected.physical_samples,
+    );
+    chapter.groupingCounterFrames.forEach((frame, index) => {
+      const previous = chapter.groupingCounterFrames[index - 1];
+      if (previous) {
+        expect(frame.groupCounterBefore).toBe(previous.groupCounterAfter);
+        expect(frame.sampleCounterBefore).toBe(previous.sampleCounterAfter);
+      }
+      expect(frame.sampleCounterAfter).toBe(frame.sampleCounterBefore + 1);
+    });
+    expect(chapter.groupingCounterFrames.at(-1)).toMatchObject({
+      groupCounterAfter: 2,
+      sampleCounterAfter: 4,
+    });
+
+    const probe = chapter.groupingAliasProbe;
+    expect(probe.actualAfter).toEqual([
+      expect.objectContaining({ sampleId: "a0", value: probe.mutatedValue }),
+      expect.objectContaining({ sampleId: "a1", value: probe.fixtureValue }),
+      expect.objectContaining({ sampleId: "origin-a seed", value: probe.fixtureValue }),
+    ]);
+    expect(probe.counterfactualAfter.every((item) => item.value === probe.mutatedValue)).toBe(true);
+
+    expect(chapter.exercise).toMatchObject({
+      id: "stg.chapter-3-identity-matrix-v2",
+      kind: "field-entry",
+    });
+    expect(gradeStructuredExercise(chapter.exercise, correctAnswer(chapter.exercise)).correct).toBe(true);
+
+    const refs = new Map(refsPayload.refs.map((ref) => [ref.id, ref]));
+    const anchors = new Map(anchorsPayload.anchors.map((anchor) => [anchor.id, anchor]));
+    expect(chapter.sourceRefIds).toEqual(expect.arrayContaining([
+      "sample.identity-defaults",
+      "rollout.datasource-counter-init",
+      "rollout.datasource-get-samples",
+    ]));
+    for (const sourceRefId of chapter.sourceRefIds) {
+      expect(refs.has(sourceRefId), `missing source ref ${sourceRefId}`).toBe(true);
+      expect(anchors.has(sourceRefId), `missing source anchor ${sourceRefId}`).toBe(true);
+    }
   });
 
   it("models chapter two as a fixed provenance relay with one lifecycle owner per raw field", () => {

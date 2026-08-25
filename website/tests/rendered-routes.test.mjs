@@ -86,5 +86,21 @@ for (const [route, expected] of routes) {
         1,
       );
     }
+    if (route === "/learn/sample-to-generation?chapter=group-without-aliasing") {
+      assert.match(html, /class="[^"]*\bgrouping-reader\b/);
+      assert.match(renderedText, /分组实验台/);
+      assert.match(renderedText, /2 groups \/ 4 Samples/);
+      assert.match(renderedText, /a0 is a1/);
+      assert.match(renderedText, /a0\.metadata is a1\.metadata/);
+      assert.match(renderedText, /别名试纸/);
+      assert.match(renderedText, /deepcopy/);
+      assert.match(renderedText, /源码底片/);
+      assert.match(renderedText, /正在恢复本章练习记录/);
+      assert.doesNotMatch(html, /mechanism-rail-state/);
+      assert.equal(
+        (renderedText.match(/打开 a0 分组后账本/g) ?? []).length,
+        1,
+      );
+    }
   });
 }

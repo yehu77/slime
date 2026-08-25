@@ -94,6 +94,22 @@
     },
     {
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 88,
+      "guided_excerpt": {
+        "code": "        self.args = args\n\n        self.epoch_id = 0\n        self.sample_group_index = 0\n        self.sample_index = 0\n        self.sample_offset = 0\n        # TODO remove this\n        self.metadata = {}",
+        "end_line": 59,
+        "snippet_sha256": "b64b372649cdbc158575b5c13059ff75979ea6ab9b01a84b8ce13b3055d2eb83",
+        "start_line": 52
+      },
+      "id": "rollout.datasource-counter-init",
+      "path": "slime/rollout/data_source.py",
+      "snippet_sha256": "b7832e6778b9a2a777801af205dd3d4924cba60c8ab142d8b0c7ba18188733ca",
+      "start_line": 51,
+      "symbol": "RolloutDataSource.__init__",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/rollout/data_source.py#L51-L88"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
       "end_line": 118,
       "guided_excerpt": {
         "code": "        samples = []\n        for prompt_sample in prompt_samples:\n            group = []\n            for _ in range(self.args.n_samples_per_prompt):\n                sample = copy.deepcopy(prompt_sample)\n                sample.group_index = self.sample_group_index\n                sample.index = self.sample_index\n                self.sample_index += 1\n                group.append(sample)\n            self.sample_group_index += 1\n            samples.append(group)\n        return samples",
@@ -258,6 +274,22 @@
         "start_line": 107
       },
       "id": "sample.dataclass",
+      "path": "slime/utils/types.py",
+      "snippet_sha256": "464d0fb132d6487d2c4122c0bf4487e7636093ba8e4b55d4edae3285e1aeced1",
+      "start_line": 94,
+      "symbol": "Sample",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L94-L443"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 443,
+      "guided_excerpt": {
+        "code": "class Sample:\n    \"\"\"The sample generated\"\"\"\n\n    group_index: int | None = None\n    index: int | None = None\n    # Id of the rollout this sample came from. Defaults to ``None`` and the\n    # downstream pipeline falls back to ``index`` (so the default rollout\n    # path, where one execution = one training sample, sees rollout_id ==\n    # index). Compact / subagent paths that split one rollout execution into\n    # multiple training samples should set the same ``rollout_id`` on every\n    # sibling, so loss aggregation averages within the rollout instead of\n    # over-counting it.\n    rollout_id: int | None = None",
+        "end_line": 106,
+        "snippet_sha256": "f80d36fe202594615a3b49e1a6fe5b1586f1d671e783a079d2c13a6798688ad6",
+        "start_line": 94
+      },
+      "id": "sample.identity-defaults",
       "path": "slime/utils/types.py",
       "snippet_sha256": "464d0fb132d6487d2c4122c0bf4487e7636093ba8e4b55d4edae3285e1aeced1",
       "start_line": 94,
