@@ -44,7 +44,7 @@
       "symbol_kind": "method",
       "claim": "Dataset 选择 prompt、label、metadata，并构造初始 Sample。",
       "concept_ids": ["dataset-row", "sample-object"],
-      "lesson_uses": ["act-1", "q2", "stg.chapter-1"],
+      "lesson_uses": ["act-1", "q2", "stg.chapter-1", "stg.chapter-2"],
       "guided_excerpt": {
         "start_contains": "if processor:",
         "end_contains": "multimodal_inputs=multimodal_inputs,"
@@ -58,7 +58,7 @@
       "symbol_kind": "method",
       "claim": "DataSource 通过 deepcopy 形成同组候选，并分配 group_index 与独立 index。",
       "concept_ids": ["prompt-group", "group-index", "sample-index"],
-      "lesson_uses": ["act-2", "q3", "stg.chapter-3"],
+      "lesson_uses": ["act-2", "q3", "stg.chapter-2", "stg.chapter-3"],
       "caveat": "生产源码是 deepcopy 与编号的主要证据；教学 fixture test 负责补充 2×2 教学契约。",
       "guided_excerpt": {
         "start_contains": "samples = []",
@@ -73,7 +73,7 @@
       "symbol_kind": "function",
       "claim": "默认 generation 路径复用已有 input IDs，或通过 processor/tokenizer 准备 prompt token IDs。",
       "concept_ids": ["sample-object", "response-length"],
-      "lesson_uses": ["stg.chapter-4", "stg.final-q4"],
+      "lesson_uses": ["stg.chapter-2", "stg.chapter-4", "stg.final-q4"],
       "caveat": "课程 token IDs 是显式标注的教学值；生产 token IDs 由所选 checkpoint 决定。",
       "guided_excerpt": {
         "start_contains": "def _prepare_prompt_ids",
@@ -102,7 +102,7 @@
       "symbol_kind": "async-function",
       "claim": "默认 generation 路径准备 prompt、调用 SGLang 并把 response 信息写回 Sample。",
       "concept_ids": ["sample-object", "response-length", "rollout-log-prob"],
-      "lesson_uses": ["act-3", "stg.chapter-4", "stg.chapter-5"],
+      "lesson_uses": ["act-3", "stg.chapter-2", "stg.chapter-4", "stg.chapter-5"],
       "guided_excerpt": {
         "start_contains": "if \"output_token_logprobs\"",
         "end_contains": "text=output[\"text\"],",
@@ -117,7 +117,7 @@
       "symbol_kind": "method",
       "claim": "response token、response_length、loss_mask 与 rollout_log_probs 在 response 空间保持对齐。",
       "concept_ids": ["response-length", "loss-mask", "rollout-log-prob"],
-      "lesson_uses": ["act-3", "q4", "q5", "stg.chapter-6"],
+      "lesson_uses": ["act-3", "q4", "q5", "stg.chapter-2", "stg.chapter-6"],
       "guided_excerpt": {
         "start_contains": "tokens = _to_int_list(tokens)",
         "end_contains": "self.response_length += len(tokens)"
@@ -131,7 +131,7 @@
       "symbol_kind": "method",
       "claim": "generation meta info 更新权重版本，并把 finish reason 映射为 Sample status。",
       "concept_ids": ["weight-version", "terminal-status"],
-      "lesson_uses": ["act-3", "q6", "stg.chapter-6", "stg.final-q7"]
+      "lesson_uses": ["act-3", "q6", "stg.chapter-2", "stg.chapter-6", "stg.final-q7"]
     },
     {
       "id": "sample.validate-response-metadata-lengths",
@@ -141,7 +141,7 @@
       "symbol_kind": "method",
       "claim": "写回后的 loss_mask、rollout_log_probs 与 top-p replay 元数据必须和 response_length 对齐。",
       "concept_ids": ["response-length", "loss-mask", "rollout-log-prob"],
-      "lesson_uses": ["stg.chapter-6", "stg.final-q6"],
+      "lesson_uses": ["stg.chapter-2", "stg.chapter-6", "stg.final-q6"],
       "guided_excerpt": {
         "start_contains": "def _validate_response_metadata_lengths",
         "end_contains": "rollout top-p replay must include both token ids and offsets."
@@ -155,7 +155,11 @@
       "symbol_kind": "async-function",
       "claim": "默认路径把 generation、sample hooks 与 per-sample reward evaluation 串接起来。",
       "concept_ids": ["raw-reward"],
-      "lesson_uses": ["act-4"]
+      "lesson_uses": ["act-4", "stg.chapter-2"],
+      "guided_excerpt": {
+        "start_contains": "if isinstance(sample, list):",
+        "end_contains": "sample.reward = await async_rm(args, sample)"
+      }
     },
     {
       "id": "rollout.generate-async",
@@ -195,7 +199,7 @@
       "symbol_kind": "method",
       "claim": "reward group reshape、中心化及可选 std normalization 在转换边界前执行。",
       "concept_ids": ["centered-reward", "prompt-group"],
-      "lesson_uses": ["act-5", "q7"],
+      "lesson_uses": ["act-5", "q7", "stg.chapter-2"],
       "caveat": "math-2x2-v1 关闭 std normalization，因此站点只称组内中心化 reward。"
     },
     {
@@ -206,7 +210,11 @@
       "symbol_kind": "method",
       "claim": "Sample 字段被显式映射为 raw_reward、rewards、sample_indices、rollout_ids、loss_masks 与 rollout_mask_sums 等 train data。",
       "concept_ids": ["train-data", "raw-reward", "centered-reward", "rollout-id", "loss-mask"],
-      "lesson_uses": ["act-5", "q7", "q8"]
+      "lesson_uses": ["act-5", "q7", "q8", "stg.chapter-2"],
+      "guided_excerpt": {
+        "start_contains": "# loss mask",
+        "end_contains": "train_data[\"loss_masks\"] = loss_masks"
+      }
     },
     {
       "id": "rollout.split-train-data",

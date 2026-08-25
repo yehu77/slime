@@ -5,9 +5,9 @@ import { useState, type ReactNode, type RefObject } from "react";
 import anchorsPayload from "../../data/source-refs/slime-06ffdbe2.anchors.generated.json";
 import {
   sampleToGenerationCourse,
-  type SampleToGenerationChapter,
 } from "../../content/zh/lessons/sample-to-generation";
 import { GuidedSourceExcerpt } from "./GuidedSourceExcerpt";
+import type { ChapterOneTranslationChapter } from "./chapter-reader-contracts";
 
 type SourceAnchor = {
   id: string;
@@ -30,23 +30,6 @@ type ChapterOneTranslationDeskProps = {
   onOpenDrawer: () => void;
   onNext: () => void;
 };
-
-export type ChapterOneTranslationChapter = SampleToGenerationChapter & {
-  tracePassport: NonNullable<SampleToGenerationChapter["tracePassport"]>;
-  mappingLanes: NonNullable<SampleToGenerationChapter["mappingLanes"]>;
-  defaultFieldGroups: NonNullable<SampleToGenerationChapter["defaultFieldGroups"]>;
-};
-
-export function hasChapterOneTranslationData(
-  chapter: SampleToGenerationChapter | undefined,
-): chapter is ChapterOneTranslationChapter {
-  return Boolean(
-    chapter?.slug === "row-to-sample" &&
-    chapter.tracePassport &&
-    chapter.mappingLanes &&
-    chapter.defaultFieldGroups,
-  );
-}
 
 const sourceAnchors = anchorsPayload.anchors as readonly SourceAnchor[];
 

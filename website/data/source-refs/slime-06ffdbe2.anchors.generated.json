@@ -79,6 +79,12 @@
     {
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
       "end_line": 826,
+      "guided_excerpt": {
+        "code": "        # loss mask\n        # TODO: compress the loss mask\n        loss_masks = []\n        for sample in samples:\n            # always instantiate loss_mask if not provided\n            if sample.loss_mask is None:\n                sample.loss_mask = [1] * sample.response_length\n\n            assert (\n                len(sample.loss_mask) == sample.response_length\n            ), f\"loss mask length {len(sample.loss_mask)} != response length {sample.response_length}\"\n            if sample.remove_sample:\n                sample.loss_mask = [0] * sample.response_length\n            loss_masks.append(sample.loss_mask)\n        train_data[\"loss_masks\"] = loss_masks",
+        "end_line": 760,
+        "snippet_sha256": "f0127a7add9c6eaa071d878c4abb430df5d1b29fe528c40839a2b7e30109e772",
+        "start_line": 746
+      },
       "id": "rollout.convert-train-data",
       "path": "slime/ray/rollout.py",
       "snippet_sha256": "1b8acba3857ece8a798877aa93c9e7bcfdc110a0560c1b692ce5bd6efedcb945",
@@ -121,6 +127,12 @@
     {
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
       "end_line": 287,
+      "guided_excerpt": {
+        "code": "    if isinstance(sample, list):\n        samples = sample\n        if any(sample.status == Sample.Status.ABORTED for sample in samples):\n            return samples\n\n        samples_need_reward = [sample for sample in samples if sample.reward is None]\n        with trace_span(samples_need_reward, \"reward_model\"):\n            rewards = await batched_async_rm(args, samples_need_reward)\n        for sample, reward in zip(samples_need_reward, rewards, strict=False):\n            sample.reward = reward\n        return samples\n    else:\n        if sample.status == Sample.Status.ABORTED:\n            return sample\n        # Some custom generate paths may have already filled the reward.\n        if sample.reward is None:\n            with trace_span(sample, \"reward_model\"):\n                sample.reward = await async_rm(args, sample)",
+        "end_line": 285,
+        "snippet_sha256": "28cd7c4998889cde57c015c639bdc72b3c2a257eacc5625f235f2c088f9212a2",
+        "start_line": 268
+      },
       "id": "rollout.generate-and-rm",
       "path": "slime/rollout/sglang_rollout.py",
       "snippet_sha256": "6b24558788ceb74d3610d66ab1e9e9e62067b4bd34935d165a742362900e4481",
