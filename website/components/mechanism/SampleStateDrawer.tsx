@@ -172,7 +172,8 @@ export function SampleStateDrawer({
 
         {state.requests[sampleId] ? (
           <section className="mechanism-sidecar">
-            <h3>请求 sidecar</h3>
+            <h3>请求 sidecar · 本步创建</h3>
+            <p className="mechanism-sidecar-note">课程为了检查网络边界而建立的观察记录；它不是 upstream Sample 字段。</p>
             <pre><code>{JSON.stringify(state.requests[sampleId], null, 2)}</code></pre>
           </section>
         ) : null}

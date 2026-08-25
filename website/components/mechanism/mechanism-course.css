@@ -486,6 +486,7 @@
 .mechanism-drawer-empty { border-block: 1px solid var(--mechanism-line); color: var(--mechanism-muted); font-size: 16px; line-height: 1.7; padding: 24px 26px; }
 .mechanism-sidecar { margin: 28px 26px 0; }
 .mechanism-sidecar h3 { color: var(--mechanism-navy); font-size: 16px; }
+.mechanism-sidecar-note { color: var(--mechanism-muted); font-size: 16px; line-height: 1.6; margin: -4px 0 12px; }
 .mechanism-sidecar pre { background: var(--mechanism-navy-deep); color: #d9e6e9; font-family: var(--font-mono); font-size: 13px; line-height: 1.65; overflow: auto; padding: 18px; }
 
 .mechanism-rail--reader { grid-template-columns: 156px minmax(0, 1fr) 96px; }

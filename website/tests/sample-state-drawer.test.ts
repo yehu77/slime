@@ -50,4 +50,21 @@ describe("Sample state drawer provenance", () => {
       hasPreviousSample: true,
     })).toBe("本步更新");
   });
+
+  it("marks tokens unchanged at tokenization and updated during request preparation", () => {
+    expect(getDrawerFieldProvenance({
+      observationId: "prompts-tokenized",
+      field: "tokens",
+      currentValue: [],
+      previousValue: [],
+      hasPreviousSample: true,
+    })).toBe("保持不变");
+    expect(getDrawerFieldProvenance({
+      observationId: "requests-prepared",
+      field: "tokens",
+      currentValue: [11, 12, 13, 14, 15],
+      previousValue: [],
+      hasPreviousSample: true,
+    })).toBe("本步更新");
+  });
 });

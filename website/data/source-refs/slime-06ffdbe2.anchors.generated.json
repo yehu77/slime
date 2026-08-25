@@ -168,12 +168,60 @@
     },
     {
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 219,
+      "guided_excerpt": {
+        "code": "    prompt_ids = _prepare_prompt_ids(sample, state.tokenizer, state.processor)\n\n    assert (\n        sampling_params[\"max_new_tokens\"] >= 0\n    ), f\"max_new_tokens: {sampling_params['max_new_tokens']} should not be less than 0\"\n    if sampling_params[\"max_new_tokens\"] == 0:\n        sample.status = Sample.Status.TRUNCATED\n        return sample\n\n    # Prepare payload for sglang server\n    payload = {\n        \"sampling_params\": sampling_params,\n        \"return_logprob\": True,\n    }\n\n    if args.use_rollout_routing_replay:\n        payload[\"return_routed_experts\"] = True",
+        "end_line": 180,
+        "snippet_sha256": "a27f0d3aebbc45143d7ef09e137852d0be45bdf5309fced80d1e0309e1b17eed",
+        "start_line": 164
+      },
+      "id": "rollout.generate-request-budget",
+      "path": "slime/rollout/sglang_rollout.py",
+      "snippet_sha256": "3b52990cf03d8b743d26ac6ef53ab7047c30b6f5eae5afd8e47bed663cd11180",
+      "start_line": 152,
+      "symbol": "generate",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/rollout/sglang_rollout.py#L152-L219"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 219,
+      "guided_excerpt": {
+        "code": "    # Use session_id for consistent hashing routing (SGLang Model Gateway)\n    headers = None\n    if sample.session_id:\n        if getattr(args, \"router_policy\", None) == \"consistent_hashing\":\n            headers = {\"X-SMG-Routing-Key\": sample.session_id}\n\n    with trace_span(sample, \"sglang_generate\", attrs={\"max_new_tokens\": sampling_params[\"max_new_tokens\"]}) as span:\n        output = await post(url, payload, headers=headers)",
+        "end_line": 201,
+        "snippet_sha256": "23c769ddf80a2c165c0d755d096b526ad18ce56298087ae28bb72e48810e6bd0",
+        "start_line": 194
+      },
+      "id": "rollout.generate-request-dispatch",
+      "path": "slime/rollout/sglang_rollout.py",
+      "snippet_sha256": "3b52990cf03d8b743d26ac6ef53ab7047c30b6f5eae5afd8e47bed663cd11180",
+      "start_line": 152,
+      "symbol": "generate",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/rollout/sglang_rollout.py#L152-L219"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 219,
+      "guided_excerpt": {
+        "code": "    # Prepare payload for sglang server\n    payload = {\n        \"sampling_params\": sampling_params,\n        \"return_logprob\": True,\n    }\n\n    if args.use_rollout_routing_replay:\n        payload[\"return_routed_experts\"] = True\n\n    images = sample.multimodal_inputs.get(\"images\") if sample.multimodal_inputs else None\n    if images:\n        payload[\"image_data\"] = [encode_image_for_rollout_engine(image) for image in images]\n        # For single-turn multimodal requests, send text so SGLang expands the\n        # image placeholders with its own processor rules.\n        payload[\"text\"] = sample.prompt\n    else:\n        payload[\"input_ids\"] = prompt_ids\n\n    if not sample.tokens:\n        sample.tokens = prompt_ids",
+        "end_line": 192,
+        "snippet_sha256": "f392f973cf2498662104dfe4d634f5723fb4892ee8c8b6082f42318e4511db1c",
+        "start_line": 173
+      },
+      "id": "rollout.generate-request-envelope",
+      "path": "slime/rollout/sglang_rollout.py",
+      "snippet_sha256": "3b52990cf03d8b743d26ac6ef53ab7047c30b6f5eae5afd8e47bed663cd11180",
+      "start_line": 152,
+      "symbol": "generate",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/rollout/sglang_rollout.py#L152-L219"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
       "end_line": 117,
       "guided_excerpt": {
-        "code": "        self.semaphore = asyncio.Semaphore(args.sglang_server_concurrency * get_rollout_num_engines(args))\n        self.sampling_params: dict[str, Any] = dict(\n            temperature=args.rollout_temperature,\n            top_p=args.rollout_top_p,\n            top_k=args.rollout_top_k,\n            max_new_tokens=args.rollout_max_response_len,\n            stop=args.rollout_stop,\n            stop_token_ids=args.rollout_stop_token_ids,\n            skip_special_tokens=args.rollout_skip_special_tokens,\n            no_stop_trim=True,\n            spaces_between_special_tokens=False,\n        )\n        if args.rollout_top_p != 1.0:\n            self.sampling_params[\"custom_params\"] = {\"return_top_p_token_ids\": True}",
+        "code": "        self.args = args\n        self.tokenizer = load_tokenizer(args.hf_checkpoint, trust_remote_code=True)\n        self.processor = load_processor(args.hf_checkpoint, trust_remote_code=True)\n\n        self.semaphore = asyncio.Semaphore(args.sglang_server_concurrency * get_rollout_num_engines(args))\n        self.sampling_params: dict[str, Any] = dict(\n            temperature=args.rollout_temperature,\n            top_p=args.rollout_top_p,\n            top_k=args.rollout_top_k,\n            max_new_tokens=args.rollout_max_response_len,\n            stop=args.rollout_stop,\n            stop_token_ids=args.rollout_stop_token_ids,\n            skip_special_tokens=args.rollout_skip_special_tokens,\n            no_stop_trim=True,\n            spaces_between_special_tokens=False,\n        )\n        if args.rollout_top_p != 1.0:\n            self.sampling_params[\"custom_params\"] = {\"return_top_p_token_ids\": True}",
         "end_line": 107,
-        "snippet_sha256": "c3c829d868fad946ba601bc1d5894ea4a2c42433e254e39fd6625fe46835beb3",
-        "start_line": 94
+        "snippet_sha256": "70cf07d7975485ed0b009c1b70d46e2bf9571fe5c0c160dd8af51d2c64d7ff7e",
+        "start_line": 90
       },
       "id": "rollout.generate-state-init",
       "path": "slime/rollout/sglang_rollout.py",

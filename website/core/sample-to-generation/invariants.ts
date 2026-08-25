@@ -164,16 +164,27 @@ export function checkSampleToGenerationInvariants(
         "Prompt tokenization has not run yet",
       ),
     );
+  } else if (state.observation_id === "prompts-tokenized") {
+    checks.push(
+      result(
+        "tokenizer.prompt-ids-present",
+        Object.values(state.samples).every((sample) => sample.tokens.length === 0),
+        "Prompt token IDs are prepared without changing Sample.tokens",
+        "Tokenization validates the teaching IDs; request preparation persists them",
+      ),
+    );
   } else {
     checks.push(
       result(
         "tokenizer.prompt-ids-present",
         Object.values(state.samples).every((sample) => {
           const expected = fixture.tokenizer.prompt_encodings[sample.origin_id];
-          return JSON.stringify(sample.tokens) === JSON.stringify(expected);
-        }) || state.observation_id === "responses-written",
-        "Prompt token IDs are present before the request is sent",
-        "Each Sample must hold its prompt token prefix before request dispatch",
+          return state.observation_id === "responses-written"
+            ? expected.every((token, index) => sample.tokens[index] === token)
+            : JSON.stringify(sample.tokens) === JSON.stringify(expected);
+        }),
+        "Prompt token IDs are persisted when the request is prepared",
+        "Each Sample must hold its prompt token prefix from request preparation onward",
       ),
     );
   }

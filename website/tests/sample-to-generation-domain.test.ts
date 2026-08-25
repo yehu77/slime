@@ -128,21 +128,61 @@ describe("sample-to-generation deterministic trace", () => {
     );
   });
 
-  it("stores prompt tokens before dispatch and keeps Sample bookkeeping out of payload", () => {
-    const state = seekSampleToGeneration(
+  it("persists prompt tokens only while preparing isolated request snapshots", () => {
+    const tokenized = seekSampleToGeneration(
+      sampleToGenerationFixture,
+      "prompts-tokenized",
+    );
+    expect(
+      Object.fromEntries(
+        Object.entries(tokenized.samples).map(([sampleId, sample]) => [
+          sampleId,
+          sample.tokens,
+        ]),
+      ),
+    ).toEqual({ a0: [], a1: [], b0: [], b1: [] });
+    expect(tokenized.changed_sample_ids).toEqual([]);
+
+    const prepared = seekSampleToGeneration(
       sampleToGenerationFixture,
       "requests-prepared",
     );
-    expect(state.samples.a0.tokens).toEqual([11, 12, 13, 14, 15]);
-    expect(state.requests.a0.payload.input_ids).toEqual(state.samples.a0.tokens);
-    expect(Object.keys(state.requests.a0.payload).sort()).toEqual([
-      "input_ids",
-      "return_logprob",
-      "sampling_params",
-    ]);
-    expect(JSON.stringify(state.requests)).not.toMatch(
-      /"(?:label|reward|group_index|index|metadata|train_metadata)"/,
-    );
+    expect(prepared.changed_sample_ids).toEqual(["a0", "a1", "b0", "b1"]);
+    for (const [sampleId, sample] of Object.entries(prepared.samples)) {
+      const request = prepared.requests[sampleId];
+      const before = tokenized.samples[sampleId];
+
+      expect(request.payload.input_ids).toEqual(sample.tokens);
+      expect(request.payload.input_ids).not.toBe(sample.tokens);
+      expect(sample).toEqual({ ...before, tokens: request.payload.input_ids });
+      expect(Object.keys(request.payload).sort()).toEqual([
+        "input_ids",
+        "return_logprob",
+        "sampling_params",
+      ]);
+      expect(request.payload.sampling_params).toEqual(
+        sampleToGenerationFixture.sampling_params,
+      );
+      expect(request.payload.sampling_params).not.toBe(
+        sampleToGenerationFixture.sampling_params,
+      );
+      expect(request.payload.sampling_params.max_new_tokens).toBe(1);
+      expect(request.payload.return_logprob).toBe(true);
+      expect(request.payload).not.toHaveProperty("sample_id");
+      expect(JSON.stringify(request.payload)).not.toMatch(
+        /"(?:origin_id|group_index|index|prompt|tokens|multimodal_inputs|response|response_length|label|reward|loss_mask|weight_versions|rollout_log_probs|status|metadata|train_metadata|sample_id)"/,
+      );
+      expect(sample).toMatchObject({
+        response: "",
+        response_length: 0,
+        reward: null,
+        loss_mask: null,
+        weight_versions: [],
+        rollout_log_probs: null,
+        status: "pending",
+        train_metadata: null,
+      });
+    }
   });
 
   it("keeps the HTTP response in a sidecar until the writeback observation", () => {

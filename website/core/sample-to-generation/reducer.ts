@@ -191,40 +191,43 @@ function applyObservation(
       break;
     }
     case "prompts-tokenized": {
-      samples = Object.fromEntries(
-        Object.entries(samples).map(([sampleId, sample]) => {
-          const promptIds = fixture.tokenizer.prompt_encodings[sample.origin_id];
-          if (!promptIds) {
-            throw new Error(`Missing teaching-tokenizer encoding for ${sample.origin_id}`);
-          }
-          return [
-            sampleId,
-            SampleToGenerationSampleSchema.parse({
-              ...sample,
-              tokens: [...promptIds],
-            }),
-          ];
-        }),
-      );
-      changedSampleIds = Object.keys(samples);
+      for (const sample of Object.values(samples)) {
+        if (!fixture.tokenizer.prompt_encodings[sample.origin_id]) {
+          throw new Error(`Missing teaching-tokenizer encoding for ${sample.origin_id}`);
+        }
+      }
       break;
     }
     case "requests-prepared": {
-      requests = Object.fromEntries(
-        Object.entries(samples).map(([sampleId, sample]) => [
-          sampleId,
-          RequestSidecarSchema.parse({
-            sample_id: sampleId,
-            method: "POST",
-            endpoint: "/generate",
-            payload: {
-              input_ids: [...sample.tokens],
-              sampling_params: cloneJson(fixture.sampling_params),
-              return_logprob: true,
-            },
-          }),
-        ]),
-      );
+      // Mirror the source micro-order for every request: build payload/input_ids,
+      // persist prompt tokens on the Sample, then prepare the POST sidecar. Swap
+      // both maps only after the complete batch has parsed successfully.
+      const nextSamples: Record<string, SampleToGenerationSample> = {};
+      const nextRequests: Record<string, RequestSidecar> = {};
+      for (const [sampleId, sample] of Object.entries(samples)) {
+        const promptIds = fixture.tokenizer.prompt_encodings[sample.origin_id];
+        if (!promptIds) {
+          throw new Error(`Missing teaching-tokenizer encoding for ${sample.origin_id}`);
+        }
+        const payload = {
+          input_ids: [...promptIds],
+          sampling_params: cloneJson(fixture.sampling_params),
+          return_logprob: true as const,
+        };
+        nextSamples[sampleId] = SampleToGenerationSampleSchema.parse({
+          ...sample,
+          tokens: [...payload.input_ids],
+        });
+        nextRequests[sampleId] = RequestSidecarSchema.parse({
+          sample_id: sampleId,
+          method: "POST",
+          endpoint: "/generate",
+          payload,
+        });
+      }
+      samples = nextSamples;
+      requests = nextRequests;
+      changedSampleIds = Object.keys(nextSamples);
       break;
     }
     case "responses-received": {

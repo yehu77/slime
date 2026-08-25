@@ -119,8 +119,50 @@
       "concept_ids": ["sample-object", "response-length"],
       "lesson_uses": ["stg.chapter-4"],
       "guided_excerpt": {
-        "start_contains": "self.semaphore =",
+        "start_contains": "self.args = args",
         "end_contains": "self.sampling_params[\"custom_params\"]"
+      }
+    },
+    {
+      "id": "rollout.generate-request-budget",
+      "kind": "production-source",
+      "path": "slime/rollout/sglang_rollout.py",
+      "symbol": "generate",
+      "symbol_kind": "async-function",
+      "claim": "generate 在准备 prompt_ids 后验证 max_new_tokens；零预算会在构造网络输入前标记 truncated 并返回。",
+      "concept_ids": ["sample-object", "terminal-status"],
+      "lesson_uses": ["stg.chapter-4"],
+      "guided_excerpt": {
+        "start_contains": "prompt_ids = _prepare_prompt_ids",
+        "end_contains": "payload[\"return_routed_experts\"] = True"
+      }
+    },
+    {
+      "id": "rollout.generate-request-envelope",
+      "kind": "production-source",
+      "path": "slime/rollout/sglang_rollout.py",
+      "symbol": "generate",
+      "symbol_kind": "async-function",
+      "claim": "generate 组织 sampling_params 与 return_logprob 的 payload；默认纯文本分支以 prompt_ids 作为 input_ids，并在 tokens 为空时持久化同一 prompt 前缀。",
+      "concept_ids": ["sample-object"],
+      "lesson_uses": ["stg.chapter-4", "stg.final-q3", "stg.final-q4"],
+      "guided_excerpt": {
+        "start_contains": "# Prepare payload for sglang server",
+        "end_contains": "sample.tokens = prompt_ids"
+      }
+    },
+    {
+      "id": "rollout.generate-request-dispatch",
+      "kind": "production-source",
+      "path": "slime/rollout/sglang_rollout.py",
+      "symbol": "generate",
+      "symbol_kind": "async-function",
+      "claim": "generate 在一致性哈希路由且 Sample 含 session_id 时设置 X-SMG-Routing-Key，然后携带该 header POST /generate。",
+      "concept_ids": ["sample-object"],
+      "lesson_uses": ["stg.chapter-4", "stg.final-q4"],
+      "guided_excerpt": {
+        "start_contains": "# Use session_id for consistent hashing routing",
+        "end_contains": "output = await post(url, payload, headers=headers)"
       }
     },
     {
@@ -131,7 +173,7 @@
       "symbol_kind": "async-function",
       "claim": "默认 generation 路径准备 prompt、调用 SGLang 并把 response 信息写回 Sample。",
       "concept_ids": ["sample-object", "response-length", "rollout-log-prob"],
-      "lesson_uses": ["act-3", "stg.chapter-2", "stg.chapter-4", "stg.chapter-5"],
+      "lesson_uses": ["act-3", "stg.chapter-2", "stg.chapter-5", "stg.final-q5"],
       "guided_excerpt": {
         "start_contains": "if \"output_token_logprobs\"",
         "end_contains": "text=output[\"text\"],",

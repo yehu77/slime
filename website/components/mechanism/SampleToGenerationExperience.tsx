@@ -31,7 +31,9 @@ import {
 } from "./ChapterOneTranslationDesk";
 import { ChapterTwoProvenanceRelay } from "./ChapterTwoProvenanceRelay";
 import { ChapterThreeGroupingLab } from "./ChapterThreeGroupingLab";
+import { ChapterFourRequestBoundary } from "./ChapterFourRequestBoundary";
 import {
+  hasChapterFourRequestBoundaryData,
   hasChapterOneTranslationData,
   hasChapterThreeGroupingData,
   hasChapterTwoProvenanceData,
@@ -398,7 +400,8 @@ export function SampleToGenerationExperience({
   const hasChapterOneReader = hasChapterOneTranslationData(chapter);
   const hasChapterTwoReader = hasChapterTwoProvenanceData(chapter);
   const hasChapterThreeReader = hasChapterThreeGroupingData(chapter);
-  const hasDedicatedReader = hasChapterOneReader || hasChapterTwoReader || hasChapterThreeReader;
+  const hasChapterFourReader = hasChapterFourRequestBoundaryData(chapter);
+  const hasDedicatedReader = hasChapterOneReader || hasChapterTwoReader || hasChapterThreeReader || hasChapterFourReader;
 
   const state = chapter
     ? seekSampleToGeneration(
@@ -534,6 +537,17 @@ export function SampleToGenerationExperience({
             onNext={() => openSection(course.chapters[3].slug)}
             onOpenDrawer={() => setDrawerOpen(true)}
             onPrevious={() => openSection(course.chapters[1].slug)}
+            passed={Boolean(chapterProgress?.passed)}
+          />
+        ) : chapter && hasChapterFourReader ? (
+          <ChapterFourRequestBoundary
+            chapter={chapter}
+            exerciseSlot={chapterExercise}
+            headingRef={chapterHeadingRef}
+            triggerRef={drawerTriggerRef}
+            onNext={() => openSection(course.chapters[4].slug)}
+            onOpenDrawer={() => setDrawerOpen(true)}
+            onPrevious={() => openSection(course.chapters[2].slug)}
             passed={Boolean(chapterProgress?.passed)}
           />
         ) : chapter ? (

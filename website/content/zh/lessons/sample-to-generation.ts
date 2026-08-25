@@ -165,6 +165,68 @@ export type GroupingAliasProbe = {
   boundary: string;
 };
 
+export type RequestAssemblyStageId =
+  | "prepare-prompt"
+  | "validate-budget"
+  | "assemble-envelope"
+  | "persist-prefix"
+  | "dispatch-request";
+
+export type RequestAssemblyStage = {
+  id: RequestAssemblyStageId;
+  order: number;
+  title: string;
+  producer: string;
+  input: readonly string[];
+  operation: string;
+  output: readonly string[];
+  callerEffect: string;
+  networkEffect: string;
+  sourceRefIds: readonly string[];
+};
+
+export type RequestManifestDestination =
+  | "transformed"
+  | "caller-ledger"
+  | "json-body"
+  | "not-produced"
+  | "conditional-body"
+  | "conditional-header";
+
+export type RequestManifestEntry = {
+  id: string;
+  field: string;
+  fixtureValue: string;
+  origin: string;
+  destination: RequestManifestDestination;
+  path: string;
+  reason: string;
+  mainPath: boolean;
+  sourceRefIds: readonly string[];
+};
+
+export type RequestSamplingParameter = {
+  key: string;
+  fixtureValue: string;
+  runtimeArgument: string;
+  role: string;
+};
+
+export type RequestFixturePacket = {
+  sampleId: string;
+  fromObservation: string;
+  toObservation: string;
+  prompt: string;
+  promptIds: readonly number[];
+  method: "POST";
+  endpoint: "/generate";
+  payload: {
+    input_ids: readonly number[];
+    sampling_params: Readonly<Record<string, unknown>>;
+    return_logprob: true;
+  };
+};
+
 export type SampleToGenerationTracePassport = {
   origin: {
     id: string;
@@ -220,6 +282,10 @@ export type SampleToGenerationChapter = {
   groupingCounterFrames?: readonly GroupingCounterFrame[];
   groupingComparisonRules?: readonly GroupingComparisonRule[];
   groupingAliasProbe?: GroupingAliasProbe;
+  requestAssemblyStages?: readonly RequestAssemblyStage[];
+  requestManifestEntries?: readonly RequestManifestEntry[];
+  requestSamplingParameters?: readonly RequestSamplingParameter[];
+  requestFixturePacket?: RequestFixturePacket;
   branch?: SampleToGenerationBranch;
   explanation: readonly SampleToGenerationExplanation[];
   observationIds: readonly string[];
@@ -347,7 +413,7 @@ export const sampleToGenerationSourceEvidence: readonly SampleToGenerationSource
   },
   {
     id: "evidence-prompt-request",
-    title: "prompt IDs 与 sampling params 在请求边界汇合",
+    title: "源码核对：prompt 先成为局部 token IDs",
     sourceRefId: "rollout.prepare-prompt-ids",
     claim: "纯文本默认路径由 checkpoint tokenizer 生成 prompt IDs；已有 token 或多模态输入会走其他分支。",
     focus: [
@@ -356,6 +422,54 @@ export const sampleToGenerationSourceEvidence: readonly SampleToGenerationSource
       "纯文本回退调用 tokenizer.encode(..., add_special_tokens=False)",
     ],
     boundary: "课程 fixture 使用教学 tokenizer；真实 token ID 必须由实际 checkpoint 决定。",
+  },
+  {
+    id: "evidence-sampling-recipe",
+    title: "源码核对：采样配方来自运行参数",
+    sourceRefId: "rollout.generate-state-init",
+    claim: "GenerateState 载入 checkpoint tokenizer / processor，并从 rollout 参数建立默认 sampling_params；提交任务时传给 generate 的是这份配置的副本。",
+    focus: [
+      "temperature、top_p、top_k 与 max_new_tokens 都来自运行配置",
+      "sampling_params 描述生成策略，不是 Sample 的任务语义字段",
+      "本课 fixture 固定一份可复算的配置，不声称与任意部署默认值相同",
+    ],
+    boundary: "摘录证明 GenerateState 的默认配方；具体 generate 调用接收的是调用链传入的 sampling_params，而不是教学页面中可变的共享对象。",
+  },
+  {
+    id: "evidence-request-budget",
+    title: "源码核对：零生成预算不会发出请求",
+    sourceRefId: "rollout.generate-request-budget",
+    claim: "generate 在 prompt_ids 准备完成后检查 max_new_tokens；负值无效，零值把 Sample 标记为 truncated 并直接返回，只有正值继续进入请求装配。",
+    focus: [
+      "预算检查发生在 payload/input_ids 与 POST 之前",
+      "本课 fixture 固定 max_new_tokens=1，因此进入主路径",
+      "truncated 描述生成终止边界，不判断答案正确性",
+    ],
+    boundary: "摘录同时露出 routing replay 对 payload 的条件扩展；该字段不属于本课默认 pure-text 三键 fixture。",
+  },
+  {
+    id: "evidence-request-envelope",
+    title: "源码底片：三键请求信封与前缀留档",
+    sourceRefId: "rollout.generate-request-envelope",
+    claim: "默认纯文本分支把 input_ids、sampling_params 与 return_logprob 放入 payload；随后在 Sample.tokens 为空时保存同一 prompt 前缀。",
+    focus: [
+      "return_logprob 是 payload 顶层协议开关，不在 sampling_params 内",
+      "纯文本路径发送 input_ids，不发送原始 prompt 字段",
+      "payload 与 Sample.tokens 保存相同的序列值，但承担网络输入与调用方状态两种职责",
+    ],
+    boundary: "三键白名单只适用于本课纯文本 fixture。多模态、routing replay 等条件分支会改变 envelope；源码也不保证两个列表具有独立 Python identity。",
+  },
+  {
+    id: "evidence-request-dispatch",
+    title: "源码核对：可选路由 header 与真实 POST",
+    sourceRefId: "rollout.generate-request-dispatch",
+    claim: "generate 只在特定 consistent-hashing 条件下从 session_id 构造路由 header，然后把 payload 发往 /generate。",
+    focus: [
+      "session_id 不会成为本课 JSON payload 字段",
+      "header 分支是条件路径，不是所有请求都携带身份",
+      "POST 之后才进入下一章的 response 投影",
+    ],
+    boundary: "本课 fixture 没有 session_id，也不运行真实服务器；request sidecar 是课程观察工具，不是 upstream Sample 字段。",
   },
   {
     id: "evidence-response-projection",
@@ -889,23 +1003,284 @@ const chapterThreeExercise = {
   },
 } as const satisfies StructuredExercise;
 
+export const requestAssemblyStages: readonly RequestAssemblyStage[] = [
+  {
+    id: "prepare-prompt",
+    order: 1,
+    title: "准备局部 prompt_ids",
+    producer: "_prepare_prompt_ids",
+    input: ['a0.prompt = "3 + 2 = ?"', "a0.tokens = []", "checkpoint tokenizer / processor"],
+    operation: "默认纯文本分支调用 tokenizer.encode(sample.prompt, add_special_tokens=False)。",
+    output: ["局部 prompt_ids = [11, 12, 13, 14, 15]（教学 tokenizer）"],
+    callerEffect: "此时只是得到局部变量；Sample.tokens 仍为空。",
+    networkEffect: "尚未构造 payload，也没有网络请求。",
+    sourceRefIds: ["rollout.prepare-prompt-ids"],
+  },
+  {
+    id: "validate-budget",
+    order: 2,
+    title: "检查生成预算",
+    producer: "generate",
+    input: ["sampling_params.max_new_tokens = 1"],
+    operation: "负数触发断言；0 会把 Sample 标记为 truncated 并直接返回；本 fixture 的 1 通过检查。",
+    output: ["继续装配请求"],
+    callerEffect: "a0.status 仍为 pending。",
+    networkEffect: "只有通过该检查的路径才会抵达 /generate。",
+    sourceRefIds: ["rollout.generate-request-budget"],
+  },
+  {
+    id: "assemble-envelope",
+    order: 3,
+    title: "装配最小请求信封",
+    producer: "generate",
+    input: ["prompt_ids", "调用链传入的 sampling_params 副本", "return_logprob=True"],
+    operation: "建立 payload；纯文本分支把 prompt_ids 放入 input_ids。",
+    output: ["payload.input_ids", "payload.sampling_params", "payload.return_logprob"],
+    callerEffect: "完整 Sample 仍由调用方持有；label 与身份没有被序列化。",
+    networkEffect: "payload 只在内存中完成，尚未 POST。",
+    sourceRefIds: ["rollout.generate-request-envelope", "rollout.generate-state-init"],
+  },
+  {
+    id: "persist-prefix",
+    order: 4,
+    title: "在 Sample 留下同一前缀",
+    producer: "generate",
+    input: ["a0.tokens = []", "prompt_ids = [11, 12, 13, 14, 15]"],
+    operation: "若 Sample.tokens 为空，将 prompt_ids 保存为调用方的完整序列前缀。",
+    output: ["a0.tokens = [11, 12, 13, 14, 15]"],
+    callerEffect: "Sample 获得 prompt 前缀；response、reward 与 status 仍未变化。",
+    networkEffect: "payload.input_ids 与 Sample.tokens 的序列值一致，职责不同。",
+    sourceRefIds: ["rollout.generate-request-envelope"],
+  },
+  {
+    id: "dispatch-request",
+    order: 5,
+    title: "越过网络边界",
+    producer: "post",
+    input: ["url = http://…/generate", "payload", "可选 consistent-hashing header"],
+    operation: "调用 post(url, payload, headers=headers)；等待真实 SGLang response。",
+    output: ["HTTP request 已发出；response 尚未投影"],
+    callerEffect: "调用方继续保有 a0，并等待把返回材料写回同一对象。",
+    networkEffect: "本课 pure-text fixture 的 JSON body 只有三个顶层键。",
+    sourceRefIds: ["rollout.generate-request-dispatch"],
+  },
+] as const;
+
+export const requestManifestEntries: readonly RequestManifestEntry[] = [
+  {
+    id: "prompt",
+    field: "Sample.prompt",
+    fixtureValue: '"3 + 2 = ?"',
+    origin: "Dataset 提供的任务输入",
+    destination: "transformed",
+    path: "prompt → tokenizer → prompt_ids",
+    reason: "默认纯文本请求发送 token IDs，而不是原始 prompt 字段。",
+    mainPath: true,
+    sourceRefIds: ["rollout.prepare-prompt-ids"],
+  },
+  {
+    id: "prompt-ids",
+    field: "局部 prompt_ids",
+    fixtureValue: "[11, 12, 13, 14, 15]",
+    origin: "教学 tokenizer 对 a0.prompt 的确定性编码",
+    destination: "transformed",
+    path: "prompt_ids → payload.input_ids + Sample.tokens",
+    reason: "同一序列值同时服务于网络输入和调用方前缀账本。",
+    mainPath: true,
+    sourceRefIds: ["rollout.prepare-prompt-ids", "rollout.generate-request-envelope"],
+  },
+  {
+    id: "tokens",
+    field: "Sample.tokens",
+    fixtureValue: "[] → [11, 12, 13, 14, 15]",
+    origin: "generate 在 POST 前保存 prompt 前缀",
+    destination: "caller-ledger",
+    path: "留在调用方；不作为名为 tokens 的 JSON 字段",
+    reason: "后续 response token 要追加在这个前缀之后。",
+    mainPath: true,
+    sourceRefIds: ["rollout.generate-request-envelope"],
+  },
+  {
+    id: "input-ids",
+    field: "payload.input_ids",
+    fixtureValue: "[11, 12, 13, 14, 15]",
+    origin: "局部 prompt_ids",
+    destination: "json-body",
+    path: "POST /generate JSON body",
+    reason: "它是本课纯文本路径的模型输入表示。",
+    mainPath: true,
+    sourceRefIds: ["rollout.generate-request-envelope"],
+  },
+  {
+    id: "sampling-params",
+    field: "payload.sampling_params",
+    fixtureValue: "9 项固定教学配置",
+    origin: "rollout 运行参数形成的调用副本",
+    destination: "json-body",
+    path: "POST /generate JSON body",
+    reason: "它规定如何生成，不描述题目的正确答案或候选身份。",
+    mainPath: true,
+    sourceRefIds: ["rollout.generate-state-init", "rollout.generate-request-envelope"],
+  },
+  {
+    id: "return-logprob",
+    field: "payload.return_logprob",
+    fixtureValue: "true",
+    origin: "generate 的协议开关",
+    destination: "json-body",
+    path: "POST /generate JSON body 顶层",
+    reason: "请求服务器返回所选 token 的概率证据；它不运行 reward，也不判断正确性。",
+    mainPath: true,
+    sourceRefIds: ["rollout.generate-request-envelope"],
+  },
+  {
+    id: "label",
+    field: "Sample.label",
+    fixtureValue: '"5"',
+    origin: "Dataset 任务语义",
+    destination: "caller-ledger",
+    path: "留在调用方",
+    reason: "生成服务器只负责续写；答案比较属于后续 reward 机制。",
+    mainPath: true,
+    sourceRefIds: ["rollout.generate-request-envelope"],
+  },
+  {
+    id: "identity",
+    field: "group_index / index",
+    fixtureValue: "0 / 0",
+    origin: "DataSource 候选身份",
+    destination: "caller-ledger",
+    path: "留在调用方",
+    reason: "调用方以自己保有的 Sample 关联 response，不需要把比较身份交给 SGLang。",
+    mainPath: true,
+    sourceRefIds: ["rollout.generate-request-envelope"],
+  },
+  {
+    id: "metadata",
+    field: "Sample.metadata",
+    fixtureValue: '{source_name: "mechanism_course", difficulty: "warmup"}',
+    origin: "Dataset 任务上下文",
+    destination: "caller-ledger",
+    path: "留在调用方",
+    reason: "默认纯文本 generate 路径不会把该任意字典放入 JSON body。",
+    mainPath: true,
+    sourceRefIds: ["rollout.generate-request-envelope"],
+  },
+  {
+    id: "reward",
+    field: "Sample.reward",
+    fixtureValue: "null",
+    origin: "Reward 尚未运行",
+    destination: "not-produced",
+    path: "本章不存在可发送的 reward 结果",
+    reason: "null 不是“已计算后被拦截”；它表示生产者尚未运行。",
+    mainPath: true,
+    sourceRefIds: ["rollout.generate-request-envelope"],
+  },
+  {
+    id: "multimodal",
+    field: "image_data + text",
+    fixtureValue: "本 fixture 不存在",
+    origin: "多模态条件分支",
+    destination: "conditional-body",
+    path: "有 images 时替代纯文本 input_ids 分支",
+    reason: "因此“三键 payload”是本课主路径事实，不是 slime 的无条件全局规则。",
+    mainPath: false,
+    sourceRefIds: ["rollout.generate-request-envelope"],
+  },
+  {
+    id: "session-header",
+    field: "session_id → X-SMG-Routing-Key",
+    fixtureValue: "本 fixture 不存在",
+    origin: "consistent-hashing 条件分支",
+    destination: "conditional-header",
+    path: "HTTP header，不是 JSON payload",
+    reason: "只有 session_id 存在且 router_policy=consistent_hashing 时才建立。",
+    mainPath: false,
+    sourceRefIds: ["rollout.generate-request-dispatch"],
+  },
+] as const;
+
+export const requestSamplingParameters: readonly RequestSamplingParameter[] = [
+  { key: "temperature", fixtureValue: "0", runtimeArgument: "--rollout-temperature", role: "关闭随机温度，便于固定教学输出" },
+  { key: "top_p", fixtureValue: "1", runtimeArgument: "--rollout-top-p", role: "保留完整 nucleus 范围" },
+  { key: "top_k", fixtureValue: "-1", runtimeArgument: "--rollout-top-k", role: "不启用 top-k 截断" },
+  { key: "max_new_tokens", fixtureValue: "1", runtimeArgument: "--rollout-max-response-len", role: "本课只生成一个回答 token；大于 0 才会发请求" },
+  { key: "stop", fixtureValue: "[]", runtimeArgument: "--rollout-stop", role: "不增加字符串停止条件" },
+  { key: "stop_token_ids", fixtureValue: "[]", runtimeArgument: "--rollout-stop-token-ids", role: "不增加 token 停止条件" },
+  { key: "skip_special_tokens", fixtureValue: "true", runtimeArgument: "--rollout-skip-special-tokens", role: "控制返回文本解码" },
+  { key: "no_stop_trim", fixtureValue: "true", runtimeArgument: "generate 固定协议值", role: "保留停止内容处理策略" },
+  { key: "spaces_between_special_tokens", fixtureValue: "false", runtimeArgument: "generate 固定协议值", role: "控制 special token 之间的文本空格" },
+] as const;
+
+export const requestFixturePacket: RequestFixturePacket = {
+  sampleId: "a0",
+  fromObservation: "groups-built",
+  toObservation: "requests-prepared",
+  prompt: "3 + 2 = ?",
+  promptIds: [11, 12, 13, 14, 15],
+  method: "POST",
+  endpoint: "/generate",
+  payload: {
+    input_ids: [11, 12, 13, 14, 15],
+    sampling_params: {
+      temperature: 0,
+      top_p: 1,
+      top_k: -1,
+      max_new_tokens: 1,
+      stop: [],
+      stop_token_ids: [],
+      skip_special_tokens: true,
+      no_stop_trim: true,
+      spaces_between_special_tokens: false,
+    },
+    return_logprob: true,
+  },
+};
+
 const chapterFourExercise = {
-  id: "stg.chapter-4-gate",
-  kind: "ordering",
-  title: "调用顺序：请求发出之前发生什么",
-  prompt: "按默认纯文本 generate 路径排列四个动作。",
-  instruction: "从最早发生的动作排到最晚。",
+  id: "stg.chapter-4-request-boundary-v2",
+  kind: "mapping",
+  title: "边境复核：每项材料究竟去哪里",
+  prompt: "为本课默认纯文本 fixture 逐项选择实际目的地。不要把 Sample 任务字段误当成生成协议。",
+  instruction: "每项只能选择一个目的地；条件分支按题目写明的部署条件判断。",
   items: [
-    { id: "prepare", label: "_prepare_prompt_ids 取得 prompt IDs" },
-    { id: "payload", label: "构造包含 sampling_params 的 payload" },
-    { id: "persist-prefix", label: "若 Sample.tokens 为空则保存 prompt IDs" },
-    { id: "post", label: "POST /generate" },
+    { id: "prompt-ids", label: "prompt_ids 在 pure-text 请求中的字段名" },
+    { id: "prefix-ledger", label: "同一 prompt IDs 写入 Sample.tokens" },
+    { id: "sampling-config", label: "temperature / max_new_tokens 等调用配置" },
+    { id: "logprob-switch", label: "return_logprob = true" },
+    { id: "label", label: "Sample.label = \"5\"" },
+    { id: "identity", label: "group_index = 0 / index = 0" },
+    { id: "reward-null", label: "Sample.reward = null" },
+    { id: "session-id", label: "consistent-hashing 下存在的 session_id" },
   ],
-  correctOrder: ["prepare", "payload", "persist-prefix", "post"],
-  sourceRefIds: ["rollout.prepare-prompt-ids", "rollout.generate-state-init", "rollout.generate"],
+  targets: [
+    { id: "payload-input", label: "成为 payload.input_ids" },
+    { id: "payload-params", label: "成为 payload.sampling_params" },
+    { id: "payload-logprob", label: "成为 payload 顶层 return_logprob" },
+    { id: "caller-only", label: "留在调用方 Sample" },
+    { id: "not-produced", label: "生产者尚未运行，不存在可发送结果" },
+    { id: "conditional-header", label: "条件性 HTTP header（非 JSON）" },
+  ],
+  correctMapping: {
+    "prompt-ids": "payload-input",
+    "prefix-ledger": "caller-only",
+    "sampling-config": "payload-params",
+    "logprob-switch": "payload-logprob",
+    label: "caller-only",
+    identity: "caller-only",
+    "reward-null": "not-produced",
+    "session-id": "conditional-header",
+  },
+  sourceRefIds: [
+    "rollout.prepare-prompt-ids",
+    "rollout.generate-state-init",
+    "rollout.generate-request-envelope",
+    "rollout.generate-request-dispatch",
+  ],
   feedback: {
-    correct: "顺序正确。请求出发时，Sample 已保存了与 input_ids 相同的 prompt 前缀。",
-    incorrect: "对照 generate：先准备 prompt_ids，再构造 payload，再保存 tokens，最后调用 post。",
+    correct: "边境申报正确。完整 Sample 留在调用方；只有生成服务器执行任务所需的最小投影进入协议。",
+    incorrect: "逐项问两个问题：SGLang 生成 token 是否需要它？它属于 JSON body、条件 header，还是尚未产生的下游状态？",
   },
 } as const satisfies StructuredExercise;
 
@@ -1337,53 +1712,67 @@ export const sampleToGenerationChapters: readonly SampleToGenerationChapter[] = 
     id: "stg.chapter-4",
     number: 4,
     slug: "sample-to-request",
-    title: "Sample 怎样变成 SGLang 请求",
+    title: "请求装配与边境检查台",
     shortTitle: "请求",
     durationMinutes: 14,
-    drivingQuestion: "SGLang 需要生成输入；为什么 label、group_index 和 reward 不应出现在 HTTP payload？",
+    drivingQuestion: "为什么完整 Sample 不应原样成为 HTTP payload？",
     imageSrc: "/art/library-act-04-v1.webp",
-    conclusion: "请求边界只传生成所需的 input_ids、sampling_params 与返回证据开关；Sample 的任务语义和身份留在调用方。",
+    imageAlt: "植物与玻璃瓶环绕的工作台上，一名角色用天平称量材料；画面被用作请求字段逐项称量的章节关键帧。",
+    scopeLabel: "固定 commit 06ffdbe2 · a0 pure-text path · groups-built → requests-prepared · 不读取真实 response",
+    objective: "给定一条已分组的 pending Sample，按真实源码顺序重建 prompt_ids、生成预算检查、三键 payload、Sample.tokens 前缀留档与 POST；并能把每个字段判为 JSON、条件 header、调用方留置或尚未产生。",
+    conclusion: "Sample 并没有“变成”请求。调用方仍持有完整对象，只把生成服务器需要的最小投影送过网络。",
     boundary: {
-      input: ["pending Sample", "checkpoint tokenizer/processor", "GenerateState.sampling_params"],
-      output: ["Sample.tokens 中保存的 prompt 前缀", "POST /generate 的独立 request sidecar"],
-      excluded: ["label、reward、group_index、index", "真实服务器响应", "答案正确性"],
+      input: ["groups-built 的 a0：prompt、label、group/index 已存在，tokens=[]", "checkpoint tokenizer/processor", "调用链传入的 sampling_params 副本"],
+      output: ["Sample.tokens 中保存的 prompt 前缀", "POST /generate 的课程 request sidecar：input_ids、sampling_params、return_logprob"],
+      excluded: ["真实服务器 response", "reward 与答案正确性", "把课程 sidecar 说成 upstream Sample 字段"],
     },
     stateTransition: {
       before: "a0.tokens=[]，prompt=\"3 + 2 = ?\"，status=pending",
-      operation: "准备 prompt_ids，构造 payload，将 prompt_ids 保存到 Sample.tokens，再 POST /generate",
-      after: "a0.tokens=[11,12,13,14,15]；payload 只含 input_ids、sampling_params、return_logprob",
+      operation: "准备局部 prompt_ids → 检查 max_new_tokens → 构造 payload/input_ids → 若 tokens 为空则保存前缀 → POST /generate",
+      after: "a0.tokens=[11,12,13,14,15]；pure-text fixture payload 顶层恰为 input_ids、sampling_params、return_logprob",
     },
     explanation: [
       {
-        title: "tokenizer 属于部署模型，而非课程常量",
-        body: "默认纯文本路径调用所选 checkpoint 的 tokenizer，并显式关闭额外 special tokens。教学 fixture 用 [11,12,13,14,15] 让状态变化可复算；这些数值绝不能被理解成任何真实 tokenizer 的输出。",
+        title: "先做投影，不做整对象序列化",
+        body: "默认纯文本路径先用 checkpoint tokenizer 得到局部 prompt_ids，再把它放进 payload.input_ids。label、metadata 和 group/index 对 SGLang 的 token 生成没有必要，因此留在调用方。这里的 [11,12,13,14,15] 是可复算的教学 tokenizer 结果，不冒充真实 checkpoint。",
       },
       {
-        title: "GenerateState 汇总运行参数",
-        body: "temperature、top_p、top_k、max_new_tokens、stop 等参数来自运行配置。它们描述服务器如何采样，不描述这条 Sample 的 label 或分组身份。",
+        title: "采样配方属于运行策略",
+        body: "GenerateState 从 rollout 参数建立默认 sampling_params，任务提交时把配置副本传入 generate。temperature、top_p、top_k 与 max_new_tokens 告诉服务器如何生成，不描述这道题的正确答案，也不是 Sample 身份字段。",
       },
       {
-        title: "请求 sidecar 保持边界可审计",
-        body: "课程把 payload 单独保存为 sidecar，而不是塞回 Sample。这让学习者能逐键验证跨网络的数据，同时保留调用方的完整 Sample。return_logprob=true 很关键，因为后续训练需要知道生成时的 token 概率证据。",
+        title: "return_logprob 是协议开关，不是评价器",
+        body: "顶层 return_logprob=true 请求 SGLang 返回所选 token 的 log-prob 证据，供后续 response 投影与训练链路使用。它不会比较 response 与 label，不会运行 reward，也不会让服务器知道答案是否正确。",
       },
       {
-        title: "prompt 前缀在发请求前落入 Sample",
-        body: "若 Sample.tokens 为空，generate 会在 POST 前保存 prompt_ids。服务器只返回新生成部分；没有这个前缀，写回后就无法形成 prompt+response 的完整 token 序列。",
+        title: "同一前缀，两种职责",
+        body: "源码先把 prompt_ids 放入 payload.input_ids，随后在 Sample.tokens 为空时保存同一序列值，再发出 POST。payload 是即将跨网的输入；Sample.tokens 是调用方保留的完整序列前缀。课程只声称值相等，不声称两个列表具有独立 Python 对象身份。",
       },
     ],
+    requestAssemblyStages,
+    requestManifestEntries,
+    requestSamplingParameters,
+    requestFixturePacket,
     observationIds: ["prompts-tokenized", "requests-prepared"],
-    sourceRefIds: ["rollout.prepare-prompt-ids", "rollout.generate-state-init", "rollout.generate"],
-    evidenceId: "evidence-prompt-request",
+    sourceRefIds: [
+      "rollout.prepare-prompt-ids",
+      "rollout.generate-state-init",
+      "rollout.generate-request-budget",
+      "rollout.generate-request-envelope",
+      "rollout.generate-request-dispatch",
+    ],
+    evidenceId: "evidence-request-envelope",
+    additionalEvidenceIds: ["evidence-prompt-request", "evidence-request-budget", "evidence-sampling-recipe", "evidence-request-dispatch"],
     exercise: chapterFourExercise,
     misconception: {
-      belief: "把整个 Sample JSON 发给 SGLang 最完整，也最安全。",
-      correction: "网络接口应只包含生成所需字段。label 与身份留在调用方，既避免泄漏，也使组件边界明确。",
+      belief: "把完整 Sample JSON 发给 SGLang，信息更全，因而接口更可靠。",
+      correction: "可靠性来自可审计的最小协议：只发送生成所需投影，并让任务语义、候选身份和下游状态继续由调用方负责。这里是职责边界，不额外声称隐私或鉴权保证。",
     },
     takeaway: "payload 是生成协议，不是 Sample 的网络序列化。",
-    transition: "请求已经发出。下一章先停在 HTTP response，看看它距离完整 Sample 还差什么。",
+    transition: "a0 仍在调用方等待，三键请求刚刚越过边界。下一章只检查返回材料，暂不写回 Sample。",
     advancedAside: {
-      title: "支线：多模态与 prefix reuse",
-      body: "多模态路径可以发送 image_data 与 text；已有 token 也可能被复用。本课主路径固定纯文本和空 tokens，以便只研究默认边界。",
+      title: "条件支线：多模态、已有 tokens、零预算与路由 header",
+      body: "多模态路径可发送 image_data 与 text；满足条件时 _prepare_prompt_ids 会复用已有 tokens；max_new_tokens=0 会标记 truncated 并在 POST 前返回；routing replay 可增加 return_routed_experts；session_id 只在 consistent-hashing 条件下派生 HTTP header。本课主路径固定 pure text、tokens=[]、max_new_tokens=1 且无 session_id。",
     },
   },
   {
@@ -1539,7 +1928,7 @@ export const sampleToGenerationFinalAssessment: readonly StructuredExercise[] = 
       { id: "identity", label: "group_index / index" },
     ],
     correctOptionIds: ["input", "params", "logprob"],
-    sourceRefIds: ["rollout.generate"],
+    sourceRefIds: ["rollout.generate-request-envelope"],
     feedback: { correct: "正确。", incorrect: "只保留服务器执行生成所需的字段。" },
   },
   {
@@ -1557,7 +1946,7 @@ export const sampleToGenerationFinalAssessment: readonly StructuredExercise[] = 
       { id: "append", label: "append_response_tokens 写回" },
     ],
     correctOrder: ["dataset", "group", "tokenize", "request", "project", "append"],
-    sourceRefIds: ["dataset.construct-sample", "rollout.datasource-get-samples", "rollout.generate", "sample.append-response-tokens"],
+    sourceRefIds: ["dataset.construct-sample", "rollout.datasource-get-samples", "rollout.generate-request-dispatch", "sample.append-response-tokens"],
     feedback: { correct: "正确。", incorrect: "按对象边界与网络边界逐步重建调用链。" },
   },
   {
@@ -1638,7 +2027,7 @@ export const sampleToGenerationCourse: SampleToGenerationCourse = {
     locale: "zh-CN",
     title: "Sample 如何得到回答——从一行输入到 SGLang 写回",
     summary: "沿固定 2×2 trace 逐边界验证 Dataset、Sample、DataSource 与 SGLang generation 的数据契约。",
-    lessonRevision: 5,
+    lessonRevision: 6,
     assessmentVersion: 1,
     durationMinutes: { chapters: 78, assessment: 10, total: 88 },
     requiresGpu: false,

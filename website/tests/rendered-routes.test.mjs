@@ -10,7 +10,7 @@ const routes = [
   ["/learn/sample-to-generation?chapter=row-to-sample", /一行数据怎样成为 Sample/],
   ["/learn/sample-to-generation?chapter=field-ownership", /字段生命周期接力台/],
   ["/learn/sample-to-generation?chapter=group-without-aliasing", /成组，但不粘连/],
-  ["/learn/sample-to-generation?chapter=sample-to-request", /Sample 怎样变成 SGLang 请求/],
+  ["/learn/sample-to-generation?chapter=sample-to-request", /请求装配与边境检查台/],
   ["/learn/sample-to-generation?chapter=response-projection", /HTTP 响应为什么还不是 Sample/],
   ["/learn/sample-to-generation?chapter=writeback-contract", /写回怎样维持数据契约/],
   ["/learn/sample-to-generation?chapter=assessment", /用一条新 trace 检查机制/],
@@ -99,6 +99,22 @@ for (const [route, expected] of routes) {
       assert.doesNotMatch(html, /mechanism-rail-state/);
       assert.equal(
         (renderedText.match(/打开 a0 分组后账本/g) ?? []).length,
+        1,
+      );
+    }
+    if (route === "/learn/sample-to-generation?chapter=sample-to-request") {
+      assert.match(html, /class="[^"]*\brequest-reader\b/);
+      assert.match(renderedText, /请求装配线：源码中的五个检查点/);
+      assert.match(renderedText, /同一前缀，两处记录/);
+      assert.match(renderedText, /边境申报单：每个字段去哪里/);
+      assert.match(renderedText, /payload\.return_logprob/);
+      assert.match(renderedText, /sample_id/);
+      assert.match(renderedText, /只负责课程关联/);
+      assert.match(renderedText, /生产者尚未运行/);
+      assert.match(renderedText, /正在恢复本章练习记录/);
+      assert.doesNotMatch(html, /mechanism-rail-state/);
+      assert.equal(
+        (renderedText.match(/打开 a0 请求前后账本/g) ?? []).length,
         1,
       );
     }

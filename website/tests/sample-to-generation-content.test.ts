@@ -19,6 +19,7 @@ import {
 import anchorsPayload from "@/data/source-refs/slime-06ffdbe2.anchors.generated.json";
 import refsPayload from "@/data/source-refs/slime-06ffdbe2.refs.json";
 import {
+  hasChapterFourRequestBoundaryData,
   hasChapterOneTranslationData,
   hasChapterThreeGroupingData,
   hasChapterTwoProvenanceData,
@@ -80,8 +81,9 @@ describe("sample-to-generation course contract", () => {
       expect(chapter.transition.length).toBeGreaterThan(10);
     }
     expect(new Set(sampleToGenerationChapters.map((chapter) => chapter.exercise.kind))).toEqual(
-      new Set(["choice", "ordering", "mapping", "field-entry"]),
+      new Set(["choice", "mapping", "field-entry"]),
     );
+    expect(sampleToGenerationFinalAssessment.some((exercise) => exercise.kind === "ordering")).toBe(true);
   });
 
   it("models chapter one as four explicit translation lanes with unique targets", () => {
@@ -158,10 +160,11 @@ describe("sample-to-generation course contract", () => {
     }
   });
 
-  it("selects dedicated readers only for complete chapter-one, chapter-two and chapter-three contracts", () => {
+  it("selects dedicated readers only for complete chapter-one through chapter-four contracts", () => {
     const chapterOne = sampleToGenerationChapters[0];
     const chapterTwo = sampleToGenerationChapters[1];
     const chapterThree = sampleToGenerationChapters[2];
+    const chapterFour = sampleToGenerationChapters[3];
 
     expect(hasChapterOneTranslationData(chapterOne)).toBe(true);
     expect(hasChapterOneTranslationData({ ...chapterOne, mappingLanes: undefined })).toBe(false);
@@ -180,6 +183,13 @@ describe("sample-to-generation course contract", () => {
       groupingAliasProbe: undefined,
     })).toBe(false);
     expect(hasChapterThreeGroupingData(chapterTwo)).toBe(false);
+
+    expect(hasChapterFourRequestBoundaryData(chapterFour)).toBe(true);
+    expect(hasChapterFourRequestBoundaryData({
+      ...chapterFour,
+      requestManifestEntries: undefined,
+    })).toBe(false);
+    expect(hasChapterFourRequestBoundaryData(chapterThree)).toBe(false);
   });
 
   it("projects chapter three from the fixed 2×2 fixture without inventing identities", () => {
@@ -272,6 +282,121 @@ describe("sample-to-generation course contract", () => {
     for (const sourceRefId of chapter.sourceRefIds) {
       expect(refs.has(sourceRefId), `missing source ref ${sourceRefId}`).toBe(true);
       expect(anchors.has(sourceRefId), `missing source anchor ${sourceRefId}`).toBe(true);
+    }
+  });
+
+  it("models chapter four as a source-ordered request manifest with a strict pure-text boundary", () => {
+    const chapter = sampleToGenerationChapters[3];
+    expect(chapter.slug).toBe("sample-to-request");
+    expect(hasChapterFourRequestBoundaryData(chapter)).toBe(true);
+    if (!hasChapterFourRequestBoundaryData(chapter)) {
+      throw new Error("chapter four must provide its dedicated request-boundary contract");
+    }
+
+    expect(chapter.requestAssemblyStages.map((stage) => stage.id)).toEqual([
+      "prepare-prompt",
+      "validate-budget",
+      "assemble-envelope",
+      "persist-prefix",
+      "dispatch-request",
+    ]);
+    expect(chapter.requestAssemblyStages.map((stage) => stage.order)).toEqual([1, 2, 3, 4, 5]);
+    expect(chapter.requestAssemblyStages[0]).toMatchObject({
+      callerEffect: expect.stringContaining("Sample.tokens 仍为空"),
+      networkEffect: expect.stringContaining("没有网络请求"),
+    });
+    expect(chapter.requestAssemblyStages[2].operation).toContain("input_ids");
+    expect(chapter.requestAssemblyStages[3].operation).toContain("Sample.tokens");
+    expect(chapter.requestAssemblyStages[4].operation).toContain("post(url, payload");
+
+    const requestState = seekSampleToGeneration(sampleToGenerationFixture, "requests-prepared");
+    const fixtureRequest = requestState.requests.a0;
+    expect(chapter.requestFixturePacket).toEqual({
+      sampleId: "a0",
+      fromObservation: "groups-built",
+      toObservation: "requests-prepared",
+      prompt: requestState.samples.a0.prompt,
+      promptIds: sampleToGenerationFixture.tokenizer.prompt_encodings["origin-a"],
+      method: fixtureRequest.method,
+      endpoint: fixtureRequest.endpoint,
+      payload: fixtureRequest.payload,
+    });
+
+    const payloadEntries = chapter.requestManifestEntries.filter(
+      (entry) => entry.destination === "json-body" && entry.mainPath,
+    );
+    expect(payloadEntries.map((entry) => entry.field)).toEqual([
+      "payload.input_ids",
+      "payload.sampling_params",
+      "payload.return_logprob",
+    ]);
+    expect(chapter.requestManifestEntries.find((entry) => entry.id === "label")).toMatchObject({
+      destination: "caller-ledger",
+    });
+    expect(chapter.requestManifestEntries.find((entry) => entry.id === "identity")).toMatchObject({
+      destination: "caller-ledger",
+    });
+    expect(chapter.requestManifestEntries.find((entry) => entry.id === "reward")).toMatchObject({
+      fixtureValue: "null",
+      destination: "not-produced",
+      reason: expect.stringContaining("生产者尚未运行"),
+    });
+    expect(chapter.requestManifestEntries.find((entry) => entry.id === "session-header")).toMatchObject({
+      mainPath: false,
+      destination: "conditional-header",
+    });
+    expect(chapter.requestSamplingParameters.map((parameter) => parameter.key)).toEqual(
+      Object.keys(sampleToGenerationFixture.sampling_params),
+    );
+
+    const exercise = chapter.exercise;
+    expect(exercise).toMatchObject({
+      id: "stg.chapter-4-request-boundary-v2",
+      kind: "mapping",
+    });
+    if (exercise.kind !== "mapping") throw new Error("unexpected chapter-four exercise kind");
+    const correct = {
+      "prompt-ids": "payload-input",
+      "prefix-ledger": "caller-only",
+      "sampling-config": "payload-params",
+      "logprob-switch": "payload-logprob",
+      label: "caller-only",
+      identity: "caller-only",
+      "reward-null": "not-produced",
+      "session-id": "conditional-header",
+    };
+    expect(gradeStructuredExercise(exercise, { kind: "mapping", mapping: correct }).correct).toBe(true);
+    expect(gradeStructuredExercise(exercise, {
+      kind: "mapping",
+      mapping: { ...correct, label: "payload-input" },
+    })).toMatchObject({ correct: false, fieldResults: { label: false } });
+    const missingLogprob: Record<string, string> = { ...correct };
+    delete missingLogprob["logprob-switch"];
+    expect(gradeStructuredExercise(exercise, {
+      kind: "mapping",
+      mapping: missingLogprob,
+    })).toMatchObject({ correct: false, fieldResults: { "logprob-switch": false } });
+
+    const refs = new Map(refsPayload.refs.map((ref) => [ref.id, ref]));
+    const anchors = new Map(anchorsPayload.anchors.map((anchor) => [anchor.id, anchor]));
+    const sourceRefIds = new Set([
+      ...chapter.sourceRefIds,
+      ...chapter.exercise.sourceRefIds,
+      ...chapter.requestAssemblyStages.flatMap((stage) => stage.sourceRefIds),
+      ...chapter.requestManifestEntries.flatMap((entry) => entry.sourceRefIds),
+    ]);
+    for (const requiredRefId of [
+      "rollout.prepare-prompt-ids",
+      "rollout.generate-state-init",
+      "rollout.generate-request-budget",
+      "rollout.generate-request-envelope",
+      "rollout.generate-request-dispatch",
+    ]) {
+      expect(sourceRefIds.has(requiredRefId), `missing chapter-four ref ${requiredRefId}`).toBe(true);
+    }
+    for (const sourceRefId of sourceRefIds) {
+      expect(refs.has(sourceRefId), `missing source ref ${sourceRefId}`).toBe(true);
+      expect(anchors.has(sourceRefId), `missing generated anchor ${sourceRefId}`).toBe(true);
     }
   });
 

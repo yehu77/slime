@@ -327,7 +327,7 @@ describe("progress v2 completion", () => {
       now,
     );
 
-    expect(sampleToGenerationProgressManifest.lesson_revision).toBe(5);
+    expect(sampleToGenerationProgressManifest.lesson_revision).toBe(6);
     expect(
       oldProgress.lessons["core.sample-to-generation"]?.exercise_attempts[
         "stg.chapter-2-gate"
@@ -399,7 +399,7 @@ describe("progress v2 completion", () => {
     );
     const currentLesson = firstCurrentAttempt.lessons["core.sample-to-generation"];
     expect(currentLesson).toMatchObject({
-      lesson_revision: 5,
+      lesson_revision: 6,
       visited_sections: [],
       final_assessment: null,
       exercise_attempts: {
@@ -467,7 +467,7 @@ describe("progress v2 completion", () => {
     });
   });
 
-  it("marks revision-four chapter-three progress for review and starts the v5 exercise cleanly", () => {
+  it("marks revision-four chapter-three progress for review and starts the current exercise cleanly", () => {
     const revisionFourManifest = {
       ...sampleToGenerationProgressManifest,
       lesson_revision: 4,
@@ -539,7 +539,7 @@ describe("progress v2 completion", () => {
       () => LATER,
     );
     expect(current.lessons["core.sample-to-generation"]).toMatchObject({
-      lesson_revision: 5,
+      lesson_revision: 6,
       final_assessment: null,
       exercise_attempts: {
         "stg.chapter-3-identity-matrix-v2": {
@@ -558,6 +558,120 @@ describe("progress v2 completion", () => {
     const { storage } = createStorage();
     saveLocalProgressV2(storage, current);
     expect(loadLocalProgressV2(storage, () => LATEST)).toEqual(current);
+  });
+
+  it("marks revision-five chapter-four progress for review and restores the v6 boundary exercise", () => {
+    const revisionFiveManifest = {
+      ...sampleToGenerationProgressManifest,
+      lesson_revision: 5,
+      completion: {
+        ...sampleToGenerationProgressManifest.completion,
+        required_exercise_ids:
+          sampleToGenerationProgressManifest.completion.required_exercise_ids.map(
+            (exerciseId) =>
+              exerciseId === "stg.chapter-4-request-boundary-v2"
+                ? "stg.chapter-4-gate"
+                : exerciseId,
+          ),
+      },
+    };
+    let oldProgress = applyLessonProgressEvent(
+      createEmptyLocalProgressV2(),
+      "core.sample-to-generation",
+      revisionFiveManifest,
+      {
+        type: "exercise-submitted",
+        exercise_id: "stg.chapter-4-gate",
+        response: {
+          type: "ordering",
+          ordered_item_ids: ["prepare", "payload", "persist-prefix", "post"],
+        },
+        passed: true,
+      },
+      now,
+    );
+    oldProgress = applyLessonProgressEvent(
+      oldProgress,
+      "core.sample-to-generation",
+      revisionFiveManifest,
+      {
+        type: "assessment-submitted",
+        correct_question_ids: [
+          ...revisionFiveManifest.completion.final_assessment.question_ids,
+        ],
+      },
+      now,
+    );
+
+    const oldLesson = oldProgress.lessons["core.sample-to-generation"];
+    expect(evaluateLessonProgressV2(
+      oldLesson,
+      sampleToGenerationProgressManifest,
+    ).status).toBe("review_required");
+
+    const correctMapping = {
+      "prompt-ids": "payload-input",
+      "prefix-ledger": "caller-only",
+      "sampling-config": "payload-params",
+      "logprob-switch": "payload-logprob",
+      label: "caller-only",
+      identity: "caller-only",
+      "reward-null": "not-produced",
+      "session-id": "conditional-header",
+    };
+    const current = applyLessonProgressEvent(
+      oldProgress,
+      "core.sample-to-generation",
+      sampleToGenerationProgressManifest,
+      {
+        type: "exercise-submitted",
+        exercise_id: "stg.chapter-4-request-boundary-v2",
+        response: { type: "mapping", assignments: correctMapping },
+        passed: true,
+      },
+      () => LATER,
+    );
+    expect(current.lessons["core.sample-to-generation"]).toMatchObject({
+      lesson_revision: 6,
+      final_assessment: null,
+      exercise_attempts: {
+        "stg.chapter-4-request-boundary-v2": {
+          attempt_count: 1,
+          passed: true,
+          last_response: { type: "mapping", assignments: correctMapping },
+        },
+      },
+    });
+    expect(
+      current.lessons["core.sample-to-generation"]?.exercise_attempts[
+        "stg.chapter-4-gate"
+      ],
+    ).toBeUndefined();
+
+    const { storage } = createStorage();
+    saveLocalProgressV2(storage, current);
+    expect(loadLocalProgressV2(storage, () => LATEST)).toEqual(current);
+
+    const stickyPass = applyLessonProgressEvent(
+      current,
+      "core.sample-to-generation",
+      sampleToGenerationProgressManifest,
+      {
+        type: "exercise-submitted",
+        exercise_id: "stg.chapter-4-request-boundary-v2",
+        response: {
+          type: "mapping",
+          assignments: { ...correctMapping, label: "payload-input" },
+        },
+        passed: false,
+      },
+      () => LATEST,
+    );
+    expect(
+      stickyPass.lessons["core.sample-to-generation"]?.exercise_attempts[
+        "stg.chapter-4-request-boundary-v2"
+      ],
+    ).toMatchObject({ attempt_count: 2, passed: true, passed_at: LATER });
   });
 });
 

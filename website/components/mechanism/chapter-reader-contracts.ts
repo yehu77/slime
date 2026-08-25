@@ -6,6 +6,10 @@ import type {
   GroupingCounterFrame,
   GroupingLabGroup,
   ProducerRelayStage,
+  RequestAssemblyStage,
+  RequestFixturePacket,
+  RequestManifestEntry,
+  RequestSamplingParameter,
   SampleToGenerationChapter,
 } from "../../content/zh/lessons/sample-to-generation";
 
@@ -26,6 +30,13 @@ export type ChapterThreeGroupingChapter = SampleToGenerationChapter & {
   groupingCounterFrames: readonly GroupingCounterFrame[];
   groupingComparisonRules: readonly GroupingComparisonRule[];
   groupingAliasProbe: GroupingAliasProbe;
+};
+
+export type ChapterFourRequestBoundaryChapter = SampleToGenerationChapter & {
+  requestAssemblyStages: readonly RequestAssemblyStage[];
+  requestManifestEntries: readonly RequestManifestEntry[];
+  requestSamplingParameters: readonly RequestSamplingParameter[];
+  requestFixturePacket: RequestFixturePacket;
 };
 
 export function hasChapterOneTranslationData(
@@ -59,5 +70,17 @@ export function hasChapterThreeGroupingData(
     chapter.groupingCounterFrames &&
     chapter.groupingComparisonRules &&
     chapter.groupingAliasProbe,
+  );
+}
+
+export function hasChapterFourRequestBoundaryData(
+  chapter: SampleToGenerationChapter | undefined,
+): chapter is ChapterFourRequestBoundaryChapter {
+  return Boolean(
+    chapter?.slug === "sample-to-request" &&
+    chapter.requestAssemblyStages &&
+    chapter.requestManifestEntries &&
+    chapter.requestSamplingParameters &&
+    chapter.requestFixturePacket,
   );
 }
