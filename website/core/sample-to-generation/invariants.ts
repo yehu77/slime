@@ -183,8 +183,8 @@ export function checkSampleToGenerationInvariants(
             ? expected.every((token, index) => sample.tokens[index] === token)
             : JSON.stringify(sample.tokens) === JSON.stringify(expected);
         }),
-        "Prompt token IDs are persisted when the request is prepared",
-        "Each Sample must hold its prompt token prefix from request preparation onward",
+        "The course fixture persists its caller-owned prompt token snapshot when preparing the request",
+        "The course trace expects its recorded prompt token snapshot from request preparation onward",
       ),
     );
   }
@@ -333,8 +333,8 @@ export function checkSampleToGenerationInvariants(
             sample.loss_mask?.length === sample.response_length &&
             sample.rollout_log_probs?.length === sample.response_length,
         ),
-        "response_length, loss_mask and rollout_log_probs share one coordinate space",
-        "Response-side arrays must have exactly response_length entries",
+        "The teaching fixture aligns response_length, loss_mask and rollout_log_probs in response space",
+        "This fixture's modeled response arrays must have exactly response_length entries",
       ),
       result(
         "writeback.prompt-prefix-preserved",
@@ -342,8 +342,8 @@ export function checkSampleToGenerationInvariants(
           const prefix = fixture.tokenizer.prompt_encodings[sample.origin_id];
           return prefix.every((token, index) => sample.tokens[index] === token);
         }),
-        "Appending a response preserves every prompt token as a prefix",
-        "Response writeback must append; it must not replace the prompt prefix",
+        "The copy-on-write teaching fixture preserves its caller-supplied prompt prefix",
+        "This fixture's Chapter 6 projection must append after its recorded prompt prefix",
       ),
       result(
         "writeback.actor-version",

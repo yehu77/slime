@@ -15,6 +15,11 @@ import type {
   ResponseEvidenceLane,
   ResponseFixtureReceipt,
   SampleToGenerationChapter,
+  WritebackCalibrationStep,
+  WritebackCoordinateRow,
+  WritebackFailureBoundary,
+  WritebackFixture,
+  WritebackTerminalCase,
 } from "../../content/zh/lessons/sample-to-generation";
 
 export type ChapterOneTranslationChapter = SampleToGenerationChapter & {
@@ -48,6 +53,14 @@ export type ChapterFiveResponseEvidenceChapter = SampleToGenerationChapter & {
   responseEvidenceLanes: readonly ResponseEvidenceLane[];
   responseFixtureReceipt: ResponseFixtureReceipt;
   responseDiagnosticCases: readonly ResponseDiagnosticCase[];
+};
+
+export type ChapterSixWritebackChapter = SampleToGenerationChapter & {
+  writebackCalibrationSteps: readonly WritebackCalibrationStep[];
+  writebackCoordinateRows: readonly WritebackCoordinateRow[];
+  writebackTerminalCases: readonly WritebackTerminalCase[];
+  writebackFailureBoundaries: readonly WritebackFailureBoundary[];
+  writebackFixture: WritebackFixture;
 };
 
 export function hasChapterOneTranslationData(
@@ -105,5 +118,18 @@ export function hasChapterFiveResponseEvidenceData(
     chapter.responseEvidenceLanes &&
     chapter.responseFixtureReceipt &&
     chapter.responseDiagnosticCases,
+  );
+}
+
+export function hasChapterSixWritebackData(
+  chapter: SampleToGenerationChapter | undefined,
+): chapter is ChapterSixWritebackChapter {
+  return Boolean(
+    chapter?.slug === "writeback-contract" &&
+    chapter.writebackCalibrationSteps &&
+    chapter.writebackCoordinateRows &&
+    chapter.writebackTerminalCases &&
+    chapter.writebackFailureBoundaries &&
+    chapter.writebackFixture,
   );
 }

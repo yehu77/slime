@@ -296,6 +296,99 @@ export type ResponseDiagnosticCase = {
   explanation: string;
 };
 
+export type WritebackCalibrationStepId =
+  | "call-entry"
+  | "preflight"
+  | "text-append"
+  | "token-mask-append"
+  | "logprob-append"
+  | "terminal-meta"
+  | "late-audit";
+
+export type WritebackCalibrationStep = {
+  id: WritebackCalibrationStepId;
+  order: number;
+  title: string;
+  sourceOperation: string;
+  reads: readonly string[];
+  writes: readonly {
+    field: string;
+    before: string;
+    after: string;
+  }[];
+  proves: string;
+  doesNotProve: string;
+  failureTiming: "no-mutation" | "pre-mutation" | "post-mutation";
+  sourceRefIds: readonly string[];
+};
+
+export type WritebackCoordinateRow = {
+  id: string;
+  field: string;
+  coordinateSpace: "full-sequence" | "response" | "text" | "terminal" | "outside-course";
+  before: string;
+  incoming: string;
+  after: string;
+  indexRule: string;
+  invariant: string;
+  caveat: string;
+};
+
+export type WritebackTerminalCase = {
+  id: string;
+  incoming: string;
+  statusAfter: string;
+  weightVersionAfter: string;
+  reason: string;
+};
+
+export type WritebackFailureBoundary = {
+  id: string;
+  title: string;
+  condition: string;
+  boundary: "preflight" | "late-validation" | "course-reducer";
+  sampleMutation: string;
+  explanation: string;
+  sourceRefIds: readonly string[];
+};
+
+export type WritebackFixture = {
+  sampleId: string;
+  fromObservation: string;
+  toObservation: string;
+  prefixLength: number;
+  before: {
+    tokens: readonly number[];
+    response: string;
+    responseLength: number;
+    lossMask: null;
+    rolloutLogProbs: null;
+    weightVersions: readonly string[];
+    status: "pending";
+    reward: null;
+  };
+  incoming: {
+    tokens: readonly number[];
+    logProbs: readonly number[];
+    trainable: true;
+    text: string;
+    metaInfo: {
+      finishReason: { type: "stop" };
+      weightVersion: string;
+    };
+  };
+  after: {
+    tokens: readonly number[];
+    response: string;
+    responseLength: number;
+    lossMask: readonly number[];
+    rolloutLogProbs: readonly number[];
+    weightVersions: readonly string[];
+    status: "completed";
+    reward: null;
+  };
+};
+
 export type SampleToGenerationTracePassport = {
   origin: {
     id: string;
@@ -359,6 +452,11 @@ export type SampleToGenerationChapter = {
   responseEvidenceLanes?: readonly ResponseEvidenceLane[];
   responseFixtureReceipt?: ResponseFixtureReceipt;
   responseDiagnosticCases?: readonly ResponseDiagnosticCase[];
+  writebackCalibrationSteps?: readonly WritebackCalibrationStep[];
+  writebackCoordinateRows?: readonly WritebackCoordinateRow[];
+  writebackTerminalCases?: readonly WritebackTerminalCase[];
+  writebackFailureBoundaries?: readonly WritebackFailureBoundary[];
+  writebackFixture?: WritebackFixture;
   branch?: SampleToGenerationBranch;
   explanation: readonly SampleToGenerationExplanation[];
   observationIds: readonly string[];
@@ -581,16 +679,64 @@ export const sampleToGenerationSourceEvidence: readonly SampleToGenerationSource
     boundary: "摘录展示参数交接与方法调用，但第五章课程观察点冻结在调用发生之前；Sample 字段变化由第六章负责解释。",
   },
   {
-    id: "evidence-atomic-writeback",
-    title: "写回必须维持 response 空间长度契约",
-    sourceRefId: "sample.validate-response-metadata-lengths",
-    claim: "Sample 在写回后验证 loss_mask、rollout_log_probs 与 response_length 的对齐关系。",
+    id: "evidence-writeback-preflight",
+    title: "源码底片：哪些错误确实在原地修改前被拒绝",
+    sourceRefId: "sample.append-preflight",
+    claim: "append_response_tokens 先规范化 token/log-prob 输入，并在写 response 文本之前完成三类局部 preflight。",
     focus: [
-      "tokens 保存 prompt 前缀与 response 后缀",
-      "response_length 只统计 response token",
-      "loss_mask 与 rollout_log_probs 只在 response 空间对齐",
+      "token 与 log-prob 数量不等会立刻抛错",
+      "非空 trainable token 必须携带 log-prob",
+      "非空 non-trainable token 不接受调用方传入的 log-prob，而会在通过后自行补 0.0",
     ],
-    boundary: "课程 reducer 在写入前预检以展示原子失败；生产方法的最终防线是长度校验。",
+    boundary: "这些检查只覆盖调用入口的局部数组契约；既有 log-prob 连续性、top-p、routed experts 与最终 response metadata 长度在后面检查。",
+  },
+  {
+    id: "evidence-writeback-core",
+    title: "源码底片：两套坐标按怎样的顺序被原地推进",
+    sourceRefId: "sample.append-core-coordinates",
+    claim: "生产方法先拼接 response 文本，再尾部追加完整 tokens、增长 response_length、扩展 loss_mask，最后处理 rollout_log_probs。",
+    focus: [
+      "response 字符串先于 token 变化，且不与 token IDs 互证",
+      "tokens 是完整序列；loss_mask 与 rollout_log_probs 以 previous_response_length 为回答坐标基准",
+      "既有 response 缺少历史 rollout_log_probs 的连续性错误发生在核心 mutation 之后",
+    ],
+    boundary: "摘录证明固定源码的原地执行顺序；它没有存储 prefix_length，也不承诺 late failure 自动回滚。",
+  },
+  {
+    id: "evidence-writeback-terminal",
+    title: "源码底片：terminal gate 怎样处理版本与状态",
+    sourceRefId: "sample.apply-terminal-info",
+    claim: "只有 terminal update 被允许且 meta_info 含 finish_reason 时，固定源码才继续累计统计、追加存在的 weight_version 并映射已知 finish type。",
+    focus: [
+      "缺 finish_reason 或 update_terminal_info=False 会提前 return",
+      "weight_version 按键存在追加，不是每次调用的必然结果",
+      "stop / length / abort 分别映射 completed / truncated / aborted；未知值保持原 status",
+    ],
+    boundary: "这些字段描述生成来源与结束方式，不包含 label 比较、reward 或训练可用性判断。",
+  },
+  {
+    id: "evidence-writeback-length-defense",
+    title: "源码底片：写回末端的 response-space 长度防线",
+    sourceRefId: "sample.validate-response-metadata-full",
+    claim: "生产方法在若干原地修改之后，才验证 loss_mask、rollout_log_probs 与 top-p replay 元数据是否和 response_length 对齐。",
+    focus: [
+      "loss_mask 与 rollout_log_probs 只有在非 None 时才要求等于 response_length",
+      "top-p replay 用扁平 token IDs 与 response_length+1 个 offsets 表示 ragged spans",
+      "这是一道 late validation 防线，不是事务回滚机制",
+    ],
+    boundary: "课程 reducer 采用 copy-on-write 与整批替换，能在教学 trace 中避免半发布；固定源码的 Sample.append_response_tokens 原地修改 self，晚期校验失败时不承诺回滚。",
+  },
+  {
+    id: "evidence-writeback-top-p",
+    title: "进阶源码底片：ragged top-p replay 怎样占用回答坐标",
+    sourceRefId: "sample.top-p-extract-contract",
+    claim: "top-p replay 用一列扁平 token IDs 和一列 offsets 表示每个 response position 的变长 nucleus；新 chunk 的 offsets 数量必须是新 token 数加一。",
+    focus: [
+      "token IDs 与 offsets 必须成对出现",
+      "chunk offsets 从 0 开始，末项等于扁平 token ID 数",
+      "累计 Sample 的 offsets 还要在最终 validator 中与 response_length+1 对齐",
+    ],
+    boundary: "本课 a0 fixture 未启用 top-p replay；该证据用于解释最终 validator 为什么不只检查 loss_mask 与 rollout_log_probs。",
   },
 ];
 
@@ -1538,6 +1684,303 @@ export const responseDiagnosticCases: readonly ResponseDiagnosticCase[] = [
   },
 ] as const;
 
+export const writebackFixture: WritebackFixture = {
+  sampleId: "a0",
+  fromObservation: "responses-received",
+  toObservation: "responses-written",
+  prefixLength: 5,
+  before: {
+    tokens: [11, 12, 13, 14, 15],
+    response: "",
+    responseLength: 0,
+    lossMask: null,
+    rolloutLogProbs: null,
+    weightVersions: [],
+    status: "pending",
+    reward: null,
+  },
+  incoming: {
+    tokens: [25],
+    logProbs: [-0.356675],
+    trainable: true,
+    text: "5",
+    metaInfo: {
+      finishReason: { type: "stop" },
+      weightVersion: "actor@0",
+    },
+  },
+  after: {
+    tokens: [11, 12, 13, 14, 15, 25],
+    response: "5",
+    responseLength: 1,
+    lossMask: [1],
+    rolloutLogProbs: [-0.356675],
+    weightVersions: ["actor@0"],
+    status: "completed",
+    reward: null,
+  },
+};
+
+export const writebackCalibrationSteps: readonly WritebackCalibrationStep[] = [
+  {
+    id: "call-entry",
+    order: 1,
+    title: "候写证据抵达同一个 Sample",
+    sourceOperation: "sample.append_response_tokens(tokens, log_probs, trainable=True, meta_info, text)",
+    reads: ["a0 的 pending Sample", "tokens=[25]", "log_probs=[-0.356675]", "text=\"5\"", "meta_info"],
+    writes: [],
+    proves: "第五章的课程 sidecar 已经成为方法实参；调用入口本身还没有证明任何字段修改成功。",
+    doesNotProve: "实参齐全不等于写回已通过，也不等于这段 response 正确。",
+    failureTiming: "no-mutation",
+    sourceRefIds: ["rollout.generate-writeback-handoff"],
+  },
+  {
+    id: "preflight",
+    order: 2,
+    title: "先规范化，再做真正的前置拒绝",
+    sourceOperation: "_to_int_list / _to_float_list → length 与 trainable checks",
+    reads: ["tokens", "log_probs", "trainable"],
+    writes: [],
+    proves: "本 fixture 的 1 个 token 与 1 个 log-prob 等长；trainable=True 且 log-prob 存在，因此可以继续。",
+    doesNotProve: "这组检查没有覆盖 top-p、routed experts、既有 log-prob 连续性或最终 metadata 长度。",
+    failureTiming: "pre-mutation",
+    sourceRefIds: ["sample.append-preflight"],
+  },
+  {
+    id: "text-append",
+    order: 3,
+    title: "文本轨先推进",
+    sourceOperation: "self.response += text",
+    reads: ["response=\"\"", "text=\"5\""],
+    writes: [{ field: "response", before: "\"\"", after: "\"5\"" }],
+    proves: "response 是独立累计的文本字段；固定源码在 token 写入之前直接拼接 text。",
+    doesNotProve: "源码没有重新 tokenize 文本，也没有检查 text 与 token IDs 是否逐项一致。",
+    failureTiming: "post-mutation",
+    sourceRefIds: ["sample.append-core-coordinates"],
+  },
+  {
+    id: "token-mask-append",
+    order: 4,
+    title: "完整序列与回答时钟同时走一格",
+    sourceOperation: "self.tokens += tokens; response_length += len(tokens); loss_mask += trainable bits",
+    reads: ["prompt prefix=[11,12,13,14,15]", "incoming token=[25]", "trainable=True"],
+    writes: [
+      { field: "tokens", before: "[11,12,13,14,15]", after: "[11,12,13,14,15,25]" },
+      { field: "response_length", before: "0", after: "1" },
+      { field: "loss_mask", before: "None", after: "[1]" },
+    ],
+    proves: "完整 tokens 尾部新增 R0；回答空间从空集增长到一个位置，trainable=True 使该位置的 mask 为 1。",
+    doesNotProve: "append_response_tokens 只做尾部追加；它没有保存 prefix_length，也没有单独验证旧 prompt 前缀。",
+    failureTiming: "post-mutation",
+    sourceRefIds: ["sample.append-core-coordinates"],
+  },
+  {
+    id: "logprob-append",
+    order: 5,
+    title: "概率证据对齐同一个回答位置",
+    sourceOperation: "self.rollout_log_probs += log_probs",
+    reads: ["previous_response_length=0", "rollout_log_probs=None", "log_probs=[-0.356675]"],
+    writes: [{ field: "rollout_log_probs", before: "None", after: "[-0.356675]" }],
+    proves: "R0 的 rollout log-prob 与 loss_mask[R0]、response token R0 共用回答坐标。",
+    doesNotProve: "若已有 response token 却没有既有 rollout_log_probs，生产方法会在前面若干字段已经改变后才拒绝新的 trainable log-probs。",
+    failureTiming: "post-mutation",
+    sourceRefIds: ["sample.append-core-coordinates"],
+  },
+  {
+    id: "terminal-meta",
+    order: 6,
+    title: "终止原因与权重来源盖章",
+    sourceOperation: "_apply_meta_info(..., update_terminal_info=True)",
+    reads: ["finish_reason.type=stop", "weight_version=actor@0"],
+    writes: [
+      { field: "weight_versions", before: "[]", after: "[actor@0]" },
+      { field: "status", before: "pending", after: "completed" },
+    ],
+    proves: "在默认 terminal gate 成立时，stop 映射为 completed，存在的 weight_version 被追加。",
+    doesNotProve: "completed 只描述生成正常停止；缺少 finish_reason 或 update_terminal_info=False 时，terminal bookkeeping 会被推迟。",
+    failureTiming: "post-mutation",
+    sourceRefIds: ["sample.apply-terminal-info"],
+  },
+  {
+    id: "late-audit",
+    order: 7,
+    title: "最后才执行完整 metadata 长度审计",
+    sourceOperation: "self._validate_response_metadata_lengths()",
+    reads: ["response_length=1", "loss_mask=[1]", "rollout_log_probs=[-0.356675]", "可选 top-p replay"],
+    writes: [],
+    proves: "本 fixture 的 response-side arrays 都有 1 项，满足最终长度防线。",
+    doesNotProve: "这是 late validation，不是数据库事务；失败时生产 Sample 可能已经被部分修改。",
+    failureTiming: "post-mutation",
+    sourceRefIds: ["sample.append-finalize", "sample.validate-response-metadata-full"],
+  },
+] as const;
+
+export const writebackCoordinateRows: readonly WritebackCoordinateRow[] = [
+  {
+    id: "full-tokens",
+    field: "tokens",
+    coordinateSpace: "full-sequence",
+    before: "[11,12,13,14,15]",
+    incoming: "[25]",
+    after: "[11,12,13,14,15,25]",
+    indexRule: "tokens[prefix_length + r]；本 fixture 的 r=0 对应 tokens[5]",
+    invariant: "默认调用路径以尾部追加保留 prompt prefix。",
+    caveat: "prefix_length 不存于 Sample；该关系由调用约定与 fixture 验证，不是 append 方法独自校验。",
+  },
+  {
+    id: "response-text",
+    field: "response",
+    coordinateSpace: "text",
+    before: "\"\"",
+    incoming: "\"5\"",
+    after: "\"5\"",
+    indexRule: "字符串累计，不使用 response token 下标",
+    invariant: "text is not None 时直接拼接。",
+    caveat: "源码不验证字符串字符数、token 数或 token IDs 彼此一致。",
+  },
+  {
+    id: "response-length",
+    field: "response_length",
+    coordinateSpace: "response",
+    before: "0",
+    incoming: "+1 token",
+    after: "1",
+    indexRule: "回答位置 r ∈ [0, response_length)",
+    invariant: "统计所有 response-side token，包括 trainable=False 的工具或环境 token。",
+    caveat: "它不等于 len(tokens)，也不等于 response 字符串长度。",
+  },
+  {
+    id: "loss-mask",
+    field: "loss_mask",
+    coordinateSpace: "response",
+    before: "None",
+    incoming: "trainable=True → [1]",
+    after: "[1]",
+    indexRule: "loss_mask[r] 对应回答位置 r",
+    invariant: "若非 None，最终长度必须等于 response_length。",
+    caveat: "无 token 时可以保持 None；trainable=False 的新位置写 0，不能概括为永远全 1。",
+  },
+  {
+    id: "rollout-logprobs",
+    field: "rollout_log_probs",
+    coordinateSpace: "response",
+    before: "None",
+    incoming: "[-0.356675]",
+    after: "[-0.356675]",
+    indexRule: "rollout_log_probs[r] 对应回答位置 r",
+    invariant: "若非 None，最终长度必须等于 response_length。",
+    caveat: "fresh 空-token fallback 可得到 []；已有 trainable response 却缺旧 log-prob 时不能用 0 冒充历史 policy 证据。",
+  },
+  {
+    id: "terminal-bookkeeping",
+    field: "status / weight_versions",
+    coordinateSpace: "terminal",
+    before: "pending / []",
+    incoming: "stop / actor@0",
+    after: "completed / [actor@0]",
+    indexRule: "由 terminal gate 处理，不与 token 下标逐项对应",
+    invariant: "finish_reason gate 成立后，已识别类型更新 status，存在的 weight_version 追加。",
+    caveat: "版本号不代表质量；缺 finish_reason 或禁用 terminal update 时，两者都可能不变。",
+  },
+  {
+    id: "reward-outside",
+    field: "reward",
+    coordinateSpace: "outside-course",
+    before: "None",
+    incoming: "—",
+    after: "None",
+    indexRule: "下一门 Reward 机制课才解释 producer",
+    invariant: "generate 写回不计算答案正确性。",
+    caveat: "completed 与 reward 是不同生产者、不同时间点的状态。",
+  },
+] as const;
+
+export const writebackTerminalCases: readonly WritebackTerminalCase[] = [
+  {
+    id: "stop",
+    incoming: "finish_reason.type=stop + weight_version=actor@0",
+    statusAfter: "completed",
+    weightVersionAfter: "追加 actor@0",
+    reason: "主路径 gate 成立；stop 表示正常停止，不表示回答正确。",
+  },
+  {
+    id: "length",
+    incoming: "finish_reason.type=length + weight_version=actor@3",
+    statusAfter: "truncated",
+    weightVersionAfter: "追加 actor@3",
+    reason: "达到生成长度边界，仍记录实际生成权重来源。",
+  },
+  {
+    id: "abort",
+    incoming: "finish_reason.type=abort，无 weight_version",
+    statusAfter: "aborted",
+    weightVersionAfter: "保持原列表",
+    reason: "终止类型改变 status；版本键不存在时不能伪造来源。",
+  },
+  {
+    id: "deferred",
+    incoming: "缺 finish_reason，或 update_terminal_info=False",
+    statusAfter: "保持原 status",
+    weightVersionAfter: "即使键存在也暂不追加",
+    reason: "固定源码在 terminal gate 处提前 return，bookkeeping 被推迟。",
+  },
+  {
+    id: "unknown",
+    incoming: "finish_reason.type=未知值",
+    statusAfter: "保持原 status",
+    weightVersionAfter: "键存在时已可能追加",
+    reason: "match 没有 default 报错；不能把未知类型擅自映射成 completed。",
+  },
+] as const;
+
+export const writebackFailureBoundaries: readonly WritebackFailureBoundary[] = [
+  {
+    id: "length-mismatch",
+    title: "2 个 token 只有 1 个 log-prob",
+    condition: "len(log_probs) != len(tokens)",
+    boundary: "preflight",
+    sampleMutation: "没有字段改变",
+    explanation: "生产方法在 response 文本与 token 追加之前拒绝数组长度不等。",
+    sourceRefIds: ["sample.append-preflight"],
+  },
+  {
+    id: "missing-trainable-logprobs",
+    title: "trainable token 没有 policy 概率证据",
+    condition: "tokens 非空、trainable=True、log_probs=None",
+    boundary: "preflight",
+    sampleMutation: "没有字段改变",
+    explanation: "可训练 token 不能在缺少 rollout log-prob 时进入主写回。",
+    sourceRefIds: ["sample.append-preflight"],
+  },
+  {
+    id: "missing-history",
+    title: "已有 response，却缺少既有 rollout_log_probs",
+    condition: "previous_response_length>0、rollout_log_probs=None，再追加 trainable log-probs",
+    boundary: "late-validation",
+    sampleMutation: "response、tokens、response_length、loss_mask 可能已经改变",
+    explanation: "连续性检查位于核心 mutation 之后；固定源码不承诺自动回滚这些原地修改。",
+    sourceRefIds: ["sample.append-core-coordinates"],
+  },
+  {
+    id: "top-p-offsets",
+    title: "top-p offsets 与 response_length 对不上",
+    condition: "offsets 数量不等于 response_length+1，或末 offset 不等于扁平 token IDs 数",
+    boundary: "late-validation",
+    sampleMutation: "核心 response 字段和 terminal metadata 可能已经改变",
+    explanation: "最终 validator 在方法末尾运行；它是错误探测器，不是事务撤销器。",
+    sourceRefIds: ["sample.validate-response-metadata-full"],
+  },
+  {
+    id: "teaching-copy-on-write",
+    title: "课程 trace 如何避免展示半成品",
+    condition: "课程 reducer 先构造完整 next Sample，并在四条记录全部成功后替换 map",
+    boundary: "course-reducer",
+    sampleMutation: "失败时课程 previous state 保持不变",
+    explanation: "这是本站确定性教学模型的 copy-on-write 保证；它帮助观察边界，但不能倒推生产方法具有事务语义。",
+    sourceRefIds: ["sample.append-response-tokens", "sample.validate-response-metadata-full"],
+  },
+] as const;
+
 const chapterFourExercise = {
   id: "stg.chapter-4-request-boundary-v2",
   kind: "mapping",
@@ -1605,23 +2048,45 @@ const chapterFiveExercise = {
 } as const satisfies StructuredExercise;
 
 const chapterSixExercise = {
-  id: "stg.chapter-6-gate",
-  kind: "choice",
-  multiple: false,
-  title: "首错定位：拒绝半写入",
-  prompt: "a0 将追加 2 个 token，却只带来 1 个 log-prob。最早应在哪条边界拒绝它？",
-  instruction: "选择最接近错误来源、且能避免半写入的检查。",
-  options: [
-    { id: "preflight", label: "追加 tokens 之前校验 token/log-prob 长度" },
-    { id: "reward", label: "等待 reward 阶段判断答案是否正确" },
-    { id: "trainer", label: "等 trainer 构造 batch 时再修补长度" },
-    { id: "status", label: "把 status 改成 completed 即可" },
+  id: "stg.chapter-6-writeback-contract-v2",
+  kind: "mapping",
+  title: "坐标归档：每个字段在哪本账上",
+  prompt: "把写回后的字段映射到它真正使用的坐标或职责。这里不是按字段类型猜测，而是按固定源码的更新规则归档。",
+  instruction: "每项选择一个最精确的坐标空间；同一个目标可以被多次使用。",
+  items: [
+    { id: "tokens", label: "Sample.tokens" },
+    { id: "response", label: "Sample.response" },
+    { id: "response-length", label: "Sample.response_length" },
+    { id: "loss-mask", label: "Sample.loss_mask" },
+    { id: "rollout-logprobs", label: "Sample.rollout_log_probs" },
+    { id: "terminal", label: "Sample.status / weight_versions" },
+    { id: "reward", label: "Sample.reward" },
   ],
-  correctOptionIds: ["preflight"],
-  sourceRefIds: ["sample.append-response-tokens", "sample.validate-response-metadata-lengths"],
+  targets: [
+    { id: "full-sequence", label: "完整序列坐标：prompt prefix + response suffix" },
+    { id: "text-stream", label: "独立文本累计：源码不与 token 数互证" },
+    { id: "response-counter", label: "回答计数：定义 response position 的范围" },
+    { id: "response-space", label: "回答坐标：每个 response position 一项" },
+    { id: "terminal-meta", label: "terminal bookkeeping：终止原因与生成版本" },
+    { id: "later-producer", label: "本课边界外：等待 reward producer" },
+  ],
+  correctMapping: {
+    tokens: "full-sequence",
+    response: "text-stream",
+    "response-length": "response-counter",
+    "loss-mask": "response-space",
+    "rollout-logprobs": "response-space",
+    terminal: "terminal-meta",
+    reward: "later-producer",
+  },
+  sourceRefIds: [
+    "sample.append-core-coordinates",
+    "sample.apply-terminal-info",
+    "sample.validate-response-metadata-full",
+  ],
   feedback: {
-    correct: "正确。对齐是写回契约，必须在修改 Sample 之前拒绝不完整响应。",
-    incorrect: "reward 与正确性无关，trainer 又太晚；错误必须在 response 写回边界被隔离。",
+    correct: "两只时钟已经对齐：tokens 维护完整序列；mask 与 log-prob 维护回答位置；文本、terminal metadata 与 reward 各有独立职责。",
+    incorrect: "先找唯一的计数基准：response_length 定义回答位置；再问字段是否逐 response token 对齐。response 字符串、terminal metadata 与 reward 都不在这条数组坐标上。",
   },
 } as const satisfies StructuredExercise;
 
@@ -2129,57 +2594,85 @@ export const sampleToGenerationChapters: readonly SampleToGenerationChapter[] = 
     id: "stg.chapter-6",
     number: 6,
     slug: "writeback-contract",
-    title: "写回怎样维持数据契约",
+    title: "写回双时钟",
     shortTitle: "写回",
     durationMinutes: 15,
-    drivingQuestion: "response 只有一个 token 时，为什么 tokens 长度是 6，而 mask 和 log-prob 长度都是 1？",
+    drivingQuestion: "同一枚 response token，为什么在 tokens 中位于第 6 格，在 loss_mask 与 rollout_log_probs 中却位于第 1 格？",
     imageSrc: "/art/library-act-06-v1.webp",
-    conclusion: "tokens 位于完整序列空间；response_length、loss_mask 和 rollout_log_probs 位于回答空间。写回必须同时维护两套坐标。",
+    imageAlt: "巨大钟表与齿轮前站着一名角色；画面作为完整序列与回答坐标同步推进的章节关键帧",
+    scopeLabel: "默认纯文本 generate · trainable=True · 单次 terminal writeback · 固定 commit 06ffdbe2",
+    objective: "给定任意 prompt 前缀、response token、trainable 标记与 terminal meta_info，重建写回后的两个坐标空间，并判断错误是在原地修改前还是修改后才被发现。",
+    conclusion: "a0 写回后，完整 tokens 从 5 格增至 6 格；response_length、loss_mask 与 rollout_log_probs 只在回答坐标中各占 1 格。文本、terminal metadata 与 reward 另有独立职责。",
     boundary: {
-      input: ["已保存 prompt tokens 的 Sample", "response projection", "finish_reason=stop 与 actor@0"],
-      output: ["prompt+response 完整 tokens", "对齐的 response-side arrays", "status=completed 与 weight_versions=[actor@0]"],
-      excluded: ["reward 与答案正确性", "collect", "训练数据转换与 optimizer step"],
+      input: [
+        "已保存 prompt tokens 的 pending Sample a0",
+        "第五章解码出的 tokens=[25]、log_probs=[-0.356675] 与 text=\"5\"",
+        "调用方常量 trainable=True，以及 stop / actor@0 的 meta_info",
+      ],
+      output: [
+        "尾部追加 response 的完整 token 序列",
+        "以 response_length 为基准的 loss_mask 与 rollout_log_probs",
+        "terminal gate 处理后的 completed 与 weight_versions=[actor@0]",
+      ],
+      excluded: [
+        "reward、label 比较与答案正确性",
+        "collect、训练数据转换与 optimizer step",
+        "把课程 copy-on-write reducer 冒充为生产方法的事务保证",
+      ],
     },
     stateTransition: {
-      before: "a0.tokens 长度 5；response_length=0；loss_mask/log_probs=null；reward=null",
-      operation: "预检 tuple 长度，追加 token 25，建立 mask/log-prob，应用 meta_info，再验证长度",
-      after: "tokens 长度 6；response_length=1；loss_mask=[1]；log_probs=[-0.356675]；status=completed",
+      before: "a0.tokens=[11,12,13,14,15]；response_length=0；loss_mask/rollout_log_probs=None；status=pending；reward=None",
+      operation: "规范化并前置校验 token/log-prob 数组；按源码顺序写 text、tokens/mask、log-probs、terminal meta；最后执行 response metadata 长度审计",
+      after: "tokens=[11,12,13,14,15,25]；response_length=1；loss_mask=[1]；rollout_log_probs=[-0.356675]；status=completed；reward=None",
     },
     explanation: [
       {
-        title: "完整序列与回答空间不可混用",
-        body: "Sample.tokens 保留 5 个 prompt tokens，并在尾部追加 1 个 response token，所以长度为 6。response_length 只计新生成部分，因此为 1；loss_mask 和 rollout_log_probs 同样只为回答 token 提供一项。",
+        title: "两套坐标共享一枚 response token",
+        body: "本 fixture 的 response position r=0 对应 tokens[prefix_length+r]=tokens[5]，同时对应 loss_mask[0] 与 rollout_log_probs[0]。tokens 记录完整序列；另外两条数组只记录回答位置。",
       },
       {
-        title: "写回是一组不可分割的状态变化",
-        body: "若 token 有两项而 log-prob 只有一项，继续追加会制造无法解释的 Sample。课程 reducer 因而在任何字段修改前完成预检，并在构造四条 next Sample 全部成功后才替换 batch。失败时旧 state 保持不变。",
+        title: "生产写回是原地 mutation，不是事务",
+        body: "token/log-prob 长度等局部错误会在 mutation 前被拒绝；但 log-prob 连续性、top-p/routed-experts 与最终长度错误可能在 response、tokens 或 mask 已改变后才抛出。最终 validator 负责发现错位，不负责自动回滚。",
       },
       {
-        title: "meta_info 补充来源与终止状态",
-        body: "weight_version=actor@0 说明这一段 response 由哪版 rollout 权重生成；finish_reason=stop 映射为 completed。两者都描述生成过程，不评价内容质量。",
+        title: "课程 reducer 另有 copy-on-write 保护",
+        body: "本站为确定性 trace 先构造完整 next Sample，并在四条记录都成功后替换 map，因此页面不会展示半发布状态。这是教学模拟的观察保证，不是对 upstream Sample API 的等价复刻。",
       },
       {
-        title: "四条 completed 中仍有两个错误答案",
-        body: "a0 与 b0 分别回答 5 和 7，a1 与 b1 分别回答 6 和 8。四条都正常停止，因此全部 completed；但 reward 仍为 null。这个反例直接排除了 completed=正确的误读。",
+        title: "response 文本不在 token 坐标中",
+        body: "固定源码先执行 self.response += text，再追加 token；它不重新 tokenizer，也不验证字符串与 token IDs 一致。因此 response 是人类可读累计值，不是 response_length 的另一种写法。",
       },
       {
-        title: "课程边界在 generate 返回处闭合",
-        body: "此刻我们已经解释了输入如何成为请求、响应如何成为 Sample。Reward、collect、训练转换和权重更新属于下一批机制课；在这里提前加入它们会破坏可验证的因果边界。",
+        title: "terminal bookkeeping 不评价答案",
+        body: "主路径中 stop→completed、length→truncated、abort→aborted；存在的 weight_version 记录生成来源。缺 finish_reason 或 update_terminal_info=False 会推迟这组更新。无论哪种 status，reward 此时仍为 None。",
       },
     ],
+    writebackCalibrationSteps,
+    writebackCoordinateRows,
+    writebackTerminalCases,
+    writebackFailureBoundaries,
+    writebackFixture,
     observationIds: ["responses-written"],
-    sourceRefIds: ["sample.append-response-tokens", "sample.apply-meta-info", "sample.validate-response-metadata-lengths"],
-    evidenceId: "evidence-atomic-writeback",
+    sourceRefIds: [
+      "sample.append-preflight",
+      "sample.append-core-coordinates",
+      "sample.append-finalize",
+      "sample.apply-terminal-info",
+      "sample.validate-response-metadata-full",
+      "sample.validate-top-p-tail",
+    ],
+    evidenceId: "evidence-writeback-length-defense",
+    additionalEvidenceIds: [],
     exercise: chapterSixExercise,
     misconception: {
-      belief: "status=completed 表示模型给出了正确答案，可以直接训练。",
-      correction: "completed 只表示生成正常终止。正确性要等待 reward；能否训练还要等待收集、转换与排程。",
+      belief: "append_response_tokens 要么整体成功、要么自动回滚；写回后 len(tokens) 也应等于 response_length。",
+      correction: "生产方法原地修改 self，只有部分 preflight 错误保证发生在 mutation 前；tokens 与 response_length 又属于两套坐标。课程 reducer 的 copy-on-write 只是本站观察模型的额外保护。",
     },
-    takeaway: "一次可靠写回同时保留 prompt 前缀、对齐 response 元数据，并记录生成来源；它仍不产生 reward。",
-    transition: "六章机制到此闭合。终测将给出一条新 trace，要求你定位第一个被破坏的边界。",
+    takeaway: "写回可信，不是因为字段都变了，而是每个字段在自己的坐标与失败时机里都能被解释。",
+    transition: "六章到这里闭合：终测不再给熟悉的 a0，而会让你在一条新 trace 中找到最早被破坏的边界。",
     advancedAside: {
-      title: "支线：prefix cache 与 custom generate",
-      body: "prefix cache 统计、top-p replay、工具调用和 custom generate 会增加元数据，但不能取消 response-space 数组必须对齐的基本契约。",
+      title: "进阶支线：non-trainable token、top-p replay 与 routed experts 不共用一套坐标",
+      body: "trainable=False 的 response-side token 仍增加 response_length，但 loss_mask 写 0，log-prob 自动补 0.0。top-p replay 用 response_length+1 个 offsets 表示每个回答位置的 ragged nucleus；routed experts 则按完整 token 序列的 next-token transition rows 校验。它们都经过 _apply_meta_info，却不能被笼统称为同一种 response-space 数组。",
     },
   },
 ];
@@ -2328,7 +2821,7 @@ export const sampleToGenerationCourse: SampleToGenerationCourse = {
     locale: "zh-CN",
     title: "Sample 如何得到回答——从一行输入到 SGLang 写回",
     summary: "沿固定 2×2 trace 逐边界验证 Dataset、Sample、DataSource 与 SGLang generation 的数据契约。",
-    lessonRevision: 7,
+    lessonRevision: 8,
     assessmentVersion: 1,
     durationMinutes: { chapters: 78, assessment: 10, total: 88 },
     requiresGpu: false,

@@ -33,10 +33,12 @@ import { ChapterTwoProvenanceRelay } from "./ChapterTwoProvenanceRelay";
 import { ChapterThreeGroupingLab } from "./ChapterThreeGroupingLab";
 import { ChapterFourRequestBoundary } from "./ChapterFourRequestBoundary";
 import { ChapterFiveResponseEvidence } from "./ChapterFiveResponseEvidence";
+import { ChapterSixWritebackCalibration } from "./ChapterSixWritebackCalibration";
 import {
   hasChapterFiveResponseEvidenceData,
   hasChapterFourRequestBoundaryData,
   hasChapterOneTranslationData,
+  hasChapterSixWritebackData,
   hasChapterThreeGroupingData,
   hasChapterTwoProvenanceData,
 } from "./chapter-reader-contracts";
@@ -421,7 +423,8 @@ export function SampleToGenerationExperience({
   const hasChapterThreeReader = hasChapterThreeGroupingData(chapter);
   const hasChapterFourReader = hasChapterFourRequestBoundaryData(chapter);
   const hasChapterFiveReader = hasChapterFiveResponseEvidenceData(chapter);
-  const hasDedicatedReader = hasChapterOneReader || hasChapterTwoReader || hasChapterThreeReader || hasChapterFourReader || hasChapterFiveReader;
+  const hasChapterSixReader = hasChapterSixWritebackData(chapter);
+  const hasDedicatedReader = hasChapterOneReader || hasChapterTwoReader || hasChapterThreeReader || hasChapterFourReader || hasChapterFiveReader || hasChapterSixReader;
 
   const state = chapter
     ? seekSampleToGeneration(
@@ -579,6 +582,17 @@ export function SampleToGenerationExperience({
             onNext={() => openSection(course.chapters[5].slug)}
             onOpenDrawer={() => setDrawerOpen(true)}
             onPrevious={() => openSection(course.chapters[3].slug)}
+            passed={Boolean(chapterProgress?.passed)}
+          />
+        ) : chapter && hasChapterSixReader ? (
+          <ChapterSixWritebackCalibration
+            chapter={chapter}
+            exerciseSlot={chapterExercise}
+            headingRef={chapterHeadingRef}
+            triggerRef={drawerTriggerRef}
+            onNext={() => openSection(assessmentSlug)}
+            onOpenDrawer={() => setDrawerOpen(true)}
+            onPrevious={() => openSection(course.chapters[4].slug)}
             passed={Boolean(chapterProgress?.passed)}
           />
         ) : chapter ? (

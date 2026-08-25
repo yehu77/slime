@@ -338,6 +338,54 @@
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
       "end_line": 314,
       "guided_excerpt": {
+        "code": "        if text is not None:\n            self.response += text\n\n        previous_response_length = self.response_length\n        if tokens:\n            self.tokens += tokens\n            self.response_length += len(tokens)\n            if self.loss_mask is None:\n                self.loss_mask = [1] * previous_response_length\n            self.loss_mask += [1 if trainable else 0] * len(tokens)\n\n        if log_probs is not None:\n            if self.rollout_log_probs is None:\n                if trainable and previous_response_length:\n                    raise ValueError(\n                        \"Cannot append trainable rollout log probabilities to a sample with existing response \"\n                        \"tokens but no existing rollout_log_probs.\"\n                    )\n                self.rollout_log_probs = [0.0] * previous_response_length\n            self.rollout_log_probs += log_probs",
+        "end_line": 302,
+        "snippet_sha256": "f2a668c9ab3dda889e3213e354bcf5188ca87e7a518dd45ba51c73aca9920b4a",
+        "start_line": 283
+      },
+      "id": "sample.append-core-coordinates",
+      "path": "slime/utils/types.py",
+      "snippet_sha256": "29a3540820a6cec27b146d0d490271be7a2851787e2dc6927fa978855f45677b",
+      "start_line": 253,
+      "symbol": "Sample.append_response_tokens",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L253-L314"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 314,
+      "guided_excerpt": {
+        "code": "        should_pad_top_p = bool(tokens and not trainable)\n        if meta_info is not None or should_pad_top_p:\n            self._apply_meta_info(\n                args,\n                meta_info or {},\n                new_token_count=len(tokens),\n                pad_missing_top_p=should_pad_top_p,\n                update_terminal_info=update_terminal_info,\n            )\n\n        self._validate_response_metadata_lengths()",
+        "end_line": 314,
+        "snippet_sha256": "8c21a9db1a1e7a9ea581457be369024f7b08a9acd9f9e1081af40fc20405ed27",
+        "start_line": 304
+      },
+      "id": "sample.append-finalize",
+      "path": "slime/utils/types.py",
+      "snippet_sha256": "29a3540820a6cec27b146d0d490271be7a2851787e2dc6927fa978855f45677b",
+      "start_line": 253,
+      "symbol": "Sample.append_response_tokens",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L253-L314"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 314,
+      "guided_excerpt": {
+        "code": "        tokens = _to_int_list(tokens)\n        log_probs = _to_float_list(log_probs)\n        if log_probs is not None and len(log_probs) != len(tokens):\n            raise ValueError(f\"log_probs length {len(log_probs)} != tokens length {len(tokens)}\")\n        if tokens and trainable and log_probs is None:\n            raise ValueError(\"trainable response tokens require rollout log probabilities.\")\n        if tokens and not trainable:\n            if log_probs is not None:\n                raise ValueError(\"non-trainable response tokens should not pass rollout log probabilities.\")\n            log_probs = [0.0] * len(tokens)",
+        "end_line": 281,
+        "snippet_sha256": "be0b6291652bf4d628de7eed47fd794249832813a9eaf959dd59d5f4846ae3ab",
+        "start_line": 272
+      },
+      "id": "sample.append-preflight",
+      "path": "slime/utils/types.py",
+      "snippet_sha256": "29a3540820a6cec27b146d0d490271be7a2851787e2dc6927fa978855f45677b",
+      "start_line": 253,
+      "symbol": "Sample.append_response_tokens",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L253-L314"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 314,
+      "guided_excerpt": {
         "code": "        tokens = _to_int_list(tokens)\n        log_probs = _to_float_list(log_probs)\n        if log_probs is not None and len(log_probs) != len(tokens):\n            raise ValueError(f\"log_probs length {len(log_probs)} != tokens length {len(tokens)}\")\n        if tokens and trainable and log_probs is None:\n            raise ValueError(\"trainable response tokens require rollout log probabilities.\")\n        if tokens and not trainable:\n            if log_probs is not None:\n                raise ValueError(\"non-trainable response tokens should not pass rollout log probabilities.\")\n            log_probs = [0.0] * len(tokens)\n\n        if text is not None:\n            self.response += text\n\n        previous_response_length = self.response_length\n        if tokens:\n            self.tokens += tokens\n            self.response_length += len(tokens)",
         "end_line": 289,
         "snippet_sha256": "08ddbf6c5f1b276865614a272d76c14ecb1b9377cd2ea0d632d4097e23806db3",
@@ -354,6 +402,22 @@
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
       "end_line": 416,
       "id": "sample.apply-meta-info",
+      "path": "slime/utils/types.py",
+      "snippet_sha256": "f2871cdbcb79132f8ad088845a4addb94c2703b341515957d1ab6b93ab72198f",
+      "start_line": 316,
+      "symbol": "Sample._apply_meta_info",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L316-L416"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 416,
+      "guided_excerpt": {
+        "code": "        if not update_terminal_info or \"finish_reason\" not in meta_info:\n            return\n\n        if getattr(args, \"sglang_speculative_algorithm\", False):\n            # cannot directly use spec info from sglang because of partial rollout.\n            self.spec_info.add(meta_info=meta_info)\n\n        # Collect prefix cache statistics\n        self.prefix_cache_info.add(meta_info=meta_info)\n\n        if \"weight_version\" in meta_info:\n            self.weight_versions.append(meta_info[\"weight_version\"])\n\n        match meta_info[\"finish_reason\"][\"type\"]:\n            case \"length\":\n                self.status = Sample.Status.TRUNCATED\n            case \"abort\":\n                self.status = Sample.Status.ABORTED\n            case \"stop\":\n                self.status = Sample.Status.COMPLETED",
+        "end_line": 416,
+        "snippet_sha256": "616bc506b2d7686cc8b6d247b9e904321997ee485acdf8ebe88a5faf496d26fb",
+        "start_line": 397
+      },
+      "id": "sample.apply-terminal-info",
       "path": "slime/utils/types.py",
       "snippet_sha256": "f2871cdbcb79132f8ad088845a4addb94c2703b341515957d1ab6b93ab72198f",
       "start_line": 316,
@@ -394,6 +458,38 @@
     },
     {
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 36,
+      "guided_excerpt": {
+        "code": "    token_ids = decode_int32_meta_array(meta_info, _TOP_P_TOKEN_ID_META_KEYS)\n    offsets = decode_int32_meta_array(meta_info, _TOP_P_TOKEN_OFFSET_META_KEYS)\n    if token_ids is None and offsets is None:\n        return None\n    if token_ids is None or offsets is None:\n        raise ValueError(\"SGLang top-p token replay must include both token ids and offsets.\")\n    if offsets.numel() == 0 or int(offsets[0]) != 0:\n        raise ValueError(f\"SGLang top-p token offsets must start with 0, got {offsets[:1].tolist()}.\")\n    if int(offsets[-1]) != token_ids.numel():\n        raise ValueError(\n            \"SGLang top-p token ids/offsets mismatch: \"\n            f\"offsets[-1]={int(offsets[-1])}, len(token_ids)={token_ids.numel()}.\"\n        )\n    if expected_num_tokens is not None and offsets.numel() != expected_num_tokens + 1:\n        raise ValueError(\n            \"SGLang top-p token offsets length must equal generated token count + 1: \"\n            f\"len(offsets)={offsets.numel()}, generated={expected_num_tokens}.\"\n        )\n    return token_ids, offsets",
+        "end_line": 36,
+        "snippet_sha256": "bf414f5f490e45e2d02dd6de3505f7b6fdaee064a2f8acd6a3ffb9740f0d8ad1",
+        "start_line": 18
+      },
+      "id": "sample.top-p-extract-contract",
+      "path": "slime/utils/types.py",
+      "snippet_sha256": "56d038e81b79bbcc7b63706208d65adc22bf70dbf5508c7f8258bda0801149b9",
+      "start_line": 13,
+      "symbol": "_extract_rollout_top_p_token_data",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L13-L36"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 443,
+      "guided_excerpt": {
+        "code": "    def _validate_response_metadata_lengths(self):\n        if self.loss_mask is not None and len(self.loss_mask) != self.response_length:\n            raise ValueError(f\"loss_mask length {len(self.loss_mask)} != response_length {self.response_length}\")\n\n        if self.rollout_log_probs is not None and len(self.rollout_log_probs) != self.response_length:\n            raise ValueError(\n                f\"rollout_log_probs length {len(self.rollout_log_probs)} != response_length {self.response_length}\"\n            )\n\n        if self.rollout_top_p_token_ids is None and self.rollout_top_p_token_offsets is None:\n            return\n        if self.rollout_top_p_token_ids is None or self.rollout_top_p_token_offsets is None:\n            raise ValueError(\"rollout top-p replay must include both token ids and offsets.\")\n\n        offsets = torch.as_tensor(self.rollout_top_p_token_offsets, dtype=torch.int32).reshape(-1)\n        if offsets.numel() != self.response_length + 1:\n            raise ValueError(\n                \"rollout_top_p_token_offsets length must equal response_length + 1: \"\n                f\"len(offsets)={offsets.numel()}, response_length={self.response_length}.\"\n            )",
+        "end_line": 437,
+        "snippet_sha256": "a45b62c04b5f7b64028f1423954a4ec97e0f6c5d61fa6de958ab283de6888181",
+        "start_line": 418
+      },
+      "id": "sample.validate-response-metadata-full",
+      "path": "slime/utils/types.py",
+      "snippet_sha256": "8e277456453457d67a74379f46a09a75c9cd48630140957fbc2a904bb6a4b17a",
+      "start_line": 418,
+      "symbol": "Sample._validate_response_metadata_lengths",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L418-L443"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
       "end_line": 443,
       "guided_excerpt": {
         "code": "    def _validate_response_metadata_lengths(self):\n        if self.loss_mask is not None and len(self.loss_mask) != self.response_length:\n            raise ValueError(f\"loss_mask length {len(self.loss_mask)} != response_length {self.response_length}\")\n\n        if self.rollout_log_probs is not None and len(self.rollout_log_probs) != self.response_length:\n            raise ValueError(\n                f\"rollout_log_probs length {len(self.rollout_log_probs)} != response_length {self.response_length}\"\n            )\n\n        if self.rollout_top_p_token_ids is None and self.rollout_top_p_token_offsets is None:\n            return\n        if self.rollout_top_p_token_ids is None or self.rollout_top_p_token_offsets is None:\n            raise ValueError(\"rollout top-p replay must include both token ids and offsets.\")",
@@ -402,6 +498,22 @@
         "start_line": 418
       },
       "id": "sample.validate-response-metadata-lengths",
+      "path": "slime/utils/types.py",
+      "snippet_sha256": "8e277456453457d67a74379f46a09a75c9cd48630140957fbc2a904bb6a4b17a",
+      "start_line": 418,
+      "symbol": "Sample._validate_response_metadata_lengths",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L418-L443"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 443,
+      "guided_excerpt": {
+        "code": "        offsets = torch.as_tensor(self.rollout_top_p_token_offsets, dtype=torch.int32).reshape(-1)\n        if offsets.numel() != self.response_length + 1:\n            raise ValueError(\n                \"rollout_top_p_token_offsets length must equal response_length + 1: \"\n                f\"len(offsets)={offsets.numel()}, response_length={self.response_length}.\"\n            )\n        token_id_count = _numel(self.rollout_top_p_token_ids)\n        if int(offsets[-1]) != token_id_count:\n            raise ValueError(\n                \"rollout top-p token ids/offsets mismatch: \"\n                f\"offsets[-1]={int(offsets[-1])}, len(token_ids)={token_id_count}.\"\n            )",
+        "end_line": 443,
+        "snippet_sha256": "8c04f37d4e23707c842198b6641536b258a74df1b157b6f24bd0bd0266d4369e",
+        "start_line": 432
+      },
+      "id": "sample.validate-top-p-tail",
       "path": "slime/utils/types.py",
       "snippet_sha256": "8e277456453457d67a74379f46a09a75c9cd48630140957fbc2a904bb6a4b17a",
       "start_line": 418,

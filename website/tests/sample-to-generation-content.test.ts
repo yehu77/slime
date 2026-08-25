@@ -22,6 +22,7 @@ import {
   hasChapterFiveResponseEvidenceData,
   hasChapterFourRequestBoundaryData,
   hasChapterOneTranslationData,
+  hasChapterSixWritebackData,
   hasChapterThreeGroupingData,
   hasChapterTwoProvenanceData,
 } from "@/components/mechanism/chapter-reader-contracts";
@@ -82,8 +83,9 @@ describe("sample-to-generation course contract", () => {
       expect(chapter.transition.length).toBeGreaterThan(10);
     }
     expect(new Set(sampleToGenerationChapters.map((chapter) => chapter.exercise.kind))).toEqual(
-      new Set(["choice", "mapping", "field-entry"]),
+      new Set(["mapping", "field-entry"]),
     );
+    expect(sampleToGenerationFinalAssessment.some((exercise) => exercise.kind === "choice")).toBe(true);
     expect(sampleToGenerationFinalAssessment.some((exercise) => exercise.kind === "ordering")).toBe(true);
   });
 
@@ -161,12 +163,13 @@ describe("sample-to-generation course contract", () => {
     }
   });
 
-  it("selects dedicated readers only for complete chapter-one through chapter-five contracts", () => {
+  it("selects dedicated readers only for complete chapter-one through chapter-six contracts", () => {
     const chapterOne = sampleToGenerationChapters[0];
     const chapterTwo = sampleToGenerationChapters[1];
     const chapterThree = sampleToGenerationChapters[2];
     const chapterFour = sampleToGenerationChapters[3];
     const chapterFive = sampleToGenerationChapters[4];
+    const chapterSix = sampleToGenerationChapters[5];
 
     expect(hasChapterOneTranslationData(chapterOne)).toBe(true);
     expect(hasChapterOneTranslationData({ ...chapterOne, mappingLanes: undefined })).toBe(false);
@@ -199,6 +202,13 @@ describe("sample-to-generation course contract", () => {
       responseFixtureReceipt: undefined,
     })).toBe(false);
     expect(hasChapterFiveResponseEvidenceData(chapterFour)).toBe(false);
+
+    expect(hasChapterSixWritebackData(chapterSix)).toBe(true);
+    expect(hasChapterSixWritebackData({
+      ...chapterSix,
+      writebackFixture: undefined,
+    })).toBe(false);
+    expect(hasChapterSixWritebackData(chapterFive)).toBe(false);
   });
 
   it("projects chapter three from the fixed 2×2 fixture without inventing identities", () => {
@@ -522,6 +532,134 @@ describe("sample-to-generation course contract", () => {
     ]) {
       expect(sourceRefIds.has(requiredRefId), `missing chapter-five ref ${requiredRefId}`).toBe(true);
     }
+    for (const sourceRefId of sourceRefIds) {
+      expect(refs.has(sourceRefId), `missing source ref ${sourceRefId}`).toBe(true);
+      expect(anchors.has(sourceRefId), `missing generated anchor ${sourceRefId}`).toBe(true);
+    }
+  });
+
+  it("models chapter six as a source-ordered two-coordinate writeback with explicit failure timing", () => {
+    const chapter = sampleToGenerationChapters[5];
+    expect(chapter.slug).toBe("writeback-contract");
+    expect(hasChapterSixWritebackData(chapter)).toBe(true);
+    if (!hasChapterSixWritebackData(chapter)) {
+      throw new Error("chapter six must provide its dedicated writeback contract");
+    }
+
+    expect(chapter.writebackCalibrationSteps.map((step) => [step.order, step.id])).toEqual([
+      [1, "call-entry"],
+      [2, "preflight"],
+      [3, "text-append"],
+      [4, "token-mask-append"],
+      [5, "logprob-append"],
+      [6, "terminal-meta"],
+      [7, "late-audit"],
+    ]);
+    expect(new Set(chapter.writebackCalibrationSteps.map((step) => step.id)).size).toBe(7);
+    expect(chapter.writebackCalibrationSteps[1]).toMatchObject({
+      writes: [],
+      failureTiming: "pre-mutation",
+    });
+    expect(chapter.writebackCalibrationSteps.at(-1)).toMatchObject({
+      failureTiming: "post-mutation",
+      doesNotProve: expect.stringContaining("不是数据库事务"),
+    });
+
+    const received = seekSampleToGeneration(sampleToGenerationFixture, "responses-received");
+    const written = seekSampleToGeneration(sampleToGenerationFixture, "responses-written");
+    expect(chapter.writebackFixture).toMatchObject({
+      sampleId: "a0",
+      fromObservation: "responses-received",
+      toObservation: "responses-written",
+      prefixLength: 5,
+      before: {
+        tokens: received.samples.a0.tokens,
+        response: received.samples.a0.response,
+        responseLength: received.samples.a0.response_length,
+        lossMask: received.samples.a0.loss_mask,
+        rolloutLogProbs: received.samples.a0.rollout_log_probs,
+        weightVersions: received.samples.a0.weight_versions,
+        status: received.samples.a0.status,
+        reward: received.samples.a0.reward,
+      },
+      after: {
+        tokens: written.samples.a0.tokens,
+        response: written.samples.a0.response,
+        responseLength: written.samples.a0.response_length,
+        lossMask: written.samples.a0.loss_mask,
+        rolloutLogProbs: written.samples.a0.rollout_log_probs,
+        weightVersions: written.samples.a0.weight_versions,
+        status: written.samples.a0.status,
+        reward: written.samples.a0.reward,
+      },
+    });
+    expect(chapter.writebackFixture.after.tokens.slice(0, chapter.writebackFixture.prefixLength)).toEqual(
+      chapter.writebackFixture.before.tokens,
+    );
+    expect(chapter.writebackFixture.after.responseLength).toBe(1);
+    expect(chapter.writebackFixture.after.lossMask).toHaveLength(1);
+    expect(chapter.writebackFixture.after.rolloutLogProbs).toHaveLength(1);
+
+    const coordinateRows = chapter.writebackCoordinateRows;
+    expect(new Set(coordinateRows.map((row) => row.id)).size).toBe(coordinateRows.length);
+    expect(coordinateRows.map((row) => row.coordinateSpace)).toEqual(expect.arrayContaining([
+      "full-sequence",
+      "response",
+      "text",
+      "terminal",
+      "outside-course",
+    ]));
+    expect(coordinateRows.find((row) => row.id === "full-tokens")?.caveat).toContain(
+      "prefix_length 不存于 Sample",
+    );
+    expect(coordinateRows.find((row) => row.id === "response-text")?.caveat).toContain(
+      "不验证",
+    );
+
+    expect(chapter.writebackTerminalCases.map((terminalCase) => terminalCase.id)).toEqual([
+      "stop",
+      "length",
+      "abort",
+      "deferred",
+      "unknown",
+    ]);
+    expect(chapter.writebackTerminalCases.find((item) => item.id === "stop")?.reason).toContain(
+      "不表示回答正确",
+    );
+    expect(chapter.writebackFailureBoundaries.map((item) => item.boundary)).toEqual([
+      "preflight",
+      "preflight",
+      "late-validation",
+      "late-validation",
+      "course-reducer",
+    ]);
+    expect(chapter.writebackFailureBoundaries.find((item) => item.id === "teaching-copy-on-write")?.explanation).toContain(
+      "不能倒推生产方法具有事务语义",
+    );
+
+    const exercise = chapter.exercise;
+    expect(exercise).toMatchObject({
+      id: "stg.chapter-6-writeback-contract-v2",
+      kind: "mapping",
+    });
+    if (exercise.kind !== "mapping") throw new Error("unexpected chapter-six exercise kind");
+    expect(gradeStructuredExercise(exercise, {
+      kind: "mapping",
+      mapping: exercise.correctMapping,
+    }).correct).toBe(true);
+    expect(gradeStructuredExercise(exercise, {
+      kind: "mapping",
+      mapping: { ...exercise.correctMapping, response: "response-space" },
+    })).toMatchObject({ correct: false, fieldResults: { response: false } });
+
+    const refs = new Map(refsPayload.refs.map((ref) => [ref.id, ref]));
+    const anchors = new Map(anchorsPayload.anchors.map((anchor) => [anchor.id, anchor]));
+    const sourceRefIds = new Set([
+      ...chapter.sourceRefIds,
+      ...chapter.exercise.sourceRefIds,
+      ...chapter.writebackCalibrationSteps.flatMap((step) => step.sourceRefIds),
+      ...chapter.writebackFailureBoundaries.flatMap((boundary) => boundary.sourceRefIds),
+    ]);
     for (const sourceRefId of sourceRefIds) {
       expect(refs.has(sourceRefId), `missing source ref ${sourceRefId}`).toBe(true);
       expect(anchors.has(sourceRefId), `missing generated anchor ${sourceRefId}`).toBe(true);

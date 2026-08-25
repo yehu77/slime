@@ -124,7 +124,7 @@
     { "id": "prompts-tokenized", "chapter": 4, "actor": "tokenizer", "source_ref_ids": ["rollout.prepare-prompt-ids"] },
     { "id": "requests-prepared", "chapter": 4, "actor": "sglang-request", "source_ref_ids": ["rollout.generate-state-init", "rollout.generate-request-envelope", "rollout.generate-request-dispatch"] },
     { "id": "responses-received", "chapter": 5, "actor": "sglang", "source_ref_ids": ["rollout.generate"] },
-    { "id": "responses-written", "chapter": 6, "actor": "sample", "source_ref_ids": ["sample.append-response-tokens", "sample.apply-meta-info", "sample.validate-response-metadata-lengths"] }
+    { "id": "responses-written", "chapter": 6, "actor": "sample", "source_ref_ids": ["sample.append-preflight", "sample.append-core-coordinates", "sample.append-finalize", "sample.apply-terminal-info", "sample.validate-response-metadata-full"] }
   ],
   "expected": {
     "origins": 2,

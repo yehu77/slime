@@ -105,6 +105,14 @@ export function decodeSglangResponseEvidence(
   });
 }
 
+/**
+ * Build the next Sample snapshot for the deterministic course fixture.
+ *
+ * This helper is deliberately copy-on-write so the Reader can publish one
+ * complete teaching observation at a time. It models the successful field
+ * projection of upstream `Sample.append_response_tokens`; it does not claim
+ * that the upstream in-place method provides transactional rollback.
+ */
 export function appendResponseAtomically(
   sample: SampleToGenerationSample,
   evidence: ResponseEvidence,
@@ -120,9 +128,16 @@ export function appendResponseAtomically(
       `Response metadata mismatch for ${write.sample_id}: token/log-prob lengths differ`,
     );
   }
+  if (sample.response_length > 0 && sample.rollout_log_probs === null) {
+    throw new Error(
+      `Cannot append trainable response evidence for ${write.sample_id}: ` +
+        "existing response tokens have no rollout log-probs",
+    );
+  }
 
-  // Every validation above runs before the next value is constructed. The caller
-  // keeps its original object if any validation or schema parse fails.
+  // These fixture preflights run before the next snapshot is constructed. They
+  // describe this helper's caller contract, not rollback behavior of the
+  // upstream in-place method.
   const nextResponseLength = sample.response_length + write.tokens.length;
   // `append_response_tokens` only materializes loss_mask when it actually
   // appends response tokens. With a missing/empty log-prob list the source
@@ -138,8 +153,7 @@ export function appendResponseAtomically(
           ...write.tokens.map(() => 1 as const),
         ];
   const nextLogProbabilities = [
-    ...(sample.rollout_log_probs ??
-      Array.from({ length: sample.response_length }, () => 0)),
+    ...(sample.rollout_log_probs ?? []),
     ...write.log_probabilities,
   ];
   if (
@@ -285,8 +299,10 @@ function applyObservation(
       break;
     }
     case "responses-written": {
-      // Construct all four next Samples before swapping the map. A malformed
-      // evidence record therefore cannot leave a partially written batch.
+      // The course state uses a copy-on-write publication convention: construct
+      // every next fixture Sample before swapping the map. This is a Reader
+      // guarantee, not a claim that upstream in-place writeback rolls back all
+      // metadata failures.
       const nextSamples: Record<string, SampleToGenerationSample> = {};
       for (const [sampleId, sample] of Object.entries(samples)) {
         const evidence = responseEvidence[sampleId];

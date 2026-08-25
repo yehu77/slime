@@ -425,13 +425,111 @@ describe("sample-to-generation deterministic trace", () => {
     expect(state.samples.a1.status).toBe("completed");
   });
 
+  it.each([
+    { finishReason: "stop" as const, expectedStatus: "completed" as const, weightVersion: "actor@1" },
+    { finishReason: "stop" as const, expectedStatus: "completed" as const, weightVersion: undefined },
+    { finishReason: "length" as const, expectedStatus: "truncated" as const, weightVersion: "actor@1" },
+    { finishReason: "length" as const, expectedStatus: "truncated" as const, weightVersion: undefined },
+    { finishReason: "abort" as const, expectedStatus: "aborted" as const, weightVersion: "actor@1" },
+    { finishReason: "abort" as const, expectedStatus: "aborted" as const, weightVersion: undefined },
+  ])(
+    "copy-on-write projects a two-token continuation for $finishReason with weight version $weightVersion",
+    ({ finishReason, expectedStatus, weightVersion }) => {
+      const prepared = seekSampleToGeneration(
+        sampleToGenerationFixture,
+        "requests-prepared",
+      );
+      const promptPrefix =
+        sampleToGenerationFixture.tokenizer.prompt_encodings["origin-a"];
+      const original = SampleToGenerationSampleSchema.parse({
+        ...prepared.samples.a0,
+        tokens: [...promptPrefix, 25],
+        response: "5",
+        response_length: 1,
+        loss_mask: [1],
+        rollout_log_probs: [-0.356675],
+        weight_versions: ["actor@0"],
+        status: "pending",
+      });
+      const evidence = {
+        sample_id: "a0",
+        text: "67",
+        tokens: [26, 27],
+        log_probabilities: [-0.7, -0.8],
+        meta_info: {
+          finish_reason: { type: finishReason },
+          ...(weightVersion === undefined
+            ? {}
+            : { weight_version: weightVersion }),
+        },
+      } satisfies ResponseWrite;
+      const originalBefore = structuredClone(original);
+      const evidenceBefore = structuredClone(evidence);
+
+      const written = appendResponseAtomically(original, evidence);
+
+      expect(written).not.toBe(original);
+      expect(written.tokens).toEqual([...promptPrefix, 25, 26, 27]);
+      expect(written.tokens.slice(0, promptPrefix.length)).toEqual(promptPrefix);
+      expect(written.response).toBe("567");
+      expect(written.response_length).toBe(3);
+      expect(written.loss_mask).toEqual([1, 1, 1]);
+      expect(written.rollout_log_probs).toEqual([
+        -0.356675,
+        -0.7,
+        -0.8,
+      ]);
+      expect(written.weight_versions).toEqual(
+        weightVersion === undefined
+          ? ["actor@0"]
+          : ["actor@0", weightVersion],
+      );
+      expect(written.status).toBe(expectedStatus);
+      expect(original).toEqual(originalBefore);
+      expect(evidence).toEqual(evidenceBefore);
+    },
+  );
+
+  it("rejects a trainable continuation when existing response tokens have no rollout log-probs", () => {
+    const prepared = seekSampleToGeneration(
+      sampleToGenerationFixture,
+      "requests-prepared",
+    );
+    const original = SampleToGenerationSampleSchema.parse({
+      ...prepared.samples.a0,
+      tokens: [...prepared.samples.a0.tokens, 25],
+      response: "5",
+      response_length: 1,
+      loss_mask: [1],
+      rollout_log_probs: null,
+      status: "pending",
+    });
+    const evidence = {
+      sample_id: "a0",
+      text: "6",
+      tokens: [26],
+      log_probabilities: [-0.7],
+      meta_info: {
+        finish_reason: { type: "stop" },
+        weight_version: "actor@1",
+      },
+    } satisfies ResponseWrite;
+    const originalBefore = structuredClone(original);
+    const evidenceBefore = structuredClone(evidence);
+
+    expect(() => appendResponseAtomically(original, evidence)).toThrow(
+      /existing response tokens have no rollout log-probs/,
+    );
+    expect(original).toEqual(originalBefore);
+    expect(evidence).toEqual(evidenceBefore);
+  });
+
   it("rejects mismatched response metadata before mutating the original Sample", () => {
     const state = seekSampleToGeneration(
       sampleToGenerationFixture,
-      "prompts-tokenized",
+      "requests-prepared",
     );
     const original = state.samples.a0;
-    const before = JSON.stringify(original);
     const malformed = {
       sample_id: "a0",
       text: "56",
@@ -442,12 +540,13 @@ describe("sample-to-generation deterministic trace", () => {
         weight_version: "actor@0",
       },
     } satisfies ResponseWrite;
+    const originalBefore = structuredClone(original);
+    const malformedBefore = structuredClone(malformed);
 
     expect(() => appendResponseAtomically(original, malformed)).toThrow(
       /token\/log-prob lengths differ/,
     );
-    expect(JSON.stringify(original)).toBe(before);
-    expect(original.response).toBe("");
-    expect(original.status).toBe("pending");
+    expect(original).toEqual(originalBefore);
+    expect(malformed).toEqual(malformedBefore);
   });
 });

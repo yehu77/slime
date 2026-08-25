@@ -12,7 +12,7 @@ const routes = [
   ["/learn/sample-to-generation?chapter=group-without-aliasing", /成组，但不粘连/],
   ["/learn/sample-to-generation?chapter=sample-to-request", /请求装配与边境检查台/],
   ["/learn/sample-to-generation?chapter=response-projection", /响应分轨场/],
-  ["/learn/sample-to-generation?chapter=writeback-contract", /写回怎样维持数据契约/],
+  ["/learn/sample-to-generation?chapter=writeback-contract", /写回双时钟/],
   ["/learn/sample-to-generation?chapter=assessment", /用一条新 trace 检查机制/],
   ["/learn/sample-to-generation?chapter=not-a-chapter", /没有名为“not-a-chapter”的章节/],
   ["/glossary", /术语/],
@@ -133,6 +133,23 @@ for (const [route, expected] of routes) {
       assert.doesNotMatch(html, /mechanism-rail-state/);
       assert.equal(
         (renderedText.match(/打开 a0 响应前账本/g) ?? []).length,
+        1,
+      );
+    }
+    if (route === "/learn/sample-to-generation?chapter=writeback-contract") {
+      assert.match(html, /class="[^"]*\bwriteback-reader\b/);
+      assert.match(renderedText, /两套 token 坐标/);
+      assert.match(renderedText, /完整序列时钟/);
+      assert.match(renderedText, /回答时钟/);
+      assert.match(renderedText, /契约总账/);
+      assert.match(renderedText, /生产 Sample 写回是原地 mutation/);
+      assert.match(renderedText, /课程 reducer 的 copy-on-write/);
+      assert.match(renderedText, /stop 表示正常停止，不表示回答正确/);
+      assert.match(html, /<dt>reward<\/dt><dd>None/);
+      assert.match(renderedText, /正在恢复本章练习记录/);
+      assert.doesNotMatch(html, /mechanism-rail-state/);
+      assert.equal(
+        (renderedText.match(/打开 a0 写回账本/g) ?? []).length,
         1,
       );
     }
