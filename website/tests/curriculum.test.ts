@@ -96,7 +96,7 @@ describe("global curriculum contract", () => {
         currentStageId: "system-intro",
         learnerStatusByUnit: {
           "system-intro": "completed",
-          "core.sample-to-generation": "review_required",
+          "core.sample-to-generation": "in_progress",
         },
       }),
     );
@@ -105,8 +105,8 @@ describe("global curriculum contract", () => {
     expect(html).toContain('data-stage-id="system-intro"');
     expect(html).toContain('data-course-id="core.sample-to-generation"');
     expect(html).toContain("重新阅读");
-    expect(html).toContain("内容已修订 · 建议复习");
-    expect(html).toContain("按新版本复习");
+    expect(html).toContain("学习中");
+    expect(html).toContain("继续学习");
     expect(html).toContain('href="/learn"');
     expect(html.match(/data-stage-id=/g) ?? []).toHaveLength(7);
     expect(html.match(/data-course-id=/g) ?? []).toHaveLength(5);
@@ -159,7 +159,6 @@ describe("global curriculum contract", () => {
         "/learn/sample-to-generation?chapter=group-without-aliasing#model",
     });
     expect(recommendations.next).toBeNull();
-    expect(recommendations.reviews).toEqual([]);
     expect(recommendations.later.map((item) => item.id)).toEqual([
       "core.generation-to-reward",
       "core.reward-to-train-data",
@@ -192,7 +191,6 @@ describe("global curriculum contract", () => {
     const recommendations = deriveCurriculumRecommendations(progress);
     expect(recommendations.continue?.id).toBe("core.sample-to-generation");
     expect(recommendations.next).toBeNull();
-    expect(recommendations.reviews).toEqual([]);
   });
 
   it("starts the action queue at the non-optional system introduction", () => {
@@ -204,7 +202,6 @@ describe("global curriculum contract", () => {
       id: "system-intro",
       route: "/learn/sample-journey",
     });
-    expect(recommendations.reviews).toEqual([]);
 
     const html = renderToStaticMarkup(
       createElement(CurriculumActionPage, {
@@ -223,7 +220,7 @@ describe("global curriculum contract", () => {
     expect(html).not.toContain('href="null"');
   });
 
-  it("keeps revised Stage 02 in Review while continuing Stage 03", () => {
+  it("discards outdated Stage 02 progress while continuing current Stage 03", () => {
     const introManifest = courseProgressManifests["core.sample-journey"];
     const generationManifest = courseProgressManifests["core.sample-to-generation"];
     let progress = applyLessonProgressEvent(
@@ -288,12 +285,9 @@ describe("global curriculum contract", () => {
       position: expect.stringContaining("章节开场"),
     });
     expect(recommendations.next).toBeNull();
-    expect(recommendations.reviews).toHaveLength(1);
-    expect(recommendations.reviews[0]).toMatchObject({
-      id: "system-intro",
-      status: "review_required",
-      position: "上次停在：转换 1/2：从 Sample 显式构造训练字段",
-      actionLabel: "查看新版系统导论",
+    expect(deriveCurriculumLearnerStatus(progress)).toMatchObject({
+      "system-intro": "not_started",
+      "core.sample-to-generation": "in_progress",
     });
 
     const html = renderToStaticMarkup(
@@ -303,9 +297,9 @@ describe("global curriculum contract", () => {
         learnerStatusByUnit: deriveCurriculumLearnerStatus(progress),
       }),
     );
-    expect(html).toContain("待复习");
-    expect(html).toContain("不必从当前课程倒退");
     expect(html).toContain("暂时没有另一项已开放课程");
+    expect(html).not.toContain("待复习");
+    expect(html).not.toContain("内容已修订");
     expect(html).not.toContain("继续到事件 train_data_built");
   });
 
@@ -358,6 +352,5 @@ describe("global curriculum contract", () => {
     const recommendations = deriveCurriculumRecommendations(progress);
     expect(recommendations.continue).toBeNull();
     expect(recommendations.next).toBeNull();
-    expect(recommendations.reviews).toEqual([]);
   });
 });

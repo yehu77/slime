@@ -248,10 +248,10 @@ slime Lab 把一条 Sample 当作持续出场的主角，把七个技术环节�
 ### Progress States
 
 - 本地进度使用 `slime-lab:progress:v2`，顶层必须是按稳定 lesson id 分隔的 `lessons` 映射；系统总览与每门机制课各自拥有 `lesson_revision`、已访问 section、练习尝试、终测、resume 和更新时间。
-- 完成状态由每课 manifest 的必访 section、必过练习与终测条件共同计算；课程路线只消费 `not_started`、`in_progress`、`completed`、`review_required` 四种学习状态。
-- 当 lesson revision 或 assessment version 与 manifest 不一致时显示 `review_required`：旧记录继续保留并提示复习，但不再宣称已完成。仅阅读新版不能静默覆盖旧记录；学习者明确切换章节或提交进度事件后，才为该 lesson 建立当前版本记录。
+- 完成状态由每课 manifest 的必访 section、必过练习与终测条件共同计算；课程路线只呈现 `not_started`、`in_progress`、`completed` 三种学习状态。`review_required` 仅作为旧数据解析兼容值，不进入界面。
+- 建设期采用当前版优先策略：当某门课的 lesson revision 或已有终测的 assessment version 低于 manifest 时，只删除该 lesson 的旧进度并立即保存；其他课程记录不受影响。比当前部署更新的记录必须保留且不展示，避免 Cloudflare 回滚时由旧代码反向删除新进度。
 - 本地存储不可用或旧数据无效时，阅读与练习仍可用；失败不得把课程变成阻塞页。
-- `learning_artifacts` 保存不参与完成判定的首判：首次已提交答案不可覆盖，跳过后只允许补交一次；`review_required` 下被动加载与滚动不能创建新版记录。
+- `learning_artifacts` 保存不参与完成判定的首判：首次已提交答案不可覆盖，跳过后只允许补交一次；课程修订被替换时随该 lesson 的其他旧记录一起清除。
 
 ### Learning Compass
 
@@ -281,7 +281,7 @@ slime Lab 把一条 Sample 当作持续出场的主角，把七个技术环节�
 - **Do** 保留语义化标题、列表、按钮、字段和替代文本；图片不是理解课程的前提。
 - **Do** 在 Read 表面执行 `68–72ch` 正文、中文至少 `16px`、代码至少 `13px`、控件命中区域至少 `44×44px` 的下限。
 - **Do** 为键盘焦点、`Escape`、modal 焦点约束与恢复、减少动态偏好、横向浏览和移动端单列阅读提供完整状态。
-- **Do** 让进度始终按 lesson id 隔离，并让 `review_required` 明确表示“旧记录保留，但需按新版本复习”。
+- **Do** 让进度始终按 lesson id 隔离；只清除低于当前 manifest 的那门课，绝不因一次课程修订清空整个站点进度。
 - **Do** 为每个来自本地开源素材库的 shipping WebP 保存相邻 `.json`：记录素材库内相对来源标识、实际取得的权利确认、完整确定性处理链、输出尺寸/格式与日期；派生图再记录 `derivedFrom`。不要公开贡献者机器上的绝对路径。
 - **Do** 对生成 raster 记录精确提示；本地素材没有具体许可证名称时如实注明，不推断或补造名称。
 

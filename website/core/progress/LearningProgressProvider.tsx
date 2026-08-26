@@ -6,11 +6,13 @@ import {
   LOCAL_PROGRESS_V2_STORAGE_KEY,
   applyLessonProgressEvent,
   createEmptyLocalProgressV2,
-  loadLocalProgressV2,
+  discardOutdatedLessonProgressV2,
+  reconcileStoredProgressV2,
   saveLocalProgressV2,
   type LocalProgressV2,
   type ProgressCompletionManifest,
   type ProgressEvent,
+  type ProgressManifestRegistry,
 } from "./progress-v2";
 
 export type LearningProgressSnapshot = {
@@ -27,6 +29,8 @@ const serverSnapshot: LearningProgressSnapshot = {
 
 let snapshot = serverSnapshot;
 const listeners = new Set<() => void>();
+const emptyManifestRegistry: ProgressManifestRegistry = {};
+let configuredManifests = emptyManifestRegistry;
 
 function publish(next: LearningProgressSnapshot) {
   snapshot = next;
@@ -42,30 +46,41 @@ function getSnapshot() {
   return snapshot;
 }
 
-function hydrateFromStorage() {
+function hydrateFromStorage(
+  manifestRegistry: ProgressManifestRegistry = configuredManifests,
+) {
   if (typeof window === "undefined") return;
   try {
+    const reconciliation = reconcileStoredProgressV2(
+      window.localStorage,
+      manifestRegistry,
+    );
     publish({
-      progress: loadLocalProgressV2(window.localStorage),
+      progress: reconciliation.progress,
       hydrated: true,
-      persistenceUnavailable: false,
+      persistenceUnavailable: reconciliation.persistence_unavailable,
     });
   } catch {
     publish({ ...snapshot, hydrated: true, persistenceUnavailable: true });
   }
 }
 
-export function LearningProgressProvider() {
+export function LearningProgressProvider({
+  manifests,
+}: {
+  manifests: ProgressManifestRegistry;
+}) {
   useEffect(() => {
-    hydrateFromStorage();
+    configuredManifests = manifests;
+    hydrateFromStorage(manifests);
     const syncFromAnotherTab = (event: StorageEvent) => {
       if (event.key === LOCAL_PROGRESS_V2_STORAGE_KEY || event.key === null) {
-        hydrateFromStorage();
+        hydrateFromStorage(manifests);
       }
     };
     window.addEventListener("storage", syncFromAnotherTab);
     return () => window.removeEventListener("storage", syncFromAnotherTab);
-  }, []);
+  }, [manifests]);
 
   return null;
 }
@@ -82,7 +97,10 @@ export function recordLearningProgress(
   if (!snapshot.hydrated && typeof window !== "undefined") {
     hydrateFromStorage();
   }
-  let next = snapshot.progress;
+  let next = discardOutdatedLessonProgressV2(
+    snapshot.progress,
+    configuredManifests,
+  );
   for (const event of events) {
     next = applyLessonProgressEvent(next, lessonId, manifest, event);
   }
@@ -101,5 +119,12 @@ export function recordLearningProgress(
 }
 
 export function replaceLearningProgress(progress: LocalProgressV2) {
-  publish({ ...snapshot, progress, hydrated: true });
+  publish({
+    ...snapshot,
+    progress: discardOutdatedLessonProgressV2(
+      progress,
+      configuredManifests,
+    ),
+    hydrated: true,
+  });
 }

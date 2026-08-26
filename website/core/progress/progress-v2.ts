@@ -176,11 +176,6 @@ export const ProgressCompletionManifestSchema = z
 export const ProgressEventSchema = z.discriminatedUnion("type", [
   z
     .object({
-      type: z.literal("revision-started"),
-    })
-    .strict(),
-  z
-    .object({
       type: z.literal("section-visited"),
       section_id: StableIdSchema,
     })
@@ -231,6 +226,9 @@ export type LocalProgressV2 = z.infer<typeof LocalProgressV2Schema>;
 export type ProgressCompletionManifest = z.infer<
   typeof ProgressCompletionManifestSchema
 >;
+export type ProgressManifestRegistry = Readonly<
+  Record<string, ProgressCompletionManifest>
+>;
 export type ProgressEvent = z.infer<typeof ProgressEventSchema>;
 export type LessonProgressStatus =
   | "not_started"
@@ -242,6 +240,12 @@ export type ProgressStorage = Pick<
   Storage,
   "getItem" | "setItem" | "removeItem"
 >;
+
+export type StoredProgressReconciliation = {
+  progress: LocalProgressV2;
+  changed: boolean;
+  persistence_unavailable: boolean;
+};
 
 export type LessonProgressEvaluation = {
   status: LessonProgressStatus;
@@ -337,6 +341,34 @@ function hasActivity(progress: LessonProgressV2): boolean {
     Object.keys(progress.learning_artifacts ?? {}).length > 0 ||
     progress.resume !== null
   );
+}
+
+type StoredProgressVersion = "current" | "outdated" | "future";
+
+function compareStoredProgressVersion(
+  progress: LessonProgressV2,
+  manifest: ProgressCompletionManifest,
+): StoredProgressVersion {
+  if (progress.lesson_revision < manifest.lesson_revision) return "outdated";
+  if (progress.lesson_revision > manifest.lesson_revision) return "future";
+
+  const storedAssessmentVersion = progress.final_assessment?.assessment_version;
+  if (storedAssessmentVersion === undefined) return "current";
+  const currentAssessmentVersion =
+    manifest.completion.final_assessment.assessment_version;
+  if (storedAssessmentVersion < currentAssessmentVersion) return "outdated";
+  if (storedAssessmentVersion > currentAssessmentVersion) return "future";
+  return "current";
+}
+
+export function isLessonProgressCurrentV2(
+  progress: LessonProgressV2 | undefined,
+  manifestInput: ProgressCompletionManifest,
+): boolean {
+  if (!progress) return false;
+  const validatedProgress = LessonProgressV2Schema.parse(progress);
+  const manifest = ProgressCompletionManifestSchema.parse(manifestInput);
+  return compareStoredProgressVersion(validatedProgress, manifest) === "current";
 }
 
 function migrateSnakeProgress(
@@ -472,6 +504,38 @@ export function createEmptyLocalProgressV2(): LocalProgressV2 {
   return { schema_version: LOCAL_PROGRESS_V2_SCHEMA_VERSION, lessons: {} };
 }
 
+/**
+ * Drop progress created by an older lesson or assessment revision.
+ *
+ * Cleanup is deliberately scoped to known lesson IDs. Records belonging to
+ * another course stay untouched, and records from a newer revision are kept so
+ * an older deployment cannot erase progress after a rollback.
+ */
+export function discardOutdatedLessonProgressV2(
+  localProgressInput: LocalProgressV2,
+  manifestRegistry: ProgressManifestRegistry,
+): LocalProgressV2 {
+  const localProgress = LocalProgressV2Schema.parse(localProgressInput);
+  const lessons = { ...localProgress.lessons };
+  let changed = false;
+
+  for (const [lessonId, manifestInput] of Object.entries(manifestRegistry)) {
+    const parsedLessonId = StableIdSchema.parse(lessonId);
+    const stored = lessons[parsedLessonId];
+    if (!stored) continue;
+    const manifest = ProgressCompletionManifestSchema.parse(manifestInput);
+    if (compareStoredProgressVersion(stored, manifest) !== "outdated") {
+      continue;
+    }
+    delete lessons[parsedLessonId];
+    changed = true;
+  }
+
+  return changed
+    ? LocalProgressV2Schema.parse({ ...localProgress, lessons })
+    : localProgressInput;
+}
+
 export function evaluateLessonProgressV2(
   progress: LessonProgressV2 | undefined,
   manifestInput: ProgressCompletionManifest,
@@ -490,6 +554,16 @@ export function evaluateLessonProgressV2(
     };
   }
 
+  if (compareStoredProgressVersion(validatedProgress, manifest) !== "current") {
+    return {
+      status: "not_started",
+      completed: false,
+      missing_section_ids: [...manifest.completion.required_section_ids],
+      missing_exercise_ids: [...manifest.completion.required_exercise_ids],
+      assessment_passed: false,
+    };
+  }
+
   const visitedSections = new Set(validatedProgress.visited_sections);
   const missingSectionIds = manifest.completion.required_section_ids.filter(
     (sectionId) => !visitedSections.has(sectionId),
@@ -498,22 +572,6 @@ export function evaluateLessonProgressV2(
     (exerciseId) => !validatedProgress.exercise_attempts[exerciseId]?.passed,
   );
   const assessment = validatedProgress.final_assessment;
-  const versionsMatch =
-    validatedProgress.lesson_revision === manifest.lesson_revision &&
-    (assessment === null ||
-      assessment.assessment_version ===
-        manifest.completion.final_assessment.assessment_version);
-
-  if (!versionsMatch) {
-    return {
-      status: "review_required",
-      completed: false,
-      missing_section_ids: missingSectionIds,
-      missing_exercise_ids: missingExerciseIds,
-      assessment_passed: false,
-    };
-  }
-
   const assessmentPassed = Boolean(assessment?.passed);
   const completed =
     missingSectionIds.length === 0 &&
@@ -539,6 +597,13 @@ export function applyLessonProgressEvent(
   const parsedLessonId = StableIdSchema.parse(lessonId);
   const manifest = ProgressCompletionManifestSchema.parse(manifestInput);
   const event = ProgressEventSchema.parse(eventInput);
+  const stored = localProgress.lessons[parsedLessonId];
+  const storedVersion = stored
+    ? compareStoredProgressVersion(stored, manifest)
+    : "outdated";
+  if (storedVersion === "future") {
+    return localProgressInput;
+  }
 
   if (
     event.type === "exercise-submitted" &&
@@ -548,25 +613,13 @@ export function applyLessonProgressEvent(
   }
 
   const updatedAt = readNow(now);
-  const stored = localProgress.lessons[parsedLessonId];
-  const revisionMatches = stored?.lesson_revision === manifest.lesson_revision;
-
-  if (
-    stored &&
-    !revisionMatches &&
-    (event.type === "section-visited" || event.type === "resume-updated")
-  ) {
-    return localProgressInput;
-  }
   const current =
-    revisionMatches
+    stored && storedVersion === "current"
       ? stored
       : createLessonProgressV2(manifest.lesson_revision, updatedAt);
   let next: LessonProgressV2;
 
-  if (event.type === "revision-started") {
-    next = current;
-  } else if (event.type === "section-visited") {
+  if (event.type === "section-visited") {
     next = {
       ...current,
       visited_sections: current.visited_sections.includes(event.section_id)
@@ -658,34 +711,61 @@ export function applyLessonProgressEvent(
   });
 }
 
-export function loadLocalProgressV2(
+type LoadedLocalProgressV2 = {
+  progress: LocalProgressV2;
+  persistence_unavailable: boolean;
+};
+
+function loadLocalProgressV2WithStatus(
   storage?: ProgressStorage | null,
   now: Now = systemNow,
-): LocalProgressV2 {
-  if (!storage) return createEmptyLocalProgressV2();
+): LoadedLocalProgressV2 {
+  if (!storage) {
+    return {
+      progress: createEmptyLocalProgressV2(),
+      persistence_unavailable: false,
+    };
+  }
 
   let serializedV2: string | null;
   try {
     serializedV2 = storage.getItem(LOCAL_PROGRESS_V2_STORAGE_KEY);
   } catch {
-    return createEmptyLocalProgressV2();
+    return {
+      progress: createEmptyLocalProgressV2(),
+      persistence_unavailable: true,
+    };
   }
 
   if (serializedV2 !== null) {
     try {
       const parsed = LocalProgressV2Schema.safeParse(JSON.parse(serializedV2));
-      if (!parsed.success) return createEmptyLocalProgressV2();
-      return LocalProgressV2Schema.parse({
-        ...parsed.data,
-        lessons: Object.fromEntries(
-          Object.entries(parsed.data.lessons).map(([lessonId, lesson]) => [
-            lessonId,
-            { ...lesson, learning_artifacts: lesson.learning_artifacts ?? {} },
-          ]),
-        ),
-      });
+      if (!parsed.success) {
+        return {
+          progress: createEmptyLocalProgressV2(),
+          persistence_unavailable: false,
+        };
+      }
+      return {
+        progress: LocalProgressV2Schema.parse({
+          ...parsed.data,
+          lessons: Object.fromEntries(
+            Object.entries(parsed.data.lessons).map(([lessonId, lesson]) => [
+              lessonId,
+              {
+                ...lesson,
+                learning_artifacts: lesson.learning_artifacts ?? {},
+              },
+            ]),
+          ),
+        }),
+        persistence_unavailable: false,
+      };
     } catch {
-      return createEmptyLocalProgressV2();
+      return {
+        progress: createEmptyLocalProgressV2(),
+        persistence_unavailable: false,
+      };
     }
   }
 
@@ -693,9 +773,17 @@ export function loadLocalProgressV2(
   try {
     serializedV1 = storage.getItem(LOCAL_PROGRESS_V1_STORAGE_KEY);
   } catch {
-    return createEmptyLocalProgressV2();
+    return {
+      progress: createEmptyLocalProgressV2(),
+      persistence_unavailable: true,
+    };
   }
-  if (serializedV1 === null) return createEmptyLocalProgressV2();
+  if (serializedV1 === null) {
+    return {
+      progress: createEmptyLocalProgressV2(),
+      persistence_unavailable: false,
+    };
+  }
 
   try {
     const raw: unknown = JSON.parse(serializedV1);
@@ -709,20 +797,36 @@ export function loadLocalProgressV2(
             ? migrateCamelProgress(camel.data, updatedAt)
             : null;
         })();
-    if (!migrated) return createEmptyLocalProgressV2();
+    if (!migrated) {
+      return {
+        progress: createEmptyLocalProgressV2(),
+        persistence_unavailable: false,
+      };
+    }
 
     try {
       storage.setItem(
         LOCAL_PROGRESS_V2_STORAGE_KEY,
         JSON.stringify(migrated),
       );
+      return { progress: migrated, persistence_unavailable: false };
     } catch {
       // A storage quota failure should not discard an otherwise valid migration.
+      return { progress: migrated, persistence_unavailable: true };
     }
-    return migrated;
   } catch {
-    return createEmptyLocalProgressV2();
+    return {
+      progress: createEmptyLocalProgressV2(),
+      persistence_unavailable: false,
+    };
   }
+}
+
+export function loadLocalProgressV2(
+  storage?: ProgressStorage | null,
+  now: Now = systemNow,
+): LocalProgressV2 {
+  return loadLocalProgressV2WithStatus(storage, now).progress;
 }
 
 export function saveLocalProgressV2(
@@ -734,6 +838,48 @@ export function saveLocalProgressV2(
     LOCAL_PROGRESS_V2_STORAGE_KEY,
     JSON.stringify(validated),
   );
+}
+
+/**
+ * Load progress and persist the removal of records from obsolete revisions.
+ *
+ * Returning the untouched record when no cleanup is needed is important for
+ * cross-tab storage events: a tab that observes the cleaned value must not
+ * write the same value back and start a synchronization loop.
+ */
+export function reconcileStoredProgressV2(
+  storage: ProgressStorage,
+  manifestRegistry: ProgressManifestRegistry,
+  now: Now = systemNow,
+): StoredProgressReconciliation {
+  const loadedResult = loadLocalProgressV2WithStatus(storage, now);
+  const loaded = loadedResult.progress;
+  const progress = discardOutdatedLessonProgressV2(
+    loaded,
+    manifestRegistry,
+  );
+  if (progress === loaded) {
+    return {
+      progress,
+      changed: false,
+      persistence_unavailable: loadedResult.persistence_unavailable,
+    };
+  }
+
+  try {
+    saveLocalProgressV2(storage, progress);
+    return {
+      progress,
+      changed: true,
+      persistence_unavailable: false,
+    };
+  } catch {
+    return {
+      progress,
+      changed: true,
+      persistence_unavailable: true,
+    };
+  }
 }
 
 export function clearLessonProgressV2(

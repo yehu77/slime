@@ -163,8 +163,7 @@
 }
 .curriculum-recommendation-action:hover svg { transform: translateX(3px); }
 
-.curriculum-recommendation.is-next h2,
-.curriculum-recommendation.is-review h2 { font-size: clamp(24px, 2.3vw, 32px); }
+.curriculum-recommendation.is-next h2 { font-size: clamp(24px, 2.3vw, 32px); }
 .curriculum-recommendation.is-next { grid-template-columns: 30px minmax(0, 1fr); }
 .curriculum-empty-now,
 .curriculum-no-next {
@@ -195,51 +194,6 @@
   text-underline-offset: 6px;
 }
 .curriculum-preflight-link:hover { color: white; text-decoration-color: var(--action-yellow); }
-
-.curriculum-review-queue {
-  background: #e8e0d1;
-  border: 1px solid rgb(16 42 69 / 48%);
-  border-top: 0;
-  padding: clamp(28px, 4vw, 48px);
-}
-.curriculum-review-queue > header {
-  align-items: end;
-  display: flex;
-  gap: 24px;
-  justify-content: space-between;
-  margin-bottom: 24px;
-}
-.curriculum-review-queue > header h2 {
-  font-size: clamp(24px, 3vw, 36px);
-  line-height: 1.15;
-  margin: 0;
-}
-.curriculum-review-queue > header p {
-  color: #526876;
-  font-size: 16px;
-  line-height: 1.7;
-  margin: 8px 0 0;
-  max-width: 68ch;
-}
-.curriculum-review-queue > header > strong {
-  color: var(--action-red);
-  flex: 0 0 auto;
-  font-family: var(--font-mono);
-  font-size: 13px;
-}
-.curriculum-review-list { display: grid; gap: 1px; }
-.curriculum-recommendation.is-review {
-  grid-template-columns: 30px minmax(0, 1fr) minmax(210px, .36fr);
-}
-.curriculum-recommendation.is-review .curriculum-recommendation-copy {
-  padding-block: 28px;
-}
-.curriculum-recommendation.is-review .curriculum-recommendation-action {
-  border-left: 1px solid rgb(16 42 69 / 22%);
-  border-top: 0;
-  grid-column: 3;
-  min-height: 100%;
-}
 
 .curriculum-later,
 .curriculum-full-route {
@@ -294,13 +248,6 @@
   .curriculum-action-heading dl div:last-child { border-right: 0; }
   .curriculum-action-desk { grid-template-columns: 1fr; }
   .curriculum-action-desk > section + section { border-left: 0; border-top: 1px solid rgb(167 215 221 / 22%); }
-  .curriculum-recommendation.is-review { grid-template-columns: 30px minmax(0, 1fr); }
-  .curriculum-recommendation.is-review .curriculum-recommendation-action {
-    border-left: 0;
-    border-top: 1px solid rgb(16 42 69 / 30%);
-    grid-column: 2;
-    min-height: 56px;
-  }
 }
 
 @media (max-width: 560px) {
@@ -313,10 +260,6 @@
   .curriculum-recommendation { grid-template-columns: 28px minmax(0, 1fr); }
   .curriculum-recommendation-copy { padding: 24px 18px 28px; }
   .curriculum-recommendation-action { grid-column: 1 / -1; padding-inline: 18px; }
-  .curriculum-review-queue { padding: 28px 18px; }
-  .curriculum-review-queue > header { align-items: start; flex-direction: column; gap: 12px; }
-  .curriculum-recommendation.is-review { grid-template-columns: 28px minmax(0, 1fr); }
-  .curriculum-recommendation.is-review .curriculum-recommendation-action { grid-column: 1 / -1; }
   .curriculum-later > summary { align-items: start; gap: 5px; grid-template-columns: 1fr; padding-block: 18px; }
   .curriculum-later li { grid-template-columns: 30px minmax(0, 1fr); }
   .curriculum-later li > small { grid-column: 2; }

@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
+  isLessonProgressCurrentV2,
   LearningProgressProvider,
   useLearningProgress,
 } from "../../core/progress";
+import { courseProgressManifests } from "../../content/zh";
 import { LearningCompass } from "./LearningCompass";
 import { useLearningCompass } from "./learning-compass-store";
 import "./site-header.css";
@@ -35,7 +37,18 @@ function HeaderContent() {
   const resumeHref = (() => {
     if (!hydrated || compass) return null;
     const latest = Object.entries(progress.lessons)
-      .filter(([, lesson]) => lesson.resume !== null)
+      .filter(([lessonId, lesson]) => {
+        const manifest = lessonId in courseProgressManifests
+          ? courseProgressManifests[
+              lessonId as keyof typeof courseProgressManifests
+            ]
+          : undefined;
+        return Boolean(
+          manifest &&
+            lesson.resume !== null &&
+            isLessonProgressCurrentV2(lesson, manifest),
+        );
+      })
       .sort(([, left], [, right]) => right.updated_at.localeCompare(left.updated_at))[0];
     if (!latest) return null;
     const [lessonId, lesson] = latest;
@@ -156,7 +169,7 @@ function HeaderContent() {
 export function SiteHeader() {
   return (
     <>
-      <LearningProgressProvider />
+      <LearningProgressProvider manifests={courseProgressManifests} />
       <HeaderContent />
     </>
   );
