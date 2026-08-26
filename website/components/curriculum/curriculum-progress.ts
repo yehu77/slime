@@ -1,5 +1,6 @@
 import {
   courseProgressManifests,
+  sampleJourneyMessages,
   sampleToGenerationCourse,
   slimeCurriculum,
   type Curriculum,
@@ -53,13 +54,16 @@ function introRecommendation(
         timeline: resume.timeline_mode,
       })
     : "/learn/sample-journey";
+  const eventTitle = resume
+    ? sampleJourneyMessages[`sample-journey.event.${resume.event_id}.title`]
+    : null;
   return {
     id: "system-intro",
     stageId: "system-intro",
     title: "系统导论：一条 Sample 的七幕旅程",
     description: "先建立完整闭环地图，知道生成、评价、训练与权重发布各自接住什么。",
-    position: resume ? `继续到事件 ${resume.event_id}` : "从第一幕建立全局坐标",
-    actionLabel: status === "review_required" ? "按新版复习系统导论" : status === "in_progress" ? "继续系统导论" : "进入系统导论",
+    position: eventTitle ? `上次停在：${eventTitle}` : "从第一幕建立全局坐标",
+    actionLabel: status === "review_required" ? "查看新版系统导论" : status === "in_progress" ? "继续系统导论" : "进入系统导论",
     route,
     status,
   };
@@ -81,8 +85,14 @@ function generationRecommendation(
         resume?.section_id,
       )
     : sampleToGenerationCourse.metadata.route;
+  const phaseLabel = {
+    orient: "章节开场",
+    model: "机制讲解",
+    verify: "源码核证",
+    practice: "练习与迁移",
+  }[resume?.section_id ?? ""];
   const position = chapter
-    ? `第 ${chapter.number} 章 / ${chapter.title}${resume?.section_id ? ` / ${resume.section_id}` : ""}`
+    ? `第 ${chapter.number} 章 · ${chapter.title}${phaseLabel ? ` · ${phaseLabel}` : ""}`
     : "从课程封面选择第一章";
   return {
     id: "core.sample-to-generation",
@@ -91,7 +101,7 @@ function generationRecommendation(
     title: sampleToGenerationCourse.metadata.title,
     description: "沿 Dataset、DataSource 与 SGLang 的真实边界，重建一条 Sample 得到回答的机制。",
     position,
-    actionLabel: status === "review_required" ? "按新版继续这门课" : status === "in_progress" ? "继续精确位置" : "开始首门机制课",
+    actionLabel: status === "review_required" ? "查看新版课程" : status === "in_progress" ? "继续上次位置" : "开始首门机制课",
     route,
     status,
   };
@@ -103,7 +113,12 @@ function activityTime(progress: LocalProgressV2, lessonId: string) {
 }
 
 /**
- * Derive the learner's action queue without inventing routes for planned work.
+ * Derive three deliberately separate queues:
+ * - continue: the most recently active current-version lesson;
+ * - next: the first not-started open lesson after `continue`, or the first one when idle;
+ * - reviews: revised lessons whose older progress remains preserved.
+ *
+ * A review item never sends the learner backwards by masquerading as "next".
  * Optional preflight remains available elsewhere but never outranks core study.
  */
 export function deriveCurriculumRecommendations(
@@ -116,15 +131,32 @@ export function deriveCurriculumRecommendations(
     progress,
     status["core.sample-to-generation"] ?? "not_started",
   );
-  const active = [intro, generation]
-    .filter((item) => item.status === "in_progress" || item.status === "review_required")
+  const ordered = [intro, generation];
+  const active = ordered
+    .filter((item) => item.status === "in_progress")
     .sort((left, right) => {
       const leftLesson = left.courseId ?? "core.sample-journey";
       const rightLesson = right.courseId ?? "core.sample-journey";
-      return activityTime(progress, rightLesson) - activityTime(progress, leftLesson);
+      return (
+        activityTime(progress, rightLesson) - activityTime(progress, leftLesson) ||
+        ordered.findIndex((item) => item.id === right.id) -
+          ordered.findIndex((item) => item.id === left.id)
+      );
     });
-  const ordered = [intro, generation];
-  const next = ordered.find((item) => item.status !== "completed") ?? generation;
+  const continueRecommendation = active[0] ?? null;
+  const continueIndex = continueRecommendation
+    ? ordered.findIndex((item) => item.id === continueRecommendation.id)
+    : -1;
+  const furthestTouchedIndex = ordered.reduce(
+    (furthest, item, index) => item.status === "not_started" ? furthest : index,
+    -1,
+  );
+  const routeAnchorIndex = Math.max(continueIndex, furthestTouchedIndex);
+  const nextCandidates = ordered.slice(routeAnchorIndex + 1);
+  const next = nextCandidates.find(
+    (item) => item.status === "not_started",
+  ) ?? null;
+  const reviews = ordered.filter((item) => item.status === "review_required");
   const later = curriculum.stages.flatMap((stage) => [
     ...(stage.courses ?? [])
       .filter((course) => course.availability === "planned")
@@ -147,8 +179,9 @@ export function deriveCurriculumRecommendations(
   ]);
 
   return {
-    now: active[0] ?? null,
+    continue: continueRecommendation,
     next,
+    reviews,
     later,
   };
 }
