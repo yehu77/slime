@@ -1,10 +1,6 @@
 import type {
   EarlyFieldDiagnosticCase,
   FieldLifecycleEntry,
-  GroupingAliasProbe,
-  GroupingComparisonRule,
-  GroupingCounterFrame,
-  GroupingLabGroup,
   ProducerRelayStage,
   RequestAssemblyStage,
   RequestFixturePacket,
@@ -21,6 +17,7 @@ import type {
   WritebackFixture,
   WritebackTerminalCase,
 } from "../../content/zh/lessons/sample-to-generation";
+import type { GroupingInvestigationManifest } from "../../core/sample-to-generation";
 
 export type ChapterOneTranslationChapter = SampleToGenerationChapter & {
   tracePassport: NonNullable<SampleToGenerationChapter["tracePassport"]>;
@@ -35,10 +32,7 @@ export type ChapterTwoProvenanceChapter = SampleToGenerationChapter & {
 };
 
 export type ChapterThreeGroupingChapter = SampleToGenerationChapter & {
-  groupingLabGroups: readonly GroupingLabGroup[];
-  groupingCounterFrames: readonly GroupingCounterFrame[];
-  groupingComparisonRules: readonly GroupingComparisonRule[];
-  groupingAliasProbe: GroupingAliasProbe;
+  groupingInvestigation: GroupingInvestigationManifest;
 };
 
 export type ChapterFourRequestBoundaryChapter = SampleToGenerationChapter & {
@@ -90,10 +84,7 @@ export function hasChapterThreeGroupingData(
 ): chapter is ChapterThreeGroupingChapter {
   return Boolean(
     chapter?.slug === "group-without-aliasing" &&
-    chapter.groupingLabGroups &&
-    chapter.groupingCounterFrames &&
-    chapter.groupingComparisonRules &&
-    chapter.groupingAliasProbe,
+    chapter.groupingInvestigation,
   );
 }
 

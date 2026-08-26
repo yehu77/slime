@@ -1,0 +1,11 @@
+{
+  "prompt": "No generative prompt. Deterministic derivative of the user's local image library.",
+  "sourceLibraryPath": "anime7000/00329_wallspic_141977-pc_game-rain-bangs-girl-city-1920x1080.jpg",
+  "rightsConfirmation": "On 2026-08-26, the user confirmed that this local source image may be used on the public website. No specific license name was provided.",
+  "focalCrop": { "source": { "x": 0, "y": 0, "width": 1920, "height": 1080 }, "strategy": "full-frame 16:9" },
+  "processing": "EXIF orientation normalization; cwebp 1.6.0 decode; resize to 1600x900; WebP quality=88, method=6, metadata stripped. No generative editing, text overlay, or color manipulation.",
+  "deterministicProcessing": true,
+  "generativeEditing": false,
+  "output": { "width": 1600, "height": 900, "format": "webp" },
+  "createdAt": "2026-08-26"
+}

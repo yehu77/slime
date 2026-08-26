@@ -48,24 +48,24 @@ function correctAnswer(exercise: StructuredExercise): StructuredExerciseAnswer {
 }
 
 describe("sample-to-generation course contract", () => {
-  it("publishes six detailed chapters totaling 78 minutes plus a 10-minute assessment", () => {
+  it("derives the 114-minute course duration from six chapters and the assessment", () => {
     expect(sampleToGenerationChapters).toHaveLength(6);
     expect(
       sampleToGenerationChapters.reduce(
         (total, chapter) => total + chapter.durationMinutes,
         0,
       ),
-    ).toBe(78);
+    ).toBe(104);
     expect(sampleToGenerationCourse.metadata.durationMinutes).toEqual({
-      chapters: 78,
+      chapters: 104,
       assessment: 10,
-      total: 88,
+      total: 114,
     });
     expect(sampleToGenerationCourse.metadata.requiresGpu).toBe(false);
     expect(sampleToGenerationCourse.metadata.sourceBaseline.commit).toBe(
       "06ffdbe22be068b52f9ed0fc318c473f7030197e",
     );
-    expect(sampleToGenerationCourse.metadata.lessonRevision).toBe(8);
+    expect(sampleToGenerationCourse.metadata.lessonRevision).toBe(9);
     expect(sampleToGenerationCourse.metadata.assessmentVersion).toBe(2);
   });
 
@@ -189,7 +189,7 @@ describe("sample-to-generation course contract", () => {
     expect(hasChapterThreeGroupingData(chapterThree)).toBe(true);
     expect(hasChapterThreeGroupingData({
       ...chapterThree,
-      groupingAliasProbe: undefined,
+      groupingInvestigation: undefined,
     })).toBe(false);
     expect(hasChapterThreeGroupingData(chapterTwo)).toBe(false);
 
@@ -215,82 +215,33 @@ describe("sample-to-generation course contract", () => {
     expect(hasChapterSixWritebackData(chapterFive)).toBe(false);
   });
 
-  it("projects chapter three from the fixed 2×2 fixture without inventing identities", () => {
+  it("binds chapter three to its fault-investigation manifest instead of a pre-solved grouping lab", () => {
     const chapter = sampleToGenerationChapters[2];
     expect(chapter.slug).toBe("group-without-aliasing");
     expect(hasChapterThreeGroupingData(chapter)).toBe(true);
     if (!hasChapterThreeGroupingData(chapter)) {
-      throw new Error("chapter three must provide its dedicated grouping contract");
+      throw new Error("chapter three must provide its dedicated grouping investigation");
     }
 
-    const groupedState = seekSampleToGeneration(
-      sampleToGenerationFixture,
-      "groups-built",
-    );
-    expect(chapter.groupingLabGroups).toHaveLength(
-      sampleToGenerationFixture.expected.groups,
-    );
-    expect(chapter.groupingLabGroups.map((group) => ({
-      origin_id: group.originId,
-      group_index: group.groupIndex,
-      members: group.candidates.map((candidate) => ({
-        sample_id: candidate.id,
-        index: candidate.index,
-      })),
-    }))).toEqual(sampleToGenerationFixture.group_plan);
-
-    for (const group of chapter.groupingLabGroups) {
-      const row = sampleToGenerationFixture.rows.find(
-        (candidate) => candidate.origin_id === group.originId,
-      );
-      expect(row).toBeDefined();
-      expect(group).toMatchObject({
-        prompt: row?.text,
-        label: row?.label,
-        metadata: row?.metadata,
-      });
-      for (const candidate of group.candidates) {
-        expect(groupedState.samples[candidate.id]).toMatchObject({
-          origin_id: group.originId,
-          group_index: group.groupIndex,
-          index: candidate.index,
-          status: "pending",
-          reward: null,
-        });
-      }
-      expect(group.identityChecks).toHaveLength(2);
-      expect(group.identityChecks.every((check) => check.result === false)).toBe(true);
-      expect(group.identityChecks.map((check) => check.expression).join(" ")).not.toMatch(
-        /Sample#|metadata#/,
-      );
-    }
-
-    expect(chapter.groupingCounterFrames).toHaveLength(
-      sampleToGenerationFixture.expected.physical_samples,
-    );
-    chapter.groupingCounterFrames.forEach((frame, index) => {
-      const previous = chapter.groupingCounterFrames[index - 1];
-      if (previous) {
-        expect(frame.groupCounterBefore).toBe(previous.groupCounterAfter);
-        expect(frame.sampleCounterBefore).toBe(previous.sampleCounterAfter);
-      }
-      expect(frame.sampleCounterAfter).toBe(frame.sampleCounterBefore + 1);
-    });
-    expect(chapter.groupingCounterFrames.at(-1)).toMatchObject({
-      groupCounterAfter: 2,
-      sampleCounterAfter: 4,
-    });
-
-    const probe = chapter.groupingAliasProbe;
-    expect(probe.actualAfter).toEqual([
-      expect.objectContaining({ sampleId: "a0", value: probe.mutatedValue }),
-      expect.objectContaining({ sampleId: "a1", value: probe.fixtureValue }),
-      expect.objectContaining({ sampleId: "origin-a seed", value: probe.fixtureValue }),
+    const investigation = chapter.groupingInvestigation;
+    expect(investigation.id).toBe("stg.chapter-3-grouping-investigation-v3");
+    expect(investigation.phases.map((phase) => phase.id)).toEqual([
+      "orient",
+      "model",
+      "verify",
+      "practice",
     ]);
-    expect(probe.counterfactualAfter.every((item) => item.value === probe.mutatedValue)).toBe(true);
+    expect(investigation.phases[0].incident.title).toContain("教学假想故障");
+    expect(investigation.phases[0].incident.report.join(" ")).toContain("a0(g=0,i=0)");
+    expect(investigation.phases[1].workedTrace).toHaveLength(6);
+    expect(investigation.phases[3].parameters).toEqual({ P: 3, N: 2, G0: 4, I0: 30 });
+    expect(investigation.expectedValues.matrix.map((entry) => entry.candidateId)).toEqual([
+      "x0", "x1", "y0", "y1", "z0", "z1",
+    ]);
+    expect(investigation.expectedValues.countersAfter).toEqual({ groupIndex: 7, sampleIndex: 36 });
 
     expect(chapter.exercise).toMatchObject({
-      id: "stg.chapter-3-identity-matrix-v2",
+      id: "stg.chapter-3-grouping-investigation-v3",
       kind: "field-entry",
     });
     expect(gradeStructuredExercise(chapter.exercise, correctAnswer(chapter.exercise)).correct).toBe(true);
@@ -1129,6 +1080,6 @@ describe("sample-to-generation course contract", () => {
     expect(sampleToGenerationCourse.teachingValuesNotice).toMatch(
       /教学 fixture|不来自真实 checkpoint/,
     );
-    expect(sampleToGenerationCourse.metadata.summary).toMatch(/固定 2×2 trace/);
+    expect(sampleToGenerationCourse.metadata.summary).toMatch(/固定源码证据与可复算 trace/);
   });
 });

@@ -13,6 +13,32 @@ export {
   type StructuredExerciseAnswer,
 } from "./assessment";
 export { comprehensiveAssessmentFixture } from "./assessment-fixture";
+export {
+  GROUPING_MISCONCEPTION_DIMENSION_IDS,
+  buildGroupingExpectedValues,
+  buildGroupingInvestigationPrompt,
+  gradeGroupingInitialJudgement,
+  gradeGroupingInvestigation,
+  simulateGroupingInvestigation,
+  type GroupingCandidate,
+  type GroupingFaultBoundary,
+  type GroupingFaultCard,
+  type GroupingFaultCardAnswer,
+  type GroupingInvestigationExpectedValues,
+  type GroupingInvestigationGrade,
+  type GroupingInvestigationManifest,
+  type GroupingInvestigationPrompt,
+  type GroupingInvestigationSubmission,
+  type GroupingInitialJudgementGrade,
+  type GroupingInitialJudgementSubmission,
+  type GroupingMatrixEntry,
+  type GroupingMisconceptionDimension,
+  type GroupingMisconceptionDimensionId,
+  type GroupingSeedOccurrence,
+  type GroupingSimulation,
+  type GroupingSimulationInput,
+  type GroupingTraceStep,
+} from "./grouping-investigation";
 export { sampleToGenerationFixture } from "./fixture";
 export {
   checkSampleToGenerationInvariants,
