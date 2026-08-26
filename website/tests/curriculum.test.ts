@@ -128,7 +128,7 @@ describe("global curriculum contract", () => {
     });
   });
 
-  it("derives an exact Now resume and keeps planned work unlinkable", () => {
+  it("derives an exact Continue resume without sending the learner backwards", () => {
     let progress = applyLessonProgressEvent(
       createEmptyLocalProgressV2(),
       "core.sample-to-generation",
@@ -152,13 +152,14 @@ describe("global curriculum contract", () => {
     );
 
     const recommendations = deriveCurriculumRecommendations(progress);
-    expect(recommendations.now).toMatchObject({
+    expect(recommendations.continue).toMatchObject({
       id: "core.sample-to-generation",
       position: expect.stringContaining("第 3 章"),
       route:
         "/learn/sample-to-generation?chapter=group-without-aliasing#model",
     });
-    expect(recommendations.next.id).toBe("system-intro");
+    expect(recommendations.next).toBeNull();
+    expect(recommendations.reviews).toEqual([]);
     expect(recommendations.later.map((item) => item.id)).toEqual([
       "core.generation-to-reward",
       "core.reward-to-train-data",
@@ -172,7 +173,7 @@ describe("global curriculum contract", () => {
     expect(recommendations.later.every((item) => !("route" in item))).toBe(true);
   });
 
-  it("chooses Now by latest activity but keeps Next in curriculum order", () => {
+  it("chooses Continue by latest activity and only looks forward for Next", () => {
     let progress = applyLessonProgressEvent(
       createEmptyLocalProgressV2(),
       "core.sample-journey",
@@ -189,19 +190,21 @@ describe("global curriculum contract", () => {
     );
 
     const recommendations = deriveCurriculumRecommendations(progress);
-    expect(recommendations.now?.id).toBe("core.sample-to-generation");
-    expect(recommendations.next.id).toBe("system-intro");
+    expect(recommendations.continue?.id).toBe("core.sample-to-generation");
+    expect(recommendations.next).toBeNull();
+    expect(recommendations.reviews).toEqual([]);
   });
 
   it("starts the action queue at the non-optional system introduction", () => {
     const recommendations = deriveCurriculumRecommendations(
       createEmptyLocalProgressV2(),
     );
-    expect(recommendations.now).toBeNull();
+    expect(recommendations.continue).toBeNull();
     expect(recommendations.next).toMatchObject({
       id: "system-intro",
       route: "/learn/sample-journey",
     });
+    expect(recommendations.reviews).toEqual([]);
 
     const html = renderToStaticMarkup(
       createElement(CurriculumActionPage, {
@@ -210,13 +213,151 @@ describe("global curriculum contract", () => {
         learnerStatusByUnit: {},
       }),
     );
-    expect(html).toContain("现在");
-    expect(html).toContain("下一步");
+    expect(html).toContain("继续上次学习");
+    expect(html).toContain("接下来");
     expect(html).toContain("展开完整七阶段路线");
     expect(html).toContain('href="/learn/sample-journey"');
     expect(html).toContain("从生成完成到评价与按组收回");
     expect(html).toContain("计划中");
     expect(html).not.toContain('href="/learn/reward');
     expect(html).not.toContain('href="null"');
+  });
+
+  it("keeps revised Stage 02 in Review while continuing Stage 03", () => {
+    const introManifest = courseProgressManifests["core.sample-journey"];
+    const generationManifest = courseProgressManifests["core.sample-to-generation"];
+    let progress = applyLessonProgressEvent(
+      createEmptyLocalProgressV2(),
+      "core.sample-journey",
+      introManifest,
+      { type: "section-visited", section_id: "act-5" },
+      () => "2026-08-25T11:55:00.000Z",
+    );
+    progress = applyLessonProgressEvent(
+      progress,
+      "core.sample-journey",
+      introManifest,
+      {
+        type: "resume-updated",
+        resume: {
+          kind: "sample-journey",
+          event_id: "train_data_built",
+          selected_sample_id: "a0",
+          timeline_mode: "sync",
+          fixture_id: null,
+        },
+      },
+      () => "2026-08-25T11:56:00.000Z",
+    );
+    const introLesson = progress.lessons["core.sample-journey"]!;
+    progress = {
+      ...progress,
+      lessons: {
+        ...progress.lessons,
+        "core.sample-journey": {
+          ...introLesson,
+          lesson_revision: introManifest.lesson_revision - 1,
+        },
+      },
+    };
+    progress = applyLessonProgressEvent(
+      progress,
+      "core.sample-to-generation",
+      generationManifest,
+      { type: "section-visited", section_id: "stg.chapter-5" },
+      () => "2026-08-25T12:00:00.000Z",
+    );
+    progress = applyLessonProgressEvent(
+      progress,
+      "core.sample-to-generation",
+      generationManifest,
+      {
+        type: "resume-updated",
+        resume: {
+          kind: "chaptered",
+          chapter_id: "stg.chapter-5",
+          section_id: "orient",
+        },
+      },
+      () => "2026-08-25T12:01:00.000Z",
+    );
+
+    const recommendations = deriveCurriculumRecommendations(progress);
+    expect(recommendations.continue).toMatchObject({
+      id: "core.sample-to-generation",
+      position: expect.stringContaining("章节开场"),
+    });
+    expect(recommendations.next).toBeNull();
+    expect(recommendations.reviews).toHaveLength(1);
+    expect(recommendations.reviews[0]).toMatchObject({
+      id: "system-intro",
+      status: "review_required",
+      position: "上次停在：转换 1/2：从 Sample 显式构造训练字段",
+      actionLabel: "查看新版系统导论",
+    });
+
+    const html = renderToStaticMarkup(
+      createElement(CurriculumActionPage, {
+        curriculum: slimeCurriculum,
+        recommendations,
+        learnerStatusByUnit: deriveCurriculumLearnerStatus(progress),
+      }),
+    );
+    expect(html).toContain("待复习");
+    expect(html).toContain("不必从当前课程倒退");
+    expect(html).toContain("暂时没有另一项已开放课程");
+    expect(html).not.toContain("继续到事件 train_data_built");
+  });
+
+  it("never recommends an earlier untouched lesson after a later lesson was completed", () => {
+    let progress = applyLessonProgressEvent(
+      createEmptyLocalProgressV2(),
+      "core.sample-to-generation",
+      courseProgressManifests["core.sample-to-generation"],
+      { type: "section-visited", section_id: "stg.chapter-1" },
+      () => "2026-08-25T12:00:00.000Z",
+    );
+    const generationLesson = progress.lessons["core.sample-to-generation"]!;
+    progress = {
+      ...progress,
+      lessons: {
+        ...progress.lessons,
+        "core.sample-to-generation": {
+          ...generationLesson,
+          visited_sections: [
+            ...courseProgressManifests["core.sample-to-generation"].completion.required_section_ids,
+          ],
+          exercise_attempts: Object.fromEntries(
+            courseProgressManifests["core.sample-to-generation"].completion.required_exercise_ids.map(
+              (exerciseId) => [exerciseId, {
+                attempt_count: 1,
+                passed: true,
+                last_response: { type: "choice", selected_option_ids: ["done"] } as const,
+                last_attempt_at: "2026-08-25T12:02:00.000Z",
+                passed_at: "2026-08-25T12:02:00.000Z",
+              }],
+            ),
+          ),
+          final_assessment: {
+            assessment_version: courseProgressManifests["core.sample-to-generation"].completion.final_assessment.assessment_version,
+            attempt_count: 1,
+            last_correct_question_ids: [
+              ...courseProgressManifests["core.sample-to-generation"].completion.final_assessment.question_ids,
+            ],
+            last_score: courseProgressManifests["core.sample-to-generation"].completion.final_assessment.question_ids.length,
+            best_score: courseProgressManifests["core.sample-to-generation"].completion.final_assessment.question_ids.length,
+            last_required_question_ids_passed: true,
+            passed: true,
+            last_attempt_at: "2026-08-25T12:03:00.000Z",
+            passed_at: "2026-08-25T12:03:00.000Z",
+          },
+        },
+      },
+    };
+
+    const recommendations = deriveCurriculumRecommendations(progress);
+    expect(recommendations.continue).toBeNull();
+    expect(recommendations.next).toBeNull();
+    expect(recommendations.reviews).toEqual([]);
   });
 });

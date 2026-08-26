@@ -25,12 +25,17 @@ function RecommendationSheet({
   kind,
 }: {
   recommendation: CurriculumRecommendation;
-  kind: "now" | "next";
+  kind: "continue" | "next" | "review";
 }) {
+  const indexLabel = {
+    continue: "CONTINUE",
+    next: "NEXT",
+    review: "REVIEW",
+  }[kind];
   return (
     <article className={`curriculum-recommendation is-${kind}`}>
       <div className="curriculum-recommendation-index" aria-hidden="true">
-        <span>{kind === "now" ? "NOW" : "NEXT"}</span>
+        <span>{indexLabel}</span>
         <i /><i /><i />
       </div>
       <div className="curriculum-recommendation-copy">
@@ -59,16 +64,13 @@ export function CurriculumActionPage({
   recommendations,
   learnerStatusByUnit,
 }: CurriculumActionPageProps) {
-  const primary = recommendations.now ?? recommendations.next;
-  const nextIsPrimary = primary.id === recommendations.next.id;
-
   return (
     <section className="curriculum-action-page" aria-labelledby="curriculum-action-title">
       <header className="curriculum-action-heading">
         <div>
           <h1 id="curriculum-action-title">先确认手里的这一页，再向前走。</h1>
           <p>
-            这里不要求你先读完整张路线图。它只保留当前坐标、下一项学习任务，以及尚未开放的远景。
+            继续上次学习、顺序中的下一项与内容修订在这里分开呈现。待复习不会打断当前课程，也不会再被叫作“下一步”。
           </p>
         </div>
         <dl aria-label="学习路线原则">
@@ -78,31 +80,57 @@ export function CurriculumActionPage({
       </header>
 
       <div className="curriculum-action-desk">
-        <section aria-labelledby="curriculum-now-title">
-          <h2 id="curriculum-now-title">现在</h2>
-          {recommendations.now ? (
-            <RecommendationSheet recommendation={recommendations.now} kind="now" />
+        <section aria-labelledby="curriculum-continue-title">
+          <h2 id="curriculum-continue-title">继续上次学习</h2>
+          {recommendations.continue ? (
+            <RecommendationSheet recommendation={recommendations.continue} kind="continue" />
           ) : (
             <div className="curriculum-empty-now">
-              <p>还没有进行中的课程。第一条可学习路径已经替你定位好。</p>
+              <p>目前没有进行中的课程。右侧会显示顺序中第一项尚未开始、且已经开放的内容。</p>
             </div>
           )}
         </section>
 
         <section aria-labelledby="curriculum-next-title">
-          <h2 id="curriculum-next-title">下一步</h2>
-          {nextIsPrimary && recommendations.now ? (
-            <p className="curriculum-same-next">
-              先完成上方正在进行的内容；罗盘会在章节与阶段变化时自动更新精确位置。
-            </p>
-          ) : (
+          <h2 id="curriculum-next-title">接下来</h2>
+          {recommendations.next ? (
             <RecommendationSheet recommendation={recommendations.next} kind="next" />
+          ) : (
+            <div className="curriculum-no-next">
+              <strong>暂时没有另一项已开放课程</strong>
+              <p>
+                {recommendations.continue
+                  ? "先沿左侧精确位置继续；后续课程开放后会出现在这里。"
+                  : "当前已开放内容均已完成；可以查看待复习项目或展开完整路线。"}
+              </p>
+            </div>
           )}
           <a className="curriculum-preflight-link" href="/start#preflight">
             不确定基础是否够用？做一次可选的 3 分钟课前诊断
           </a>
         </section>
       </div>
+
+      {recommendations.reviews.length ? (
+        <section className="curriculum-review-queue" aria-labelledby="curriculum-review-title">
+          <header>
+            <div>
+              <h2 id="curriculum-review-title">待复习</h2>
+              <p>这些内容已有修订，但旧进度仍被保留。你可以稍后回来，不必从当前课程倒退。</p>
+            </div>
+            <strong>{recommendations.reviews.length} 项可选复习</strong>
+          </header>
+          <div className="curriculum-review-list">
+            {recommendations.reviews.map((recommendation) => (
+              <RecommendationSheet
+                key={recommendation.id}
+                kind="review"
+                recommendation={recommendation}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <details className="curriculum-later">
         <summary>

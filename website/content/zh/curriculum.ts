@@ -41,8 +41,9 @@ export interface CurriculumRecommendation {
 }
 
 export interface CurriculumRecommendations {
-  now: CurriculumRecommendation | null;
-  next: CurriculumRecommendation;
+  continue: CurriculumRecommendation | null;
+  next: CurriculumRecommendation | null;
+  reviews: readonly CurriculumRecommendation[];
   later: readonly CurriculumLaterItem[];
 }
 
