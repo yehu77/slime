@@ -298,6 +298,213 @@ export const SampleToGenerationFixtureSchema = z
     });
   });
 
+const AssessmentDatasetConfigSchema = z
+  .object({
+    prompt_key: z.literal("question"),
+    label_key: z.literal("answer"),
+    metadata_key: z.literal("context"),
+    n_samples_per_prompt: z.literal(2),
+  })
+  .strict();
+
+const AssessmentRowSchema = z
+  .object({
+    question: z.literal("6 × 2 = ?"),
+    answer: z.literal("12"),
+    context: z
+      .object({
+        source_name: z.literal("terminal_assessment"),
+        difficulty: z.literal("transfer"),
+      })
+      .strict(),
+  })
+  .strict();
+
+const AssessmentGroupMemberSchema = z
+  .object({
+    sample_id: z.enum(["c20", "c21"]),
+    group_index: z.literal(7),
+    index: z.union([z.literal(20), z.literal(21)]),
+  })
+  .strict();
+
+/**
+ * A fresh transfer trace for the terminal assessment. It is intentionally
+ * separate from the 2×2 chapter fixture: learners must reconstruct the
+ * contracts on a new origin and non-zero identity counters.
+ */
+export const ComprehensiveAssessmentFixtureSchema = z
+  .object({
+    schema_version: z.literal("sample-to-generation-assessment/1"),
+    fixture_id: z.literal("assessment-orion-v1"),
+    slime_ref: z
+      .object({
+        tag: z.literal("v0.3.1"),
+        describe: z.literal("v0.3.1-1-g06ffdbe2"),
+        commit: z.literal("06ffdbe22be068b52f9ed0fc318c473f7030197e"),
+      })
+      .strict(),
+    teaching_notice: z.string().min(1),
+    origin_id: z.literal("origin-c"),
+    dataset_config: AssessmentDatasetConfigSchema,
+    row: AssessmentRowSchema,
+    grouping: z
+      .object({
+        counters_before: z
+          .object({ group: z.literal(7), index: z.literal(20) })
+          .strict(),
+        counters_after: z
+          .object({ group: z.literal(8), index: z.literal(22) })
+          .strict(),
+        members: z.array(AssessmentGroupMemberSchema).length(2),
+        focus_sample_id: z.literal("c21"),
+        clone_probe: z
+          .object({
+            mutation: z.literal('c21.metadata.difficulty = "diagnostic"'),
+            expected_after: z
+              .object({
+                c20: z.literal("transfer"),
+                c21: z.literal("diagnostic"),
+              })
+              .strict(),
+          })
+          .strict(),
+      })
+      .strict(),
+    tokenizer: z
+      .object({
+        kind: z.literal("teaching-only"),
+        notice: z.string().min(1),
+        prompt_ids: z.tuple([
+          z.literal(41),
+          z.literal(42),
+          z.literal(43),
+          z.literal(44),
+          z.literal(45),
+        ]),
+      })
+      .strict(),
+    request: z
+      .object({
+        sample_id: z.literal("c21"),
+        method: z.literal("POST"),
+        endpoint: z.literal("/generate"),
+        payload: SglangPayloadSchema,
+      })
+      .strict(),
+    response_receipt: ResponseReceiptSchema,
+    writeback: z
+      .object({
+        sample_id: z.literal("c21"),
+        before: SampleToGenerationSampleSchema,
+        after: SampleToGenerationSampleSchema,
+      })
+      .strict(),
+    expected_first_error: z
+      .object({
+        station_id: z.literal("station-request-boundary"),
+        boundary: z.literal("request-payload"),
+        path: z.literal("request.payload.input_ids"),
+        expected: z.array(z.number().int()).min(1),
+        actual: z.array(z.number().int()).min(1),
+        explanation: z.string().min(1),
+      })
+      .strict(),
+  })
+  .strict()
+  .superRefine((fixture, context) => {
+    const memberIds = fixture.grouping.members.map((member) => member.sample_id);
+    const memberIndices = fixture.grouping.members.map((member) => member.index);
+    if (new Set(memberIds).size !== 2 || new Set(memberIndices).size !== 2) {
+      context.addIssue({
+        code: "custom",
+        path: ["grouping", "members"],
+        message: "assessment candidates must have unique sample IDs and indices",
+      });
+    }
+
+    const focus = fixture.grouping.members.find(
+      (member) => member.sample_id === fixture.grouping.focus_sample_id,
+    );
+    if (!focus || focus.group_index !== 7 || focus.index !== 21) {
+      context.addIssue({
+        code: "custom",
+        path: ["grouping", "focus_sample_id"],
+        message: "focus sample must resolve to c21=(group 7, index 21)",
+      });
+    }
+
+    const promptIds = [...fixture.tokenizer.prompt_ids];
+    const requestIds = fixture.request.payload.input_ids;
+    if (
+      requestIds.length !== promptIds.length - 1 ||
+      requestIds.some((tokenId, index) => tokenId !== promptIds[index])
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["request", "payload", "input_ids"],
+        message: "the assessment request must omit only the final prompt token",
+      });
+    }
+
+    const { before, after } = fixture.writeback;
+    if (
+      before.origin_id !== fixture.origin_id ||
+      before.group_index !== focus?.group_index ||
+      before.index !== focus?.index ||
+      before.tokens.length !== promptIds.length ||
+      before.tokens.some((tokenId, index) => tokenId !== promptIds[index])
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["writeback", "before"],
+        message: "writeback must begin from the original five-token c21 Sample",
+      });
+    }
+
+    const tuples = fixture.response_receipt.raw_body.meta_info.output_token_logprobs ?? [];
+    const responseTokens = tuples.map((tuple) => tuple[1]);
+    const responseLogProbs = tuples.map((tuple) => tuple[0]);
+    const promptPrefixPreserved = promptIds.every(
+      (tokenId, index) => after.tokens[index] === tokenId,
+    );
+    if (
+      !promptPrefixPreserved ||
+      after.response_length !== responseTokens.length ||
+      after.loss_mask?.length !== responseTokens.length ||
+      after.rollout_log_probs?.length !== responseTokens.length ||
+      responseTokens.some(
+        (tokenId, index) => after.tokens[promptIds.length + index] !== tokenId,
+      ) ||
+      responseLogProbs.some(
+        (logProb, index) => after.rollout_log_probs?.[index] !== logProb,
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["writeback", "after"],
+        message: "writeback must preserve the prompt prefix and align response-space arrays",
+      });
+    }
+
+    if (
+      fixture.expected_first_error.expected.length !== promptIds.length ||
+      fixture.expected_first_error.expected.some(
+        (tokenId, index) => tokenId !== promptIds[index],
+      ) ||
+      fixture.expected_first_error.actual.length !== requestIds.length ||
+      fixture.expected_first_error.actual.some(
+        (tokenId, index) => tokenId !== requestIds[index],
+      )
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["expected_first_error"],
+        message: "the expected first error must compare the Sample prefix with the request payload",
+      });
+    }
+  });
+
 export type SampleToGenerationObservationId = z.infer<
   typeof SampleToGenerationObservationIdSchema
 >;
@@ -322,4 +529,7 @@ export type SampleToGenerationObservation = z.infer<
 >;
 export type SampleToGenerationFixture = z.infer<
   typeof SampleToGenerationFixtureSchema
+>;
+export type ComprehensiveAssessmentFixture = z.infer<
+  typeof ComprehensiveAssessmentFixtureSchema
 >;

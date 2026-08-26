@@ -1,4 +1,8 @@
-import type { StructuredExercise } from "@/core/sample-to-generation";
+import {
+  comprehensiveAssessmentFixture,
+  type ComprehensiveAssessmentFixture,
+  type StructuredExercise,
+} from "@/core/sample-to-generation";
 
 export type SampleToGenerationExplanation = {
   title: string;
@@ -485,6 +489,39 @@ export type SampleToGenerationSourceEvidence = {
   boundary: string;
 };
 
+export type AssessmentEvidenceStation = {
+  id: string;
+  order: number;
+  chapter: number;
+  title: string;
+  producer: string;
+  observation: string;
+  contract: string;
+  evidence: readonly string[];
+  sourceRefIds: readonly string[];
+};
+
+export type AssessmentCheckpoint = {
+  id: string;
+  order: number;
+  stationId: string;
+  required: boolean;
+  exercise: StructuredExercise;
+};
+
+export type ComprehensiveTraceAssessment = {
+  id: string;
+  title: string;
+  drivingQuestion: string;
+  imageSrc: string;
+  imageAlt: string;
+  scope: string;
+  teachingNotice: string;
+  fixture: ComprehensiveAssessmentFixture;
+  stations: readonly AssessmentEvidenceStation[];
+  checkpoints: readonly AssessmentCheckpoint[];
+};
+
 export type SampleToGenerationCourse = {
   metadata: {
     id: string;
@@ -514,7 +551,7 @@ export type SampleToGenerationCourse = {
   teachingValuesNotice: string;
   learningObjectives: readonly string[];
   chapters: readonly SampleToGenerationChapter[];
-  finalAssessment: readonly StructuredExercise[];
+  finalAssessment: ComprehensiveTraceAssessment;
   sourceEvidence: readonly SampleToGenerationSourceEvidence[];
 };
 
@@ -2677,97 +2714,240 @@ export const sampleToGenerationChapters: readonly SampleToGenerationChapter[] = 
   },
 ];
 
-export const sampleToGenerationFinalAssessment: readonly StructuredExercise[] = [
+function assessmentCheckpoint<const Exercise extends StructuredExercise>(
+  order: number,
+  stationId: string,
+  required: boolean,
+  exercise: Exercise,
+): AssessmentCheckpoint {
+  return { id: exercise.id, order, stationId, required, exercise };
+}
+
+const comprehensiveAssessmentStations = [
   {
-    id: "stg.final-q1",
-    kind: "choice",
-    multiple: false,
-    title: "外部记录与内部协议",
-    prompt: "下面哪句话最准确地区分 Dataset row 与 Sample？",
-    instruction: "选择一个答案。",
-    options: [
-      { id: "contract", label: "row 属于外部 schema；Sample 是 slime 内跨阶段演化的协议对象" },
-      { id: "same", label: "两者完全相同，只是变量名不同" },
-      { id: "tensor", label: "Sample 是已经上 GPU 的训练 tensor" },
+    id: "station-dataset-contract",
+    order: 1,
+    chapter: 1,
+    title: "外部行进入协议",
+    producer: "Dataset",
+    observation: "origin-c 的 row 使用 question / answer / context，而不是首课 trace 的 text / label / metadata。",
+    contract: "字段名由配置解释；只有经过 prompt_key、label_key 与 metadata_key 映射后，外部 row 才成为初始 Sample。",
+    evidence: [
+      'row.question="6 × 2 = ?" → Sample.prompt',
+      'row.answer="12" → Sample.label',
+      "row.context → Sample.metadata",
+      "生成字段仍处在 dataclass 默认状态",
     ],
-    correctOptionIds: ["contract"],
     sourceRefIds: ["dataset.construct-sample", "sample.dataclass"],
-    feedback: { correct: "正确。", incorrect: "区分文件 schema、协议对象与训练 batch。" },
   },
   {
-    id: "stg.final-q2",
-    kind: "field-entry",
-    title: "身份推导（必答）",
-    prompt: "3 个 prompt、每个复制 4 次。填写 group 数和物理 Sample 数。",
-    instruction: "输入十进制整数。",
-    fields: [
-      { id: "groups", label: "group 数", acceptedAnswers: ["3"] },
-      { id: "samples", label: "物理 Sample 数", acceptedAnswers: ["12"] },
+    id: "station-producer-boundary",
+    order: 2,
+    chapter: 2,
+    title: "字段存在不等于已经计算",
+    producer: "Sample dataclass 与后续生产者",
+    observation: "initial Sample 已声明 status、reward 与 train_metadata，但三者仍分别是 pending、null 与 null。",
+    contract: "声明字段、给出默认值、首次产生非默认值和被下游消费，是四个不同事件。",
+    evidence: [
+      "Dataset 只提供 prompt、label、metadata 与 multimodal_inputs",
+      "DataSource 才首次写入 group_index / index",
+      "generation path 才首次写入 response 与 terminal status",
+      "reward 与训练数据仍在本课止线之外",
+    ],
+    sourceRefIds: ["sample.dataclass", "dataset.construct-sample", "rollout.datasource-get-samples"],
+  },
+  {
+    id: "station-grouping-identity",
+    order: 3,
+    chapter: 3,
+    title: "非零计数器下的分组与独立性",
+    producer: "RolloutDataSource.get_samples",
+    observation: "计数器从 group=7、index=20 起步，origin-c 产生 c20=(7,20) 与 c21=(7,21)。",
+    contract: "同组候选共享 group_index；物理 Sample 的 index 唯一；deepcopy 使嵌套 metadata 的修改不跨候选传播。",
+    evidence: [
+      "两个候选共享 group_index=7",
+      "c20.index=20，c21.index=21",
+      "处理完一组后计数器变为 group=8、index=22",
+      "把 c21.metadata.difficulty 改为 diagnostic 后，c20 仍为 transfer",
     ],
     sourceRefIds: ["rollout.datasource-get-samples"],
-    feedback: { correct: "正确。", incorrect: "group 数由 prompt 数决定，总记录数再乘每组候选数。" },
   },
   {
-    id: "stg.final-q3",
-    kind: "choice",
-    multiple: true,
-    title: "网络边界",
-    prompt: "默认纯文本教学路径的 SGLang payload 必须包含哪些顶层字段？",
-    instruction: "选择所有正确项。",
-    options: [
-      { id: "input", label: "input_ids" },
-      { id: "params", label: "sampling_params" },
-      { id: "logprob", label: "return_logprob" },
-      { id: "label", label: "label" },
-      { id: "identity", label: "group_index / index" },
+    id: "station-request-boundary",
+    order: 4,
+    chapter: 4,
+    title: "Sample 前缀跨过网络边界",
+    producer: "slime rollout generation path",
+    observation: "c21 的调用方状态与 /generate payload 分别留下了下面四条记录。",
+    contract: "默认纯文本路径中，payload.input_ids 必须与调用方为该 Sample 保存的 prompt token 序列一致。",
+    evidence: [
+      "tokenizer.prompt_ids=[41,42,43,44,45]",
+      "c21.tokens=[41,42,43,44,45]",
+      "payload.input_ids=[41,42,43,44]",
+      "sampling_params 合法；return_logprob=true",
     ],
-    correctOptionIds: ["input", "params", "logprob"],
-    sourceRefIds: ["rollout.generate-request-envelope"],
-    feedback: { correct: "正确。", incorrect: "只保留服务器执行生成所需的字段。" },
+    sourceRefIds: ["rollout.prepare-prompt-ids", "rollout.generate-state-init", "rollout.generate-request-envelope"],
   },
   {
-    id: "stg.final-q4",
-    kind: "ordering",
-    title: "端到端调用链（必答）",
-    prompt: "排列从外部记录到 response 写回的顺序。",
-    instruction: "从最早到最晚排序。",
-    items: [
-      { id: "dataset", label: "Dataset 构造 seed Sample" },
-      { id: "group", label: "DataSource deepcopy 并编号" },
-      { id: "tokenize", label: "准备 prompt IDs" },
-      { id: "request", label: "POST /generate" },
-      { id: "project", label: "投影 token/log-prob tuple" },
-      { id: "append", label: "append_response_tokens 写回" },
+    id: "station-response-evidence",
+    order: 5,
+    chapter: 5,
+    title: "HTTP body 仍只是写回证据",
+    producer: "SGLang 与调用方 response projection",
+    observation: 'raw body 给出 text="13" 与 tuples=[[-0.223144,31],[-0.105361,32]]。',
+    contract: "tuple[0] 是 log-prob，tuple[1] 是 token ID；text 与 terminal meta_info 保留各自语义，HTTP body 本身不是 Sample。",
+    evidence: [
+      "response token IDs=[31,32]",
+      "response log-probs=[-0.223144,-0.105361]",
+      'finish_reason.type="stop"',
+      'weight_version="actor@3"',
     ],
-    correctOrder: ["dataset", "group", "tokenize", "request", "project", "append"],
-    sourceRefIds: ["dataset.construct-sample", "rollout.datasource-get-samples", "rollout.generate-request-dispatch", "sample.append-response-tokens"],
-    feedback: { correct: "正确。", incorrect: "按对象边界与网络边界逐步重建调用链。" },
+    sourceRefIds: ["rollout.generate"],
   },
   {
-    id: "stg.final-q5",
+    id: "station-writeback-contract",
+    order: 6,
+    chapter: 6,
+    title: "两套坐标完成写回",
+    producer: "Sample.append_response_tokens",
+    observation: "写回沿用原 Sample 的 5-token prompt 前缀，再在回答侧追加 [31,32]。",
+    contract: "tokens 位于完整序列空间；response_length、loss_mask 与 rollout_log_probs 位于回答空间。terminal status 不评价答案正确性。",
+    evidence: [
+      "len(tokens)=7，且前 5 项仍为 [41,42,43,44,45]",
+      "response_length=2，len(loss_mask)=2，len(rollout_log_probs)=2",
+      "stop → status=completed，actor@3 写入 weight_versions",
+      'response="13" 与 label="12" 不同，但 reward 仍为 null',
+    ],
+    sourceRefIds: ["sample.append-core-coordinates", "sample.apply-terminal-info", "sample.validate-response-metadata-full"],
+  },
+] as const satisfies readonly AssessmentEvidenceStation[];
+
+const comprehensiveAssessmentCheckpoints = [
+  assessmentCheckpoint(1, "station-dataset-contract", false, {
+    id: "stg.final-q1-v2",
     kind: "mapping",
-    title: "响应投影",
-    prompt: "把 response 的三种证据映射到用途。",
-    instruction: "每项选择一个用途。",
+    title: "Dataset 字段翻译",
+    prompt: "根据 assessment-orion-v1 的配置，把外部 row 字段映射到初始 Sample。",
+    instruction: "每个外部字段选择一个 Sample 目标字段。",
     items: [
-      { id: "text", label: "output.text" },
-      { id: "token", label: "item[1]" },
-      { id: "logprob", label: "item[0]" },
+      { id: "question", label: "row.question" },
+      { id: "answer", label: "row.answer" },
+      { id: "context", label: "row.context" },
     ],
     targets: [
-      { id: "readable", label: "可读 response" },
-      { id: "append", label: "追加的 token ID" },
-      { id: "policy", label: "rollout policy 概率证据" },
+      { id: "prompt", label: "Sample.prompt" },
+      { id: "label", label: "Sample.label" },
+      { id: "metadata", label: "Sample.metadata" },
     ],
-    correctMapping: { text: "readable", token: "append", logprob: "policy" },
-    sourceRefIds: ["rollout.generate"],
-    feedback: { correct: "正确。", incorrect: "回到两个列表推导式与 text 参数。" },
-  },
-  {
-    id: "stg.final-q6",
+    correctMapping: { question: "prompt", answer: "label", context: "metadata" },
+    sourceRefIds: ["dataset.construct-sample"],
+    feedback: {
+      correct: "映射成立：配置解释外部 schema，Sample 不要求文件预先使用内部字段名。",
+      incorrect: "先读取 prompt_key、label_key 与 metadata_key，再判断三个 row 字段的去向。",
+    },
+  }),
+  assessmentCheckpoint(2, "station-grouping-identity", true, {
+    id: "stg.final-q2-v2",
     kind: "field-entry",
-    title: "长度坐标（必答）",
-    prompt: "prompt 有 5 个 token，response 有 2 个 token。写回后填写四个长度。",
+    title: "非零身份计数（必答）",
+    prompt: "计数器从 group=7、index=20 开始，一个 origin 复制两次。填写 c20、c21 与下一组开始前的计数器。",
+    instruction: "输入十进制整数。",
+    fields: [
+      { id: "group", label: "c20 与 c21 的 group_index", acceptedAnswers: ["7"] },
+      { id: "c20-index", label: "c20.index", acceptedAnswers: ["20"] },
+      { id: "c21-index", label: "c21.index", acceptedAnswers: ["21"] },
+      { id: "next-group", label: "下一 group 计数器", acceptedAnswers: ["8"] },
+      { id: "next-index", label: "下一 index 计数器", acceptedAnswers: ["22"] },
+    ],
+    sourceRefIds: ["rollout.datasource-get-samples"],
+    feedback: {
+      correct: "身份推导正确：group 每个 origin 前进一次，index 每个物理 Sample 前进一次。",
+      incorrect: "不要从 0 重新编号；沿给定的 group=7、index=20 两个计数器逐次推进。",
+    },
+  }),
+  assessmentCheckpoint(3, "station-grouping-identity", false, {
+    id: "stg.final-q3-v2",
+    kind: "choice",
+    multiple: true,
+    title: "同组关系与对象独立",
+    prompt: "对 c20 与 c21，哪些判断分别能由分组规则或 deepcopy 证据支持？",
+    instruction: "选择所有正确项。",
+    options: [
+      { id: "same-group", label: "两者共享 group_index=7，可作为同一 prompt 的候选比较" },
+      { id: "unique-index", label: "两者拥有不同且唯一的 index" },
+      { id: "independent-metadata", label: "修改 c21.metadata 不会改动 c20.metadata" },
+      { id: "same-object", label: "两者是同一对象的两个别名" },
+      { id: "same-response", label: "同组意味着两者必须生成相同 response" },
+    ],
+    correctOptionIds: ["same-group", "unique-index", "independent-metadata"],
+    sourceRefIds: ["rollout.datasource-get-samples"],
+    feedback: {
+      correct: "正确：统计关联由 group_index 表达，对象独立由 deepcopy 保证。",
+      incorrect: "区分“属于同一候选组”和“共享同一个可变对象”；前者不推出后者，也不保证回答相同。",
+    },
+  }),
+  assessmentCheckpoint(4, "station-producer-boundary", true, {
+    id: "stg.final-q4-v2",
+    kind: "ordering",
+    title: "跨边界因果链（必答）",
+    prompt: "把 origin-c 从外部 row 到 terminal writeback 的六个事件按因果顺序排列。",
+    instruction: "从最早到最晚排序。",
+    items: [
+      { id: "request", label: "调用方向 /generate 发送 request payload" },
+      { id: "dataset", label: "Dataset 按配置构造 initial Sample" },
+      { id: "writeback", label: "Sample 写回 response-space 与 terminal 字段" },
+      { id: "group", label: "DataSource deepcopy 并分配 group/index" },
+      { id: "decode", label: "调用方把 response tuples 投影为 token 与 log-prob" },
+      { id: "tokenize", label: "tokenizer 准备并保存 prompt IDs" },
+    ],
+    correctOrder: ["dataset", "group", "tokenize", "request", "decode", "writeback"],
+    sourceRefIds: [
+      "dataset.construct-sample",
+      "rollout.datasource-get-samples",
+      "rollout.prepare-prompt-ids",
+      "rollout.generate",
+      "sample.append-core-coordinates",
+    ],
+    feedback: {
+      correct: "因果链正确；每一步都消费上一边界已经成立的契约。",
+      incorrect: "从生产者依赖出发：没有 Sample 就不能分组，没有 prompt IDs 就不能发请求，没有 HTTP evidence 就不能写回。",
+    },
+  }),
+  assessmentCheckpoint(5, "station-response-evidence", false, {
+    id: "stg.final-q5-v2",
+    kind: "mapping",
+    title: "Response tuple 投影",
+    prompt: "把 assessment-orion-v1 的 HTTP response 证据映射到调用方保留的语义。",
+    instruction: "每项选择一个语义。",
+    items: [
+      { id: "text", label: 'raw_body.text="13"' },
+      { id: "tuple-zero", label: "tuple[0]：-0.223144 / -0.105361" },
+      { id: "tuple-one", label: "tuple[1]：31 / 32" },
+      { id: "finish", label: 'finish_reason.type="stop"' },
+    ],
+    targets: [
+      { id: "readable", label: "人类可读 response 文本" },
+      { id: "logprob", label: "rollout log-prob 证据" },
+      { id: "token", label: "待追加的 response token IDs" },
+      { id: "terminal", label: "terminal status 的输入" },
+    ],
+    correctMapping: {
+      text: "readable",
+      "tuple-zero": "logprob",
+      "tuple-one": "token",
+      finish: "terminal",
+    },
+    sourceRefIds: ["rollout.generate"],
+    feedback: {
+      correct: "投影正确；HTTP body 提供写回证据，但并不因此变成 Sample。",
+      incorrect: "先拆 tuple 位置，再把 text 与 finish_reason 保留在各自的语义边界。",
+    },
+  }),
+  assessmentCheckpoint(6, "station-writeback-contract", true, {
+    id: "stg.final-q6-v2",
+    kind: "field-entry",
+    title: "双时钟长度审计（必答）",
+    prompt: "原 Sample 有 5 个 prompt token，本次 response 有 2 个 token。写回后填写四个长度。",
     instruction: "输入十进制整数。",
     fields: [
       { id: "tokens", label: "len(tokens)", acceptedAnswers: ["7"] },
@@ -2775,44 +2955,73 @@ export const sampleToGenerationFinalAssessment: readonly StructuredExercise[] = 
       { id: "mask", label: "len(loss_mask)", acceptedAnswers: ["2"] },
       { id: "logprob", label: "len(rollout_log_probs)", acceptedAnswers: ["2"] },
     ],
-    sourceRefIds: ["sample.append-response-tokens", "sample.validate-response-metadata-lengths"],
-    feedback: { correct: "正确。", incorrect: "tokens 在完整序列空间，另外三项在 response 空间。" },
-  },
-  {
-    id: "stg.final-q7",
+    sourceRefIds: ["sample.append-core-coordinates", "sample.validate-response-metadata-full"],
+    feedback: {
+      correct: "双时钟对齐：完整序列长 7，三个回答空间量都长 2。",
+      incorrect: "tokens 包含 prompt+response；response_length、loss_mask 与 rollout_log_probs 只沿回答坐标计数。",
+    },
+  }),
+  assessmentCheckpoint(7, "station-writeback-contract", false, {
+    id: "stg.final-q7-v2",
     kind: "choice",
     multiple: false,
-    title: "终止不等于正确",
-    prompt: "response 与 label 不同，但 finish_reason.type=stop。generate 返回时 status 和 reward 应是什么？",
+    title: "正常终止与答案正确性",
+    prompt: 'response="13"、label="12"，但 finish_reason.type="stop"。generate 写回结束时应观察到什么？',
     instruction: "选择一个答案。",
     options: [
       { id: "completed-null", label: "status=completed，reward=null" },
       { id: "failed-zero", label: "status=failed，reward=0" },
       { id: "completed-one", label: "status=completed，reward=1" },
+      { id: "pending-null", label: "status=pending，reward=null" },
     ],
     correctOptionIds: ["completed-null"],
-    sourceRefIds: ["sample.apply-meta-info"],
-    feedback: { correct: "正确。", incorrect: "stop 描述终止原因；reward 尚未运行。" },
-  },
-  {
-    id: "stg.final-q8",
+    sourceRefIds: ["sample.apply-terminal-info"],
+    feedback: {
+      correct: "正确：completed 只说明生成正常终止；reward 生产者尚未运行。",
+      incorrect: "不要在 generation path 内提前比较 label，也不要把 stop 解释为答案正确。",
+    },
+  }),
+  assessmentCheckpoint(8, "station-request-boundary", true, {
+    id: "stg.final-q8-v2",
     kind: "choice",
-    multiple: true,
-    title: "课程边界（必答）",
-    prompt: "generate 刚返回、reward 尚未执行。哪些状态此时应当仍未产生？",
-    instruction: "选择所有正确项。",
+    multiple: false,
+    title: "定位最早错误边界（必答）",
+    prompt: "沿六个 evidence station 审计 assessment-orion-v1，最早被破坏的契约是哪一个？",
+    instruction: "选择最早出现、且能由当前证据直接验证的错误。",
     options: [
-      { id: "reward", label: "reward" },
-      { id: "train", label: "trainer batch / train_metadata" },
-      { id: "optimizer", label: "optimizer step" },
-      { id: "response", label: "response" },
-      { id: "status", label: "terminal status" },
+      { id: "dataset-mapping", label: "Dataset 错把 answer 映射成 metadata" },
+      { id: "identity", label: "c20 与 c21 不应共享 group_index" },
+      { id: "request-prefix", label: "request.payload.input_ids 漏掉 Sample prompt 前缀末尾的 token 45" },
+      { id: "response-label", label: 'SGLang 返回 "13" 而 label 是 "12"，所以 HTTP schema 已损坏' },
+      { id: "reward", label: "status=completed 时 reward 不应为 null" },
     ],
-    correctOptionIds: ["reward", "train", "optimizer"],
-    sourceRefIds: ["rollout.generate", "sample.append-response-tokens"],
-    feedback: { correct: "正确。", incorrect: "本课只到生成写回；response 和 terminal status 已经产生。" },
-  },
-];
+    correctOptionIds: ["request-prefix"],
+    sourceRefIds: ["rollout.prepare-prompt-ids", "rollout.generate-request-envelope"],
+    feedback: {
+      correct: "定位正确：发送请求时已经丢失 token 45；后续快照即使长度自洽，也不能抹去更早的输入边界错误。",
+      incorrect: "按时间从 Dataset 向后审计。response 与 label 不同尚不是 schema 错误，reward=null 也符合本课止线。",
+    },
+  }),
+] as const satisfies readonly AssessmentCheckpoint[];
+
+export const sampleToGenerationComprehensiveAssessment: ComprehensiveTraceAssessment = {
+  id: "stg.comprehensive-trace-v2",
+  title: "综合终测：在陌生 trace 中找到第一处失真",
+  drivingQuestion: "如果每个局部快照看起来都说得通，你还能沿生产者边界找出最早被破坏的那一条契约吗？",
+  imageSrc: "/art/library-act-07-v1.webp",
+  imageAlt: "角色站在层叠档案与观测仪器之间，逐站核对一条陌生生成 trace",
+  scope: "新 trace assessment-orion-v1 · origin-c · 默认纯文本 generate · 固定 commit 06ffdbe2 · 无需 GPU",
+  teachingNotice: comprehensiveAssessmentFixture.teaching_notice,
+  fixture: comprehensiveAssessmentFixture,
+  stations: comprehensiveAssessmentStations,
+  checkpoints: comprehensiveAssessmentCheckpoints,
+};
+
+/** Compatibility array for grading and progress code that consumes exercises directly. */
+export const sampleToGenerationFinalAssessment: readonly StructuredExercise[] =
+  sampleToGenerationComprehensiveAssessment.checkpoints.map(
+    (checkpoint) => checkpoint.exercise,
+  );
 
 export const sampleToGenerationCourse: SampleToGenerationCourse = {
   metadata: {
@@ -2822,7 +3031,7 @@ export const sampleToGenerationCourse: SampleToGenerationCourse = {
     title: "Sample 如何得到回答——从一行输入到 SGLang 写回",
     summary: "沿固定 2×2 trace 逐边界验证 Dataset、Sample、DataSource 与 SGLang generation 的数据契约。",
     lessonRevision: 8,
-    assessmentVersion: 1,
+    assessmentVersion: 2,
     durationMinutes: { chapters: 78, assessment: 10, total: 88 },
     requiresGpu: false,
     sourceBaseline: {
@@ -2834,7 +3043,12 @@ export const sampleToGenerationCourse: SampleToGenerationCourse = {
   completion: {
     requiredChapterIds: sampleToGenerationChapters.map((chapter) => chapter.id),
     minCorrect: 7,
-    requiredQuestionIds: ["stg.final-q2", "stg.final-q4", "stg.final-q6", "stg.final-q8"],
+    requiredQuestionIds: [
+      "stg.final-q2-v2",
+      "stg.final-q4-v2",
+      "stg.final-q6-v2",
+      "stg.final-q8-v2",
+    ],
   },
   teachingValuesNotice:
     "课程中的 token ID、采样输出与 log-prob 是确定性的教学 fixture，不来自真实 checkpoint；系统边界与调用关系由固定 commit 的源码证据验证。",
@@ -2847,6 +3061,6 @@ export const sampleToGenerationCourse: SampleToGenerationCourse = {
     "解释 completed 为什么不代表答案正确",
   ],
   chapters: sampleToGenerationChapters,
-  finalAssessment: sampleToGenerationFinalAssessment,
+  finalAssessment: sampleToGenerationComprehensiveAssessment,
   sourceEvidence: sampleToGenerationSourceEvidence,
 };

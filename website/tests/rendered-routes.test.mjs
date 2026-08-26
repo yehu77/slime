@@ -13,7 +13,7 @@ const routes = [
   ["/learn/sample-to-generation?chapter=sample-to-request", /请求装配与边境检查台/],
   ["/learn/sample-to-generation?chapter=response-projection", /响应分轨场/],
   ["/learn/sample-to-generation?chapter=writeback-contract", /写回双时钟/],
-  ["/learn/sample-to-generation?chapter=assessment", /用一条新 trace 检查机制/],
+  ["/learn/sample-to-generation?chapter=assessment", /综合终测：在陌生 trace 中找到第一处失真/],
   ["/learn/sample-to-generation?chapter=not-a-chapter", /没有名为“not-a-chapter”的章节/],
   ["/glossary", /术语/],
   ["/source", /源码/],
@@ -152,6 +152,18 @@ for (const [route, expected] of routes) {
         (renderedText.match(/打开 a0 写回账本/g) ?? []).length,
         1,
       );
+    }
+    if (route === "/learn/sample-to-generation?chapter=assessment") {
+      assert.match(html, /class="[^"]*\bfinal-trace-reader\b/);
+      assert.match(renderedText, /综合终测：在陌生 trace 中找到第一处失真/);
+      assert.match(renderedText, /新样片只允许一个首错/);
+      assert.match(renderedText, /assessment-orion-v1/);
+      assert.match(renderedText, /origin-c/);
+      assert.match(renderedText, /payload\.input_ids/);
+      assert.match(renderedText, /token 45/);
+      assert.match(renderedText, /八个观察共用上面的同一条 trace/);
+      assert.doesNotMatch(html, /class="[^"]*\bmechanism-assessment-grid\b/);
+      assert.doesNotMatch(html, /class="[^"]*\bmechanism-assessment-item\b/);
     }
   });
 }

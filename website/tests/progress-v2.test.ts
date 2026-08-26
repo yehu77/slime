@@ -1028,6 +1028,154 @@ describe("progress v2 completion", () => {
       ],
     ).toMatchObject({ attempt_count: 3, passed: true, passed_at: LATEST });
   });
+
+  it("keeps all six chapter records while a v1 terminal assessment is reviewed and replaced by v2", () => {
+    const legacyQuestionIds = Array.from(
+      { length: 8 },
+      (_, index) => `stg.final-q${index + 1}`,
+    );
+    const legacyRequiredQuestionIds = [
+      "stg.final-q2",
+      "stg.final-q4",
+      "stg.final-q6",
+      "stg.final-q8",
+    ];
+    const v1AssessmentManifest: ProgressCompletionManifest = {
+      ...sampleToGenerationProgressManifest,
+      completion: {
+        ...sampleToGenerationProgressManifest.completion,
+        final_assessment: {
+          assessment_version: 1,
+          question_ids: legacyQuestionIds,
+          min_correct: 7,
+          required_question_ids: legacyRequiredQuestionIds,
+        },
+      },
+    };
+
+    let legacyProgress = createEmptyLocalProgressV2();
+    for (const sectionId of v1AssessmentManifest.completion.required_section_ids) {
+      legacyProgress = applyLessonProgressEvent(
+        legacyProgress,
+        "core.sample-to-generation",
+        v1AssessmentManifest,
+        { type: "section-visited", section_id: sectionId },
+        now,
+      );
+    }
+    for (const exerciseId of v1AssessmentManifest.completion.required_exercise_ids) {
+      legacyProgress = applyLessonProgressEvent(
+        legacyProgress,
+        "core.sample-to-generation",
+        v1AssessmentManifest,
+        {
+          type: "exercise-submitted",
+          exercise_id: exerciseId,
+          response: { type: "choice", selected_option_ids: ["legacy-pass"] },
+          passed: true,
+        },
+        now,
+      );
+    }
+    legacyProgress = applyLessonProgressEvent(
+      legacyProgress,
+      "core.sample-to-generation",
+      v1AssessmentManifest,
+      { type: "assessment-submitted", correct_question_ids: legacyQuestionIds },
+      now,
+    );
+
+    const legacyLesson = legacyProgress.lessons["core.sample-to-generation"];
+    expect(legacyLesson).toMatchObject({
+      lesson_revision: 8,
+      visited_sections: [...sampleToGenerationProgressManifest.completion.required_section_ids],
+      final_assessment: {
+        assessment_version: 1,
+        best_score: 8,
+        passed: true,
+      },
+    });
+    expect(Object.keys(legacyLesson?.exercise_attempts ?? {}).sort()).toEqual(
+      [...sampleToGenerationProgressManifest.completion.required_exercise_ids].sort(),
+    );
+    expect(
+      evaluateLessonProgressV2(legacyLesson, sampleToGenerationProgressManifest).status,
+    ).toBe("review_required");
+
+    expect(() =>
+      applyLessonProgressEvent(
+        legacyProgress,
+        "core.sample-to-generation",
+        sampleToGenerationProgressManifest,
+        {
+          type: "assessment-submitted",
+          correct_question_ids: ["stg.final-q1"],
+        },
+        () => LATER,
+      ),
+    ).toThrow("Unknown assessment question: stg.final-q1");
+
+    const submittedV2 = applyLessonProgressEvent(
+      legacyProgress,
+      "core.sample-to-generation",
+      sampleToGenerationProgressManifest,
+      {
+        type: "assessment-submitted",
+        correct_question_ids: [
+          ...sampleToGenerationProgressManifest.completion.final_assessment.question_ids,
+        ],
+      },
+      () => LATER,
+    );
+    const v2Lesson = submittedV2.lessons["core.sample-to-generation"];
+    expect(v2Lesson).toMatchObject({
+      lesson_revision: 8,
+      visited_sections: [...sampleToGenerationProgressManifest.completion.required_section_ids],
+      final_assessment: {
+        assessment_version: 2,
+        attempt_count: 1,
+        best_score: 8,
+        passed: true,
+        passed_at: LATER,
+      },
+    });
+    expect(Object.keys(v2Lesson?.exercise_attempts ?? {}).sort()).toEqual(
+      [...sampleToGenerationProgressManifest.completion.required_exercise_ids].sort(),
+    );
+    expect(
+      evaluateLessonProgressV2(v2Lesson, sampleToGenerationProgressManifest),
+    ).toMatchObject({ status: "completed", completed: true });
+
+    const missingRequiredOnRetry = sampleToGenerationProgressManifest.completion.final_assessment.question_ids.filter(
+      (questionId) => questionId !== "stg.final-q2-v2",
+    );
+    const stickyPass = applyLessonProgressEvent(
+      submittedV2,
+      "core.sample-to-generation",
+      sampleToGenerationProgressManifest,
+      {
+        type: "assessment-submitted",
+        correct_question_ids: missingRequiredOnRetry,
+      },
+      () => LATEST,
+    );
+    expect(stickyPass.lessons["core.sample-to-generation"]?.final_assessment).toMatchObject({
+      assessment_version: 2,
+      attempt_count: 2,
+      last_score: 7,
+      best_score: 8,
+      last_required_question_ids_passed: false,
+      passed: true,
+      passed_at: LATER,
+      last_attempt_at: LATEST,
+    });
+    expect(
+      evaluateLessonProgressV2(
+        stickyPass.lessons["core.sample-to-generation"],
+        sampleToGenerationProgressManifest,
+      ),
+    ).toMatchObject({ status: "completed", completed: true });
+  });
 });
 
 describe("progress v2 storage and migration", () => {

@@ -42,7 +42,7 @@ python3 scripts/generate-source-anchors.py
 - `core/sample-to-generation/`：首门机制课的 2×2 trace、课程 copy-on-write 演示、生产原地写回边界、练习判分与不变量。
 - `core/progress/`：按 lesson ID 隔离的 v2 设备本地进度与 v1 迁移。
 - `components/journey/`：交互课程、显微镜、batch 计算器和同步/异步时间线。
-- `components/mechanism/`：六章机制课、状态账本、源码摘录与结构化练习。
+- `components/mechanism/`：六章机制课、综合 trace 终测、状态账本、源码摘录与结构化练习。
 
 学习进度仅保存在访问者浏览器的 `localStorage` 中；M1 不采集账户或服务器端学习数据。
 

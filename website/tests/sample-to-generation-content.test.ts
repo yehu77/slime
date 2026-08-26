@@ -3,6 +3,8 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 import {
+  ComprehensiveAssessmentFixtureSchema,
+  comprehensiveAssessmentFixture,
   gradeFinalAssessment,
   gradeStructuredExercise,
   sampleToGenerationFixture,
@@ -63,6 +65,8 @@ describe("sample-to-generation course contract", () => {
     expect(sampleToGenerationCourse.metadata.sourceBaseline.commit).toBe(
       "06ffdbe22be068b52f9ed0fc318c473f7030197e",
     );
+    expect(sampleToGenerationCourse.metadata.lessonRevision).toBe(8);
+    expect(sampleToGenerationCourse.metadata.assessmentVersion).toBe(2);
   });
 
   it("gives every chapter the same evidence-first teaching sequence", () => {
@@ -864,6 +868,168 @@ describe("sample-to-generation course contract", () => {
     })).toMatchObject({ correct: false, fieldResults: { label: false } });
   });
 
+  it("publishes the terminal assessment as one validated transfer trace with one earliest fault", () => {
+    const assessment = sampleToGenerationCourse.finalAssessment;
+    const fixture = comprehensiveAssessmentFixture;
+
+    expect(assessment.id).toBe("stg.comprehensive-trace-v2");
+    expect(assessment.fixture).toBe(fixture);
+    expect(ComprehensiveAssessmentFixtureSchema.parse(fixture)).toEqual(fixture);
+    expect(fixture).toMatchObject({
+      fixture_id: "assessment-orion-v1",
+      origin_id: "origin-c",
+      dataset_config: {
+        prompt_key: "question",
+        label_key: "answer",
+        metadata_key: "context",
+        n_samples_per_prompt: 2,
+      },
+      grouping: {
+        counters_before: { group: 7, index: 20 },
+        counters_after: { group: 8, index: 22 },
+        focus_sample_id: "c21",
+        members: [
+          { sample_id: "c20", group_index: 7, index: 20 },
+          { sample_id: "c21", group_index: 7, index: 21 },
+        ],
+      },
+    });
+
+    const stationIds = assessment.stations.map((station) => station.id);
+    expect(stationIds).toEqual([
+      "station-dataset-contract",
+      "station-producer-boundary",
+      "station-grouping-identity",
+      "station-request-boundary",
+      "station-response-evidence",
+      "station-writeback-contract",
+    ]);
+    expect(new Set(stationIds).size).toBe(assessment.stations.length);
+    expect(assessment.stations.map((station) => station.order)).toEqual([1, 2, 3, 4, 5, 6]);
+
+    const checkpointIds = assessment.checkpoints.map((checkpoint) => checkpoint.id);
+    expect(checkpointIds).toEqual([
+      "stg.final-q1-v2",
+      "stg.final-q2-v2",
+      "stg.final-q3-v2",
+      "stg.final-q4-v2",
+      "stg.final-q5-v2",
+      "stg.final-q6-v2",
+      "stg.final-q7-v2",
+      "stg.final-q8-v2",
+    ]);
+    expect(new Set(checkpointIds).size).toBe(assessment.checkpoints.length);
+    expect(assessment.checkpoints.map((checkpoint) => checkpoint.order)).toEqual([
+      1, 2, 3, 4, 5, 6, 7, 8,
+    ]);
+    expect(
+      assessment.checkpoints.map((checkpoint) => checkpoint.stationId),
+    ).toEqual(expect.arrayContaining(stationIds));
+    expect(
+      assessment.checkpoints.map((checkpoint) => checkpoint.id === checkpoint.exercise.id),
+    ).toEqual(Array(8).fill(true));
+    expect(
+      assessment.checkpoints
+        .filter((checkpoint) => checkpoint.required)
+        .map((checkpoint) => checkpoint.id),
+    ).toEqual([
+      "stg.final-q2-v2",
+      "stg.final-q4-v2",
+      "stg.final-q6-v2",
+      "stg.final-q8-v2",
+    ]);
+    expect(sampleToGenerationCourse.completion.requiredQuestionIds).toEqual([
+      "stg.final-q2-v2",
+      "stg.final-q4-v2",
+      "stg.final-q6-v2",
+      "stg.final-q8-v2",
+    ]);
+    expect(sampleToGenerationFinalAssessment).toEqual(
+      assessment.checkpoints.map((checkpoint) => checkpoint.exercise),
+    );
+    assessment.checkpoints.forEach((checkpoint, index) => {
+      expect(sampleToGenerationFinalAssessment[index]).toBe(checkpoint.exercise);
+    });
+
+    const firstFault = fixture.expected_first_error;
+    const firstFaultIndex = stationIds.indexOf(firstFault.station_id);
+    expect(firstFaultIndex).toBe(3);
+    expect(stationIds.slice(0, firstFaultIndex)).toEqual([
+      "station-dataset-contract",
+      "station-producer-boundary",
+      "station-grouping-identity",
+    ]);
+    expect(firstFault).toMatchObject({
+      station_id: "station-request-boundary",
+      boundary: "request-payload",
+      path: "request.payload.input_ids",
+      expected: [41, 42, 43, 44, 45],
+      actual: [41, 42, 43, 44],
+    });
+    expect(firstFault.expected.slice(0, firstFault.actual.length)).toEqual(
+      firstFault.actual,
+    );
+    expect(firstFault.expected.at(-1)).toBe(45);
+    expect(firstFault.actual).not.toContain(45);
+    expect(firstFault.expected).not.toEqual(firstFault.actual);
+
+    // The earlier Dataset, DataSource, and tokenizer boundaries are legitimate.
+    expect(fixture.writeback.before).toMatchObject({
+      origin_id: "origin-c",
+      group_index: 7,
+      index: 21,
+      prompt: fixture.row.question,
+      label: fixture.row.answer,
+      tokens: fixture.tokenizer.prompt_ids,
+      status: "pending",
+    });
+    expect(fixture.grouping.clone_probe.expected_after).toEqual({
+      c20: "transfer",
+      c21: "diagnostic",
+    });
+  });
+
+  it("keeps the response and writeback locally coherent without repairing the earlier request fault", () => {
+    const fixture = comprehensiveAssessmentFixture;
+    const { before, after } = fixture.writeback;
+    const tuples = fixture.response_receipt.raw_body.meta_info.output_token_logprobs ?? [];
+    const responseTokenIds = tuples.map((tuple) => tuple[1]);
+    const responseLogProbs = tuples.map((tuple) => tuple[0]);
+
+    expect(fixture.response_receipt.sample_id).toBe("c21");
+    expect(fixture.response_receipt.raw_body).toMatchObject({
+      text: "13",
+      meta_info: {
+        finish_reason: { type: "stop" },
+        weight_version: "actor@3",
+      },
+    });
+    expect(responseTokenIds).toEqual([31, 32]);
+    expect(responseLogProbs).toEqual([-0.223144, -0.105361]);
+    expect(after.tokens.slice(0, before.tokens.length)).toEqual(before.tokens);
+    expect(after.tokens.slice(before.tokens.length)).toEqual(responseTokenIds);
+    expect(after.response).toBe("13");
+    expect(after.label).toBe("12");
+    expect(after.response_length).toBe(responseTokenIds.length);
+    expect(after.loss_mask).toHaveLength(responseTokenIds.length);
+    expect(after.rollout_log_probs).toEqual(responseLogProbs);
+    expect(after.weight_versions).toEqual(["actor@3"]);
+    expect(after.status).toBe("completed");
+    expect([before.reward, after.reward]).toEqual([null, null]);
+
+    // A locally consistent response/writeback snapshot cannot retroactively
+    // make the request payload equal to the five-token prompt prefix.
+    expect(after.tokens.slice(0, fixture.tokenizer.prompt_ids.length)).toEqual(
+      fixture.tokenizer.prompt_ids,
+    );
+    expect(fixture.request.payload.input_ids).toEqual(
+      fixture.expected_first_error.actual,
+    );
+    expect(fixture.request.payload.input_ids).not.toEqual(
+      fixture.expected_first_error.expected,
+    );
+  });
+
   it("requires 7/8 with q2, q4, q6 and q8 all correct", () => {
     expect(sampleToGenerationFinalAssessment).toHaveLength(8);
     const allCorrect = Object.fromEntries(
@@ -881,7 +1047,10 @@ describe("sample-to-generation course contract", () => {
 
     const optionalMiss = {
       ...allCorrect,
-      "stg.final-q1": { kind: "choice", selectedOptionIds: ["same"] } as const,
+      "stg.final-q1-v2": {
+        kind: "mapping",
+        mapping: { question: "label", answer: "prompt", context: "metadata" },
+      } as const,
     };
     expect(
       gradeFinalAssessment(
@@ -893,9 +1062,15 @@ describe("sample-to-generation course contract", () => {
 
     const requiredMiss = {
       ...allCorrect,
-      "stg.final-q2": {
+      "stg.final-q2-v2": {
         kind: "field-entry",
-        values: { groups: "12", samples: "3" },
+        values: {
+          group: "0",
+          "c20-index": "20",
+          "c21-index": "21",
+          "next-group": "8",
+          "next-index": "22",
+        },
       } as const,
     };
     expect(
@@ -907,7 +1082,7 @@ describe("sample-to-generation course contract", () => {
     ).toMatchObject({
       score: 7,
       passed: false,
-      missingRequiredCorrectIds: ["stg.final-q2"],
+      missingRequiredCorrectIds: ["stg.final-q2-v2"],
     });
   });
 
@@ -920,6 +1095,9 @@ describe("sample-to-generation course contract", () => {
       ...sampleToGenerationChapters.flatMap((chapter) => chapter.sourceRefIds),
       ...sampleToGenerationFinalAssessment.flatMap(
         (exercise) => exercise.sourceRefIds,
+      ),
+      ...sampleToGenerationCourse.finalAssessment.stations.flatMap(
+        (station) => station.sourceRefIds,
       ),
     ]);
     for (const refId of usedRefIds) {

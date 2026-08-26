@@ -12,6 +12,7 @@ export {
   type StructuredExercise,
   type StructuredExerciseAnswer,
 } from "./assessment";
+export { comprehensiveAssessmentFixture } from "./assessment-fixture";
 export { sampleToGenerationFixture } from "./fixture";
 export {
   checkSampleToGenerationInvariants,
@@ -32,6 +33,7 @@ export {
 } from "./reducer";
 export {
   SAMPLE_TO_GENERATION_OBSERVATIONS,
+  ComprehensiveAssessmentFixtureSchema,
   RequestSidecarSchema,
   ResponseEvidenceSchema,
   ResponseReceiptSchema,
@@ -47,6 +49,7 @@ export {
   TeachingRowSchema,
   TeachingTokenizerSchema,
   type RequestSidecar,
+  type ComprehensiveAssessmentFixture,
   type ResponseEvidence,
   type ResponseReceipt,
   type ResponseWrite,
