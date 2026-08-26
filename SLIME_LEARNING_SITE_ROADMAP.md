@@ -9,21 +9,21 @@
 | 文档状态 | Draft / Living document |
 | 当前阶段 | M1：第一个纵向切片（已公网发布，进入内容深化与目标用户验收） |
 | 建立日期 | 2026-08-08 |
-| 最近更新 | 2026-08-24 |
+| 最近更新 | 2026-08-25 |
 | slime 调研基线 | `v0.3.1-1-g06ffdbe2` |
 | 产品工作名 | `slime Lab` |
 | 当前共同维护者 | 项目发起人 + Codex |
 | 公网网站 | [slime Lab](https://slime-lab.hunyu6792.workers.dev)（Cloudflare Workers） |
 | 公网源码 | [yehu77/slime](https://github.com/yehu77/slime)（个人 fork） |
-| 下一份产物 | 机制课第三章“成组，但不粘连”的分组机制重构 |
+| 下一份产物 | 首门机制课整课发布验收，以及第二门机制课“Reward 与收集”的内容设计 |
 
 ## 0. 当前焦点
 
-**现在：** M1 已完成公网纵向切片，并进入“先讲透机制，再运行实验”的内容深化阶段。首门 88 分钟机制课《Sample 如何得到回答》的前两章已经完成实现与本地验收：第一章用“连续翻译台”解释 `external row → Dataset rule → initial Sample`，第二章用“字段生命周期接力台”区分 dataclass 声明、构造初始化、首次非默认生产和下游消费。
+**现在：** M1 已完成公网纵向切片，并进入“先讲透机制，再运行实验”的内容深化阶段。首门 88 分钟机制课《Sample 如何得到回答》的六章与综合终测已经完成实现：第一章用“连续翻译台”解释 `external row → Dataset rule → initial Sample`，第二章用“字段生命周期接力台”区分 dataclass 声明、构造初始化、首次非默认生产和下游消费，第三章用“分组实验台”解释 `P × n_samples_per_prompt` 的嵌套形状、两个计数器和 `deepcopy` 的对象隔离契约，第四章用“请求装配与边境检查台”重建 `prompt_ids → payload → Sample.tokens → POST /generate` 的真实顺序，第五章用“响应分轨场”拆开 HTTP JSON、调用方关联、tuple 解码、候写证据与尚未发生的 Sample 写回，第六章用“写回双时钟校准台”解释完整 token 序列、response 坐标、terminal bookkeeping 与失败时机；终测则用一条独立的 `assessment-orion-v1` 异常 trace 检查学习者能否定位最早失真的 request 边界。
 
-这两章都固定到源码 commit `06ffdbe2`，共享同一条 `origin-a` 教学 trace，并把源码证据、诊断练习和按课程隔离的 v2 进度纳入自动验证。第二章明确说明 conversion 的主要产物是独立 TrainData 语义，而不是继续“填满 Sample”。
+六章都固定到源码 commit `06ffdbe2`，共享同一套 2×2 教学 fixture，并把源码证据、诊断练习和按课程隔离的 v2 进度纳入自动验证。第二章明确说明 conversion 的主要产物是独立 TrainData 语义，而不是继续“填满 Sample”；第三章进一步区分“同组候选共享比较条件”和“每个候选拥有独立可变对象图”；第四章严格区分 caller-side Sample、课程 request sidecar 与真实 pure-text JSON body，并把多模态、routing replay 和 session header 标为条件分支；第五章进一步把 raw response receipt 与 course-local decoded evidence 分离，明确 `sample_id` 不属于 HTTP body，且 `responses-received` 时 Sample 仍未改变；第六章继续区分生产 `Sample` 的 in-place mutation 与本站 reducer 的 copy-on-write 观察保证，明确 late validation 发现错误并不意味着自动回滚。
 
-**接下来：** 建设第三章“成组，但不粘连”，重点讲透 `deepcopy`、`n_samples_per_prompt`、`group_index`、`index` 与对象独立性；完成后再继续请求、响应与写回三章。Cloudflare 登录、分支预览和合并发布在本地内容验收之后恢复，不阻塞当前开发。
+**接下来：** 完成首门机制课从封面到终测的连续浏览与发布验收；确认生产版本稳定后，进入第二门机制课“Reward 与收集”的内容设计。真实实验继续位于机制课与综合检查之后。
 
 **暂时不做：** 大规模铺课程、账号系统、真实在线训练、全量英文内容和高级 recipe explorer。
 
@@ -777,7 +777,8 @@ M0 已完成。[《一条 Sample 的旅程》storyboard](./SLIME_SAMPLE_JOURNEY_
 | 2026-08-10 | 采用“叙事层 + 技术层”的双层内容文风 | 让课程既值得读下去，又不牺牲源码、字段与因果的准确性 | 已确认 |
 | 2026-08-20 | 正式采用“先讲透机制，再运行实验”的教学顺序 | 避免学习者只会复制命令却无法解释字段、网络边界和失败原因 | 已确认并进入实施 |
 | 2026-08-20 | 新增七阶段 `/learn` 路线与首门 88 分钟机制课 | 把系统导论、核心机制、综合检查、实验和修改框架放回同一条可见路线 | 已实现 |
-| 2026-08-24 | 首门机制课采用“翻译台 → 生命周期接力台 → 分组机制”的逐章专属叙事 | 让每章围绕一个可验证机制建立独立认知模型，而不是复用通用说明模板 | 前两章已实现，第三章待建设 |
+| 2026-08-25 | 首门机制课采用“翻译台 → 生命周期接力台 → 分组实验台 → 请求边境申报单 → 响应分轨场 → 写回双时钟”的逐章专属叙事 | 让每章围绕一个可验证机制建立独立认知模型，而不是复用通用说明模板 | 六章已实现 |
+| 2026-08-26 | 综合终测改为“终卷校片台”，八个观察共享一条 request-prefix drift trace，统一在最后提交后批改 | 终测必须检验首错定位，而不是通过逐题即时反馈把答案试出来 | 已实现，待整课发布验收 |
 
 ## 24. 更新记录
 
@@ -791,3 +792,8 @@ M0 已完成。[《一条 Sample 的旅程》storyboard](./SLIME_SAMPLE_JOURNEY_
 - 2026-08-10：完成首课第一幕“出生”的叙事化样板；修正第一幕过早展示四条候选的问题，补齐字段变化、源码证据与第二幕过渡的渐进阅读线。
 - 2026-08-20：新增 `/learn` 七阶段路线与《Sample 如何得到回答》六章机制课；引入独立 2×2 fixture、固定源码摘录、结构化练习、终测和 lesson-keyed v2 本地进度，正式把真实实验放到机制理解与综合检查之后。
 - 2026-08-24：完成机制课第一章“连续翻译台”和第二章“字段生命周期接力台”的本地实现与多视口验收；当前目标转为第三章分组机制，Cloudflare 预览与合并发布暂缓到恢复登录后执行。
+- 2026-08-25：完成机制课第三章“分组实验台”的 2×2 contact sheet、计数器逐拍、别名试纸、三段固定源码证据与 v5 进度升级；当前目标转为第四章请求边界。
+- 2026-08-25：完成机制课第四章“请求装配与边境检查台”的五站源码顺序、字段申报单、pure-text 三键 payload、采样参数账本、两段新增固定源码证据与 v6 进度升级；当前目标转为第五章 response 投影。
+- 2026-08-25：完成机制课第五章“响应分轨场”的 raw response receipt、两层解码、tuple 分轨、候写证据闸门、三段新增固定源码证据与 v7 进度升级；当前目标转为第六章 Sample 写回契约。
+- 2026-08-25：完成机制课第六章“写回双时钟校准台”的七步源码游标、完整序列/response 坐标总账、terminal gate、preflight/late-validation 失败边界与 v8 进度升级；当前目标转为终测整合与六章整课验收。
+- 2026-08-26：完成“终卷校片台”综合终测：新增独立 `assessment-orion-v1` fixture、六个共享证据站、八个一次性提交观察与 assessment v2；唯一首错位于 request payload 漏发 prompt token，后续 response、写回长度与 `completed` 仍保持局部自洽。

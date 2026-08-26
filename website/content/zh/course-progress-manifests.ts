@@ -29,7 +29,9 @@ export const sampleToGenerationProgressManifest = {
     ),
     final_assessment: {
       assessment_version: sampleToGenerationCourse.metadata.assessmentVersion,
-      question_ids: sampleToGenerationCourse.finalAssessment.map((question) => question.id),
+      question_ids: sampleToGenerationCourse.finalAssessment.checkpoints.map(
+        (checkpoint) => checkpoint.exercise.id,
+      ),
       min_correct: sampleToGenerationCourse.completion.minCorrect,
       required_question_ids: [...sampleToGenerationCourse.completion.requiredQuestionIds],
     },

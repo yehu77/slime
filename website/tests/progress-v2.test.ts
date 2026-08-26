@@ -269,7 +269,7 @@ describe("progress v2 completion", () => {
     ).toThrow("Unknown assessment question: q9");
   });
 
-  it("moves chapter-two progress from revision 3 to review-required revision 4", () => {
+  it("moves chapter-two progress from revision 3 to review-required current revision", () => {
     const revisionThreeManifest = {
       ...sampleToGenerationProgressManifest,
       lesson_revision: 3,
@@ -327,7 +327,9 @@ describe("progress v2 completion", () => {
       now,
     );
 
-    expect(sampleToGenerationProgressManifest.lesson_revision).toBe(4);
+    expect(sampleToGenerationProgressManifest.lesson_revision).toBeGreaterThan(
+      revisionThreeManifest.lesson_revision,
+    );
     expect(
       oldProgress.lessons["core.sample-to-generation"]?.exercise_attempts[
         "stg.chapter-2-gate"
@@ -342,10 +344,20 @@ describe("progress v2 completion", () => {
     ).status).toBe("review_required");
   });
 
-  it("starts revision four fresh on the first chapter-two event and keeps a retried mapping pass sticky across refresh", () => {
+  it("starts the current revision fresh on the first chapter-two event and keeps a retried mapping pass sticky across refresh", () => {
     const revisionThreeManifest = {
       ...sampleToGenerationProgressManifest,
       lesson_revision: 3,
+      completion: {
+        ...sampleToGenerationProgressManifest.completion,
+        required_exercise_ids:
+          sampleToGenerationProgressManifest.completion.required_exercise_ids.map(
+            (exerciseId) =>
+              exerciseId === "stg.chapter-2-diagnosis-v2"
+                ? "stg.chapter-2-gate"
+                : exerciseId,
+          ),
+      },
     };
     let oldProgress = applyLessonProgressEvent(
       createEmptyLocalProgressV2(),
@@ -399,7 +411,7 @@ describe("progress v2 completion", () => {
     );
     const currentLesson = firstCurrentAttempt.lessons["core.sample-to-generation"];
     expect(currentLesson).toMatchObject({
-      lesson_revision: 4,
+      lesson_revision: sampleToGenerationProgressManifest.lesson_revision,
       visited_sections: [],
       final_assessment: null,
       exercise_attempts: {
@@ -465,6 +477,704 @@ describe("progress v2 completion", () => {
       last_attempt_at: LATEST,
       last_response: { type: "mapping", assignments: incorrectMapping },
     });
+  });
+
+  it("marks revision-four chapter-three progress for review and starts the current exercise cleanly", () => {
+    const revisionFourManifest = {
+      ...sampleToGenerationProgressManifest,
+      lesson_revision: 4,
+      completion: {
+        ...sampleToGenerationProgressManifest.completion,
+        required_exercise_ids:
+          sampleToGenerationProgressManifest.completion.required_exercise_ids.map(
+            (exerciseId) =>
+              exerciseId === "stg.chapter-3-identity-matrix-v2"
+                ? "stg.chapter-3-gate"
+                : exerciseId,
+          ),
+      },
+    };
+    let oldProgress = applyLessonProgressEvent(
+      createEmptyLocalProgressV2(),
+      "core.sample-to-generation",
+      revisionFourManifest,
+      {
+        type: "exercise-submitted",
+        exercise_id: "stg.chapter-3-gate",
+        response: {
+          type: "field-entry",
+          values: { "a0-group": "0", "a0-index": "0" },
+        },
+        passed: true,
+      },
+      now,
+    );
+    oldProgress = applyLessonProgressEvent(
+      oldProgress,
+      "core.sample-to-generation",
+      revisionFourManifest,
+      {
+        type: "assessment-submitted",
+        correct_question_ids: [
+          ...revisionFourManifest.completion.final_assessment.question_ids,
+        ],
+      },
+      now,
+    );
+
+    const oldLesson = oldProgress.lessons["core.sample-to-generation"];
+    expect(evaluateLessonProgressV2(
+      oldLesson,
+      sampleToGenerationProgressManifest,
+    ).status).toBe("review_required");
+
+    const answer = {
+      "a0-group": "0",
+      "a0-index": "0",
+      "a1-group": "0",
+      "a1-index": "1",
+      "b0-group": "1",
+      "b0-index": "2",
+      "b1-group": "1",
+      "b1-index": "3",
+    };
+    const current = applyLessonProgressEvent(
+      oldProgress,
+      "core.sample-to-generation",
+      sampleToGenerationProgressManifest,
+      {
+        type: "exercise-submitted",
+        exercise_id: "stg.chapter-3-identity-matrix-v2",
+        response: { type: "field-entry", values: answer },
+        passed: true,
+      },
+      () => LATER,
+    );
+    expect(current.lessons["core.sample-to-generation"]).toMatchObject({
+      lesson_revision: sampleToGenerationProgressManifest.lesson_revision,
+      final_assessment: null,
+      exercise_attempts: {
+        "stg.chapter-3-identity-matrix-v2": {
+          attempt_count: 1,
+          passed: true,
+          last_response: { type: "field-entry", values: answer },
+        },
+      },
+    });
+    expect(
+      current.lessons["core.sample-to-generation"]?.exercise_attempts[
+        "stg.chapter-3-gate"
+      ],
+    ).toBeUndefined();
+
+    const { storage } = createStorage();
+    saveLocalProgressV2(storage, current);
+    expect(loadLocalProgressV2(storage, () => LATEST)).toEqual(current);
+  });
+
+  it("marks revision-five chapter-four progress for review and restores the v6 boundary exercise", () => {
+    const revisionFiveManifest = {
+      ...sampleToGenerationProgressManifest,
+      lesson_revision: 5,
+      completion: {
+        ...sampleToGenerationProgressManifest.completion,
+        required_exercise_ids:
+          sampleToGenerationProgressManifest.completion.required_exercise_ids.map(
+            (exerciseId) =>
+              exerciseId === "stg.chapter-4-request-boundary-v2"
+                ? "stg.chapter-4-gate"
+                : exerciseId,
+          ),
+      },
+    };
+    let oldProgress = applyLessonProgressEvent(
+      createEmptyLocalProgressV2(),
+      "core.sample-to-generation",
+      revisionFiveManifest,
+      {
+        type: "exercise-submitted",
+        exercise_id: "stg.chapter-4-gate",
+        response: {
+          type: "ordering",
+          ordered_item_ids: ["prepare", "payload", "persist-prefix", "post"],
+        },
+        passed: true,
+      },
+      now,
+    );
+    oldProgress = applyLessonProgressEvent(
+      oldProgress,
+      "core.sample-to-generation",
+      revisionFiveManifest,
+      {
+        type: "assessment-submitted",
+        correct_question_ids: [
+          ...revisionFiveManifest.completion.final_assessment.question_ids,
+        ],
+      },
+      now,
+    );
+
+    const oldLesson = oldProgress.lessons["core.sample-to-generation"];
+    expect(evaluateLessonProgressV2(
+      oldLesson,
+      sampleToGenerationProgressManifest,
+    ).status).toBe("review_required");
+
+    const correctMapping = {
+      "prompt-ids": "payload-input",
+      "prefix-ledger": "caller-only",
+      "sampling-config": "payload-params",
+      "logprob-switch": "payload-logprob",
+      label: "caller-only",
+      identity: "caller-only",
+      "reward-null": "not-produced",
+      "session-id": "conditional-header",
+    };
+    const current = applyLessonProgressEvent(
+      oldProgress,
+      "core.sample-to-generation",
+      sampleToGenerationProgressManifest,
+      {
+        type: "exercise-submitted",
+        exercise_id: "stg.chapter-4-request-boundary-v2",
+        response: { type: "mapping", assignments: correctMapping },
+        passed: true,
+      },
+      () => LATER,
+    );
+    expect(current.lessons["core.sample-to-generation"]).toMatchObject({
+      lesson_revision: sampleToGenerationProgressManifest.lesson_revision,
+      final_assessment: null,
+      exercise_attempts: {
+        "stg.chapter-4-request-boundary-v2": {
+          attempt_count: 1,
+          passed: true,
+          last_response: { type: "mapping", assignments: correctMapping },
+        },
+      },
+    });
+    expect(
+      current.lessons["core.sample-to-generation"]?.exercise_attempts[
+        "stg.chapter-4-gate"
+      ],
+    ).toBeUndefined();
+
+    const { storage } = createStorage();
+    saveLocalProgressV2(storage, current);
+    expect(loadLocalProgressV2(storage, () => LATEST)).toEqual(current);
+
+    const stickyPass = applyLessonProgressEvent(
+      current,
+      "core.sample-to-generation",
+      sampleToGenerationProgressManifest,
+      {
+        type: "exercise-submitted",
+        exercise_id: "stg.chapter-4-request-boundary-v2",
+        response: {
+          type: "mapping",
+          assignments: { ...correctMapping, label: "payload-input" },
+        },
+        passed: false,
+      },
+      () => LATEST,
+    );
+    expect(
+      stickyPass.lessons["core.sample-to-generation"]?.exercise_attempts[
+        "stg.chapter-4-request-boundary-v2"
+      ],
+    ).toMatchObject({ attempt_count: 2, passed: true, passed_at: LATER });
+  });
+
+  it("moves revision-six chapter-five progress to review and restores the v7 decoder exercise", () => {
+    const revisionSixManifest = {
+      ...sampleToGenerationProgressManifest,
+      lesson_revision: 6,
+      completion: {
+        ...sampleToGenerationProgressManifest.completion,
+        required_exercise_ids:
+          sampleToGenerationProgressManifest.completion.required_exercise_ids.map(
+            (exerciseId) =>
+              exerciseId === "stg.chapter-5-response-decoder-v2"
+                ? "stg.chapter-5-gate"
+                : exerciseId,
+          ),
+      },
+    };
+    let oldProgress = applyLessonProgressEvent(
+      createEmptyLocalProgressV2(),
+      "core.sample-to-generation",
+      revisionSixManifest,
+      {
+        type: "exercise-submitted",
+        exercise_id: "stg.chapter-5-gate",
+        response: {
+          type: "mapping",
+          assignments: {
+            "tuple-0": "logprob",
+            "tuple-1": "token",
+            "output-text": "text",
+            finish: "terminal",
+          },
+        },
+        passed: true,
+      },
+      now,
+    );
+    oldProgress = applyLessonProgressEvent(
+      oldProgress,
+      "core.sample-to-generation",
+      revisionSixManifest,
+      {
+        type: "assessment-submitted",
+        correct_question_ids: [
+          ...revisionSixManifest.completion.final_assessment.question_ids,
+        ],
+      },
+      now,
+    );
+
+    expect(sampleToGenerationProgressManifest.lesson_revision).toBeGreaterThan(
+      revisionSixManifest.lesson_revision,
+    );
+    expect(evaluateLessonProgressV2(
+      oldProgress.lessons["core.sample-to-generation"],
+      sampleToGenerationProgressManifest,
+    ).status).toBe("review_required");
+
+    const correctValues = {
+      "response-tokens": "25,27",
+      "response-logprobs": "-0.2,-1.1",
+      "sample-response": '""',
+      "sample-status": "pending",
+      "sample-reward": "None",
+    };
+    const firstAttempt = applyLessonProgressEvent(
+      oldProgress,
+      "core.sample-to-generation",
+      sampleToGenerationProgressManifest,
+      {
+        type: "exercise-submitted",
+        exercise_id: "stg.chapter-5-response-decoder-v2",
+        response: {
+          type: "field-entry",
+          values: { ...correctValues, "sample-status": "completed" },
+        },
+        passed: false,
+      },
+      () => LATER,
+    );
+    const currentLesson = firstAttempt.lessons["core.sample-to-generation"];
+    expect(currentLesson).toMatchObject({
+      lesson_revision: sampleToGenerationProgressManifest.lesson_revision,
+      visited_sections: [],
+      final_assessment: null,
+      exercise_attempts: {
+        "stg.chapter-5-response-decoder-v2": {
+          attempt_count: 1,
+          passed: false,
+        },
+      },
+    });
+    expect(currentLesson?.exercise_attempts["stg.chapter-5-gate"]).toBeUndefined();
+
+    const passed = applyLessonProgressEvent(
+      firstAttempt,
+      "core.sample-to-generation",
+      sampleToGenerationProgressManifest,
+      {
+        type: "exercise-submitted",
+        exercise_id: "stg.chapter-5-response-decoder-v2",
+        response: { type: "field-entry", values: correctValues },
+        passed: true,
+      },
+      () => LATEST,
+    );
+    expect(
+      passed.lessons["core.sample-to-generation"]?.exercise_attempts[
+        "stg.chapter-5-response-decoder-v2"
+      ],
+    ).toMatchObject({
+      attempt_count: 2,
+      passed: true,
+      passed_at: LATEST,
+      last_response: { type: "field-entry", values: correctValues },
+    });
+
+    const { storage } = createStorage();
+    saveLocalProgressV2(storage, passed);
+    expect(loadLocalProgressV2(storage, now)).toEqual(passed);
+
+    const stickyPass = applyLessonProgressEvent(
+      passed,
+      "core.sample-to-generation",
+      sampleToGenerationProgressManifest,
+      {
+        type: "exercise-submitted",
+        exercise_id: "stg.chapter-5-response-decoder-v2",
+        response: {
+          type: "field-entry",
+          values: { ...correctValues, "sample-reward": "1" },
+        },
+        passed: false,
+      },
+      now,
+    );
+    expect(
+      stickyPass.lessons["core.sample-to-generation"]?.exercise_attempts[
+        "stg.chapter-5-response-decoder-v2"
+      ],
+    ).toMatchObject({ attempt_count: 3, passed: true, passed_at: LATEST });
+  });
+
+  it("keeps v7 chapter-six progress review-required until the v8 writeback exercise starts", () => {
+    const revisionEightManifest: ProgressCompletionManifest = {
+      ...sampleToGenerationProgressManifest,
+      lesson_revision: 8,
+      completion: {
+        ...sampleToGenerationProgressManifest.completion,
+        required_exercise_ids:
+          sampleToGenerationProgressManifest.completion.required_exercise_ids.map(
+            (exerciseId) =>
+              exerciseId === "stg.chapter-6-gate"
+                ? "stg.chapter-6-writeback-contract-v2"
+                : exerciseId,
+          ),
+      },
+    };
+    const revisionSevenManifest: ProgressCompletionManifest = {
+      ...revisionEightManifest,
+      lesson_revision: 7,
+      completion: {
+        ...revisionEightManifest.completion,
+        required_exercise_ids:
+          revisionEightManifest.completion.required_exercise_ids.map(
+            (exerciseId) =>
+              exerciseId === "stg.chapter-6-writeback-contract-v2"
+                ? "stg.chapter-6-gate"
+                : exerciseId,
+          ),
+      },
+    };
+    const correctMapping = {
+      tokens: "full-sequence",
+      response: "text-stream",
+      "response-length": "response-counter",
+      "loss-mask": "response-space",
+      "rollout-logprobs": "response-space",
+      terminal: "terminal-meta",
+      reward: "later-producer",
+    };
+    const incorrectMapping = {
+      ...correctMapping,
+      terminal: "response-space",
+    };
+
+    let oldProgress = applyLessonProgressEvent(
+      createEmptyLocalProgressV2(),
+      "core.sample-to-generation",
+      revisionSevenManifest,
+      { type: "section-visited", section_id: "chapter-6" },
+      now,
+    );
+    oldProgress = applyLessonProgressEvent(
+      oldProgress,
+      "core.sample-to-generation",
+      revisionSevenManifest,
+      {
+        type: "resume-updated",
+        resume: {
+          kind: "chaptered",
+          chapter_id: "writeback-contract",
+          section_id: "reader-contract",
+        },
+      },
+      now,
+    );
+    oldProgress = applyLessonProgressEvent(
+      oldProgress,
+      "core.sample-to-generation",
+      revisionSevenManifest,
+      {
+        type: "exercise-submitted",
+        exercise_id: "stg.chapter-6-gate",
+        response: { type: "choice", selected_option_ids: ["legacy-reader"] },
+        passed: true,
+      },
+      now,
+    );
+    oldProgress = applyLessonProgressEvent(
+      oldProgress,
+      "core.sample-to-generation",
+      revisionSevenManifest,
+      {
+        type: "assessment-submitted",
+        correct_question_ids: [
+          ...revisionSevenManifest.completion.final_assessment.question_ids,
+        ],
+      },
+      now,
+    );
+
+    const oldLesson = oldProgress.lessons["core.sample-to-generation"];
+    expect(oldLesson).toMatchObject({
+      lesson_revision: 7,
+      visited_sections: ["chapter-6"],
+      resume: { kind: "chaptered", chapter_id: "writeback-contract" },
+      exercise_attempts: {
+        "stg.chapter-6-gate": { attempt_count: 1, passed: true },
+      },
+    });
+    expect(
+      evaluateLessonProgressV2(oldLesson, revisionEightManifest).status,
+    ).toBe("review_required");
+    expect(
+      revisionEightManifest.completion.required_exercise_ids,
+    ).not.toContain("stg.chapter-6-gate");
+
+    const ignoredStaleSubmission = applyLessonProgressEvent(
+      oldProgress,
+      "core.sample-to-generation",
+      revisionEightManifest,
+      {
+        type: "exercise-submitted",
+        exercise_id: "stg.chapter-6-gate",
+        response: { type: "choice", selected_option_ids: ["legacy-reader"] },
+        passed: false,
+      },
+      () => LATER,
+    );
+    expect(ignoredStaleSubmission).toBe(oldProgress);
+    expect(ignoredStaleSubmission).toEqual(oldProgress);
+
+    const firstV8Attempt = applyLessonProgressEvent(
+      ignoredStaleSubmission,
+      "core.sample-to-generation",
+      revisionEightManifest,
+      {
+        type: "exercise-submitted",
+        exercise_id: "stg.chapter-6-writeback-contract-v2",
+        response: { type: "mapping", assignments: incorrectMapping },
+        passed: false,
+      },
+      () => LATER,
+    );
+    const currentLesson = firstV8Attempt.lessons["core.sample-to-generation"];
+    expect(currentLesson).toMatchObject({
+      lesson_revision: 8,
+      visited_sections: [],
+      resume: null,
+      final_assessment: null,
+      exercise_attempts: {
+        "stg.chapter-6-writeback-contract-v2": {
+          attempt_count: 1,
+          passed: false,
+        },
+      },
+    });
+    expect(Object.keys(currentLesson?.exercise_attempts ?? {})).toEqual([
+      "stg.chapter-6-writeback-contract-v2",
+    ]);
+    expect(
+      currentLesson?.exercise_attempts["stg.chapter-6-gate"],
+    ).toBeUndefined();
+
+    const passed = applyLessonProgressEvent(
+      firstV8Attempt,
+      "core.sample-to-generation",
+      revisionEightManifest,
+      {
+        type: "exercise-submitted",
+        exercise_id: "stg.chapter-6-writeback-contract-v2",
+        response: { type: "mapping", assignments: correctMapping },
+        passed: true,
+      },
+      () => LATEST,
+    );
+    expect(
+      passed.lessons["core.sample-to-generation"]?.exercise_attempts[
+        "stg.chapter-6-writeback-contract-v2"
+      ],
+    ).toMatchObject({
+      attempt_count: 2,
+      passed: true,
+      passed_at: LATEST,
+      last_response: {
+        type: "mapping",
+        assignments: correctMapping,
+      },
+    });
+
+    const { storage } = createStorage();
+    saveLocalProgressV2(storage, passed);
+    const refreshed = loadLocalProgressV2(storage, () => LATEST);
+    expect(refreshed).toEqual(passed);
+
+    const stickyPass = applyLessonProgressEvent(
+      refreshed,
+      "core.sample-to-generation",
+      revisionEightManifest,
+      {
+        type: "exercise-submitted",
+        exercise_id: "stg.chapter-6-writeback-contract-v2",
+        response: { type: "mapping", assignments: incorrectMapping },
+        passed: false,
+      },
+      () => "2026-08-20T15:00:00.000Z",
+    );
+    expect(
+      stickyPass.lessons["core.sample-to-generation"]?.exercise_attempts[
+        "stg.chapter-6-writeback-contract-v2"
+      ],
+    ).toMatchObject({ attempt_count: 3, passed: true, passed_at: LATEST });
+  });
+
+  it("keeps all six chapter records while a v1 terminal assessment is reviewed and replaced by v2", () => {
+    const legacyQuestionIds = Array.from(
+      { length: 8 },
+      (_, index) => `stg.final-q${index + 1}`,
+    );
+    const legacyRequiredQuestionIds = [
+      "stg.final-q2",
+      "stg.final-q4",
+      "stg.final-q6",
+      "stg.final-q8",
+    ];
+    const v1AssessmentManifest: ProgressCompletionManifest = {
+      ...sampleToGenerationProgressManifest,
+      completion: {
+        ...sampleToGenerationProgressManifest.completion,
+        final_assessment: {
+          assessment_version: 1,
+          question_ids: legacyQuestionIds,
+          min_correct: 7,
+          required_question_ids: legacyRequiredQuestionIds,
+        },
+      },
+    };
+
+    let legacyProgress = createEmptyLocalProgressV2();
+    for (const sectionId of v1AssessmentManifest.completion.required_section_ids) {
+      legacyProgress = applyLessonProgressEvent(
+        legacyProgress,
+        "core.sample-to-generation",
+        v1AssessmentManifest,
+        { type: "section-visited", section_id: sectionId },
+        now,
+      );
+    }
+    for (const exerciseId of v1AssessmentManifest.completion.required_exercise_ids) {
+      legacyProgress = applyLessonProgressEvent(
+        legacyProgress,
+        "core.sample-to-generation",
+        v1AssessmentManifest,
+        {
+          type: "exercise-submitted",
+          exercise_id: exerciseId,
+          response: { type: "choice", selected_option_ids: ["legacy-pass"] },
+          passed: true,
+        },
+        now,
+      );
+    }
+    legacyProgress = applyLessonProgressEvent(
+      legacyProgress,
+      "core.sample-to-generation",
+      v1AssessmentManifest,
+      { type: "assessment-submitted", correct_question_ids: legacyQuestionIds },
+      now,
+    );
+
+    const legacyLesson = legacyProgress.lessons["core.sample-to-generation"];
+    expect(legacyLesson).toMatchObject({
+      lesson_revision: 8,
+      visited_sections: [...sampleToGenerationProgressManifest.completion.required_section_ids],
+      final_assessment: {
+        assessment_version: 1,
+        best_score: 8,
+        passed: true,
+      },
+    });
+    expect(Object.keys(legacyLesson?.exercise_attempts ?? {}).sort()).toEqual(
+      [...sampleToGenerationProgressManifest.completion.required_exercise_ids].sort(),
+    );
+    expect(
+      evaluateLessonProgressV2(legacyLesson, sampleToGenerationProgressManifest).status,
+    ).toBe("review_required");
+
+    expect(() =>
+      applyLessonProgressEvent(
+        legacyProgress,
+        "core.sample-to-generation",
+        sampleToGenerationProgressManifest,
+        {
+          type: "assessment-submitted",
+          correct_question_ids: ["stg.final-q1"],
+        },
+        () => LATER,
+      ),
+    ).toThrow("Unknown assessment question: stg.final-q1");
+
+    const submittedV2 = applyLessonProgressEvent(
+      legacyProgress,
+      "core.sample-to-generation",
+      sampleToGenerationProgressManifest,
+      {
+        type: "assessment-submitted",
+        correct_question_ids: [
+          ...sampleToGenerationProgressManifest.completion.final_assessment.question_ids,
+        ],
+      },
+      () => LATER,
+    );
+    const v2Lesson = submittedV2.lessons["core.sample-to-generation"];
+    expect(v2Lesson).toMatchObject({
+      lesson_revision: 8,
+      visited_sections: [...sampleToGenerationProgressManifest.completion.required_section_ids],
+      final_assessment: {
+        assessment_version: 2,
+        attempt_count: 1,
+        best_score: 8,
+        passed: true,
+        passed_at: LATER,
+      },
+    });
+    expect(Object.keys(v2Lesson?.exercise_attempts ?? {}).sort()).toEqual(
+      [...sampleToGenerationProgressManifest.completion.required_exercise_ids].sort(),
+    );
+    expect(
+      evaluateLessonProgressV2(v2Lesson, sampleToGenerationProgressManifest),
+    ).toMatchObject({ status: "completed", completed: true });
+
+    const missingRequiredOnRetry = sampleToGenerationProgressManifest.completion.final_assessment.question_ids.filter(
+      (questionId) => questionId !== "stg.final-q2-v2",
+    );
+    const stickyPass = applyLessonProgressEvent(
+      submittedV2,
+      "core.sample-to-generation",
+      sampleToGenerationProgressManifest,
+      {
+        type: "assessment-submitted",
+        correct_question_ids: missingRequiredOnRetry,
+      },
+      () => LATEST,
+    );
+    expect(stickyPass.lessons["core.sample-to-generation"]?.final_assessment).toMatchObject({
+      assessment_version: 2,
+      attempt_count: 2,
+      last_score: 7,
+      best_score: 8,
+      last_required_question_ids_passed: false,
+      passed: true,
+      passed_at: LATER,
+      last_attempt_at: LATEST,
+    });
+    expect(
+      evaluateLessonProgressV2(
+        stickyPass.lessons["core.sample-to-generation"],
+        sampleToGenerationProgressManifest,
+      ),
+    ).toMatchObject({ status: "completed", completed: true });
   });
 });
 

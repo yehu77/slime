@@ -1,10 +1,12 @@
 import {
   RequestSidecarSchema,
+  ResponseEvidenceSchema,
+  ResponseReceiptSchema,
   ResponseWriteSchema,
   SampleToGenerationSampleSchema,
   type RequestSidecar,
-  type ResponseProjection,
-  type ResponseWrite,
+  type ResponseEvidence,
+  type ResponseReceipt,
   type SampleToGenerationFixture,
   type SampleToGenerationObservationId,
   type SampleToGenerationSample,
@@ -19,7 +21,10 @@ export type SampleToGenerationState = {
   seed_samples: Readonly<Record<string, SampleToGenerationSample>>;
   samples: Readonly<Record<string, SampleToGenerationSample>>;
   requests: Readonly<Record<string, RequestSidecar>>;
-  response_projections: Readonly<Record<string, ResponseProjection>>;
+  /** Caller-associated raw HTTP bodies; never part of the upstream Sample. */
+  response_receipts: Readonly<Record<string, ResponseReceipt>>;
+  /** Decoded course evidence; Chapter 6 consumes it without re-reading HTTP. */
+  response_evidence: Readonly<Record<string, ResponseEvidence>>;
   changed_sample_ids: readonly string[];
 };
 
@@ -78,27 +83,43 @@ export function cloneSeedSamplesIntoGroups(
   return samples;
 }
 
-export function projectResponseForWrite(
-  projection: ResponseProjection,
-): ResponseWrite {
-  return ResponseWriteSchema.parse({
-    sample_id: projection.sample_id,
-    text: projection.text,
-    tokens: projection.output_token_logprobs.map((entry) => entry[1]),
-    log_probabilities: projection.output_token_logprobs.map((entry) => entry[0]),
-    finish_reason: projection.finish_reason,
-    weight_version: projection.weight_version,
+/**
+ * Decode exactly the tuple order used by `sglang_rollout.generate` without
+ * mutating the caller-owned Sample. Missing log-prob evidence follows the
+ * source fallback and yields two empty response-space arrays.
+ */
+export function decodeSglangResponseEvidence(
+  receiptInput: ResponseReceipt,
+): ResponseEvidence {
+  const receipt = ResponseReceiptSchema.parse(receiptInput);
+  const tuples = receipt.raw_body.meta_info.output_token_logprobs ?? [];
+  return ResponseEvidenceSchema.parse({
+    sample_id: receipt.sample_id,
+    text: receipt.raw_body.text,
+    tokens: tuples.map((item) => item[1]),
+    log_probabilities: tuples.map((item) => item[0]),
+    // Preserve the entire transport envelope, including the raw tuple list
+    // and unknown SGLang metadata. The clone makes decoding observational:
+    // neither receipt nor fixture objects are ever mutated.
+    meta_info: cloneJson(receipt.raw_body.meta_info),
   });
 }
 
+/**
+ * Build the next Sample snapshot for the deterministic course fixture.
+ *
+ * This helper is deliberately copy-on-write so the Reader can publish one
+ * complete teaching observation at a time. It models the successful field
+ * projection of upstream `Sample.append_response_tokens`; it does not claim
+ * that the upstream in-place method provides transactional rollback.
+ */
 export function appendResponseAtomically(
   sample: SampleToGenerationSample,
-  projection: ResponseProjection | ResponseWrite,
+  evidence: ResponseEvidence,
 ): SampleToGenerationSample {
-  const write =
-    "output_token_logprobs" in projection
-      ? projectResponseForWrite(projection)
-      : ResponseWriteSchema.parse(projection);
+  // Chapter 5 already decoded the raw receipt. Chapter 6 consumes the
+  // normalized evidence; it must not rediscover tuple positions here.
+  const write = ResponseWriteSchema.parse(evidence);
   if (sample.status !== "pending") {
     throw new Error(`Sample ${write.sample_id} is not pending`);
   }
@@ -107,26 +128,53 @@ export function appendResponseAtomically(
       `Response metadata mismatch for ${write.sample_id}: token/log-prob lengths differ`,
     );
   }
+  if (sample.response_length > 0 && sample.rollout_log_probs === null) {
+    throw new Error(
+      `Cannot append trainable response evidence for ${write.sample_id}: ` +
+        "existing response tokens have no rollout log-probs",
+    );
+  }
 
-  // Every validation above runs before the next value is constructed. The caller
-  // keeps its original object if any validation or schema parse fails.
+  // These fixture preflights run before the next snapshot is constructed. They
+  // describe this helper's caller contract, not rollback behavior of the
+  // upstream in-place method.
   const nextResponseLength = sample.response_length + write.tokens.length;
-  const nextLossMask = [
-    ...(sample.loss_mask ?? Array.from({ length: sample.response_length }, () => 1 as const)),
-    ...write.tokens.map(() => 1 as const),
-  ];
+  // `append_response_tokens` only materializes loss_mask when it actually
+  // appends response tokens. With a missing/empty log-prob list the source
+  // fallback is an empty token list, so a previously-null mask stays null.
+  const nextLossMask =
+    write.tokens.length === 0
+      ? sample.loss_mask === null
+        ? null
+        : [...sample.loss_mask]
+      : [
+          ...(sample.loss_mask ??
+            Array.from({ length: sample.response_length }, () => 1 as const)),
+          ...write.tokens.map(() => 1 as const),
+        ];
   const nextLogProbabilities = [
     ...(sample.rollout_log_probs ?? []),
     ...write.log_probabilities,
   ];
   if (
-    nextLossMask.length !== nextResponseLength ||
+    (nextLossMask !== null && nextLossMask.length !== nextResponseLength) ||
     nextLogProbabilities.length !== nextResponseLength
   ) {
     throw new Error(
       `Response metadata mismatch for ${write.sample_id}: response-space arrays must align`,
     );
   }
+
+  const terminalStatus = (() => {
+    switch (write.meta_info.finish_reason.type) {
+      case "stop":
+        return "completed" as const;
+      case "length":
+        return "truncated" as const;
+      case "abort":
+        return "aborted" as const;
+    }
+  })();
 
   return SampleToGenerationSampleSchema.parse({
     ...sample,
@@ -135,8 +183,10 @@ export function appendResponseAtomically(
     response_length: nextResponseLength,
     loss_mask: nextLossMask,
     rollout_log_probs: nextLogProbabilities,
-    weight_versions: [...sample.weight_versions, write.weight_version],
-    status: write.finish_reason === "stop" ? "completed" : sample.status,
+    weight_versions: write.meta_info.weight_version
+      ? [...sample.weight_versions, write.meta_info.weight_version]
+      : [...sample.weight_versions],
+    status: terminalStatus,
   });
 }
 
@@ -149,7 +199,8 @@ function createEmptyState(fixture: SampleToGenerationFixture): SampleToGeneratio
     seed_samples: {},
     samples: {},
     requests: {},
-    response_projections: {},
+    response_receipts: {},
+    response_evidence: {},
     changed_sample_ids: [],
   };
 }
@@ -168,7 +219,8 @@ function applyObservation(
   let seedSamples = previous.seed_samples;
   let samples = previous.samples;
   let requests = previous.requests;
-  let responseProjections = previous.response_projections;
+  let responseReceipts = previous.response_receipts;
+  let responseEvidence = previous.response_evidence;
   let changedSampleIds: string[] = [];
 
   switch (observation.id) {
@@ -191,61 +243,73 @@ function applyObservation(
       break;
     }
     case "prompts-tokenized": {
-      samples = Object.fromEntries(
-        Object.entries(samples).map(([sampleId, sample]) => {
-          const promptIds = fixture.tokenizer.prompt_encodings[sample.origin_id];
-          if (!promptIds) {
-            throw new Error(`Missing teaching-tokenizer encoding for ${sample.origin_id}`);
-          }
-          return [
-            sampleId,
-            SampleToGenerationSampleSchema.parse({
-              ...sample,
-              tokens: [...promptIds],
-            }),
-          ];
-        }),
-      );
-      changedSampleIds = Object.keys(samples);
+      for (const sample of Object.values(samples)) {
+        if (!fixture.tokenizer.prompt_encodings[sample.origin_id]) {
+          throw new Error(`Missing teaching-tokenizer encoding for ${sample.origin_id}`);
+        }
+      }
       break;
     }
     case "requests-prepared": {
-      requests = Object.fromEntries(
-        Object.entries(samples).map(([sampleId, sample]) => [
-          sampleId,
-          RequestSidecarSchema.parse({
-            sample_id: sampleId,
-            method: "POST",
-            endpoint: "/generate",
-            payload: {
-              input_ids: [...sample.tokens],
-              sampling_params: cloneJson(fixture.sampling_params),
-              return_logprob: true,
-            },
-          }),
-        ]),
-      );
+      // Mirror the source micro-order for every request: build payload/input_ids,
+      // persist prompt tokens on the Sample, then prepare the POST sidecar. Swap
+      // both maps only after the complete batch has parsed successfully.
+      const nextSamples: Record<string, SampleToGenerationSample> = {};
+      const nextRequests: Record<string, RequestSidecar> = {};
+      for (const [sampleId, sample] of Object.entries(samples)) {
+        const promptIds = fixture.tokenizer.prompt_encodings[sample.origin_id];
+        if (!promptIds) {
+          throw new Error(`Missing teaching-tokenizer encoding for ${sample.origin_id}`);
+        }
+        const payload = {
+          input_ids: [...promptIds],
+          sampling_params: cloneJson(fixture.sampling_params),
+          return_logprob: true as const,
+        };
+        nextSamples[sampleId] = SampleToGenerationSampleSchema.parse({
+          ...sample,
+          tokens: [...payload.input_ids],
+        });
+        nextRequests[sampleId] = RequestSidecarSchema.parse({
+          sample_id: sampleId,
+          method: "POST",
+          endpoint: "/generate",
+          payload,
+        });
+      }
+      samples = nextSamples;
+      requests = nextRequests;
+      changedSampleIds = Object.keys(nextSamples);
       break;
     }
     case "responses-received": {
-      responseProjections = Object.fromEntries(
-        fixture.response_projections.map((projection) => [
-          projection.sample_id,
-          cloneJson(projection),
-        ]),
-      );
+      // Build both course sidecars before publishing either. If one receipt is
+      // malformed, callers retain the prior request-prepared state rather than
+      // seeing a partial batch of receipts or evidence.
+      const nextReceipts: Record<string, ResponseReceipt> = {};
+      const nextEvidence: Record<string, ResponseEvidence> = {};
+      for (const receiptInput of fixture.response_receipts) {
+        const receipt = ResponseReceiptSchema.parse(receiptInput);
+        const evidence = decodeSglangResponseEvidence(receipt);
+        nextReceipts[receipt.sample_id] = cloneJson(receipt);
+        nextEvidence[evidence.sample_id] = cloneJson(evidence);
+      }
+      responseReceipts = nextReceipts;
+      responseEvidence = nextEvidence;
       break;
     }
     case "responses-written": {
-      // Construct all four next Samples before swapping the map. A malformed
-      // projection therefore cannot leave a partially written batch.
+      // The course state uses a copy-on-write publication convention: construct
+      // every next fixture Sample before swapping the map. This is a Reader
+      // guarantee, not a claim that upstream in-place writeback rolls back all
+      // metadata failures.
       const nextSamples: Record<string, SampleToGenerationSample> = {};
       for (const [sampleId, sample] of Object.entries(samples)) {
-        const projection = responseProjections[sampleId];
-        if (!projection) {
-          throw new Error(`Missing response projection for ${sampleId}`);
+        const evidence = responseEvidence[sampleId];
+        if (!evidence) {
+          throw new Error(`Missing response evidence for ${sampleId}`);
         }
-        nextSamples[sampleId] = appendResponseAtomically(sample, projection);
+        nextSamples[sampleId] = appendResponseAtomically(sample, evidence);
       }
       samples = nextSamples;
       changedSampleIds = Object.keys(nextSamples);
@@ -261,7 +325,8 @@ function applyObservation(
     seed_samples: seedSamples,
     samples,
     requests,
-    response_projections: responseProjections,
+    response_receipts: responseReceipts,
+    response_evidence: responseEvidence,
     changed_sample_ids: changedSampleIds,
   };
 }

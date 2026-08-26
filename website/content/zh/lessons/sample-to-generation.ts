@@ -1,4 +1,8 @@
-import type { StructuredExercise } from "@/core/sample-to-generation";
+import {
+  comprehensiveAssessmentFixture,
+  type ComprehensiveAssessmentFixture,
+  type StructuredExercise,
+} from "@/core/sample-to-generation";
 
 export type SampleToGenerationExplanation = {
   title: string;
@@ -108,6 +112,287 @@ export type EarlyFieldDiagnosticCase = {
   sourceRefIds: readonly string[];
 };
 
+export type GroupingLabCandidate = {
+  id: string;
+  index: number;
+};
+
+export type GroupingLabGroup = {
+  id: string;
+  originId: string;
+  prompt: string;
+  label: string;
+  metadata: Readonly<Record<string, string>>;
+  groupIndex: number;
+  candidates: readonly GroupingLabCandidate[];
+  identityChecks: readonly {
+    expression: string;
+    result: boolean;
+    meaning: string;
+  }[];
+};
+
+export type GroupingCounterFrame = {
+  id: string;
+  order: number;
+  operation: string;
+  groupCounterBefore: number;
+  sampleCounterBefore: number;
+  writes: readonly string[];
+  groupCounterAfter: number;
+  sampleCounterAfter: number;
+  explanation: string;
+};
+
+export type GroupingComparisonRule = {
+  id: string;
+  subject: string;
+  withinGroup: string;
+  objectContract: string;
+  reason: string;
+};
+
+export type GroupingAliasProbe = {
+  mutation: string;
+  fixtureValue: string;
+  mutatedValue: string;
+  actualAfter: readonly {
+    sampleId: string;
+    value: string;
+    explanation: string;
+  }[];
+  counterfactualAfter: readonly {
+    sampleId: string;
+    value: string;
+    explanation: string;
+  }[];
+  boundary: string;
+};
+
+export type RequestAssemblyStageId =
+  | "prepare-prompt"
+  | "validate-budget"
+  | "assemble-envelope"
+  | "persist-prefix"
+  | "dispatch-request";
+
+export type RequestAssemblyStage = {
+  id: RequestAssemblyStageId;
+  order: number;
+  title: string;
+  producer: string;
+  input: readonly string[];
+  operation: string;
+  output: readonly string[];
+  callerEffect: string;
+  networkEffect: string;
+  sourceRefIds: readonly string[];
+};
+
+export type RequestManifestDestination =
+  | "transformed"
+  | "caller-ledger"
+  | "json-body"
+  | "not-produced"
+  | "conditional-body"
+  | "conditional-header";
+
+export type RequestManifestEntry = {
+  id: string;
+  field: string;
+  fixtureValue: string;
+  origin: string;
+  destination: RequestManifestDestination;
+  path: string;
+  reason: string;
+  mainPath: boolean;
+  sourceRefIds: readonly string[];
+};
+
+export type RequestSamplingParameter = {
+  key: string;
+  fixtureValue: string;
+  runtimeArgument: string;
+  role: string;
+};
+
+export type RequestFixturePacket = {
+  sampleId: string;
+  fromObservation: string;
+  toObservation: string;
+  prompt: string;
+  promptIds: readonly number[];
+  method: "POST";
+  endpoint: "/generate";
+  payload: {
+    input_ids: readonly number[];
+    sampling_params: Readonly<Record<string, unknown>>;
+    return_logprob: true;
+  };
+};
+
+export type ResponseDecodeStageId =
+  | "http-json"
+  | "output-mapping"
+  | "tuple-split"
+  | "candidate-package"
+  | "writeback-gate";
+
+export type ResponseDecodeStage = {
+  id: ResponseDecodeStageId;
+  order: number;
+  title: string;
+  input: readonly string[];
+  operation: string;
+  output: readonly string[];
+  proof: string;
+  notYet: string;
+  sourceRefIds: readonly string[];
+};
+
+export type ResponseEvidenceLane = {
+  id: string;
+  kind: "server-field" | "caller-association" | "decoded-evidence" | "deferred-write";
+  label: string;
+  sourcePath: string;
+  fixtureValue: string;
+  projectedAs: string;
+  proves: string;
+  doesNotProve: string;
+  sourceRefIds: readonly string[];
+};
+
+export type ResponseFixtureReceipt = {
+  sampleId: string;
+  fromObservation: string;
+  toObservation: string;
+  rawBody: {
+    text: string;
+    metaInfo: {
+      outputTokenLogprobs: readonly (readonly [number, number])[];
+      finishReason: { type: "stop" | "length" | "abort" };
+      weightVersion: string;
+    };
+  };
+  decoded: {
+    responseTokenIds: readonly number[];
+    responseLogProbs: readonly number[];
+    text: string;
+    metaInfoKept: boolean;
+  };
+  sampleBeforeWrite: {
+    tokens: readonly number[];
+    response: string;
+    responseLength: number;
+    lossMask: null;
+    rolloutLogProbs: null;
+    weightVersions: readonly string[];
+    status: "pending";
+    reward: null;
+  };
+};
+
+export type ResponseDiagnosticCase = {
+  id: string;
+  title: string;
+  snapshot: string;
+  firstErrorBoundary: string;
+  explanation: string;
+};
+
+export type WritebackCalibrationStepId =
+  | "call-entry"
+  | "preflight"
+  | "text-append"
+  | "token-mask-append"
+  | "logprob-append"
+  | "terminal-meta"
+  | "late-audit";
+
+export type WritebackCalibrationStep = {
+  id: WritebackCalibrationStepId;
+  order: number;
+  title: string;
+  sourceOperation: string;
+  reads: readonly string[];
+  writes: readonly {
+    field: string;
+    before: string;
+    after: string;
+  }[];
+  proves: string;
+  doesNotProve: string;
+  failureTiming: "no-mutation" | "pre-mutation" | "post-mutation";
+  sourceRefIds: readonly string[];
+};
+
+export type WritebackCoordinateRow = {
+  id: string;
+  field: string;
+  coordinateSpace: "full-sequence" | "response" | "text" | "terminal" | "outside-course";
+  before: string;
+  incoming: string;
+  after: string;
+  indexRule: string;
+  invariant: string;
+  caveat: string;
+};
+
+export type WritebackTerminalCase = {
+  id: string;
+  incoming: string;
+  statusAfter: string;
+  weightVersionAfter: string;
+  reason: string;
+};
+
+export type WritebackFailureBoundary = {
+  id: string;
+  title: string;
+  condition: string;
+  boundary: "preflight" | "late-validation" | "course-reducer";
+  sampleMutation: string;
+  explanation: string;
+  sourceRefIds: readonly string[];
+};
+
+export type WritebackFixture = {
+  sampleId: string;
+  fromObservation: string;
+  toObservation: string;
+  prefixLength: number;
+  before: {
+    tokens: readonly number[];
+    response: string;
+    responseLength: number;
+    lossMask: null;
+    rolloutLogProbs: null;
+    weightVersions: readonly string[];
+    status: "pending";
+    reward: null;
+  };
+  incoming: {
+    tokens: readonly number[];
+    logProbs: readonly number[];
+    trainable: true;
+    text: string;
+    metaInfo: {
+      finishReason: { type: "stop" };
+      weightVersion: string;
+    };
+  };
+  after: {
+    tokens: readonly number[];
+    response: string;
+    responseLength: number;
+    lossMask: readonly number[];
+    rolloutLogProbs: readonly number[];
+    weightVersions: readonly string[];
+    status: "completed";
+    reward: null;
+  };
+};
+
 export type SampleToGenerationTracePassport = {
   origin: {
     id: string;
@@ -159,6 +444,23 @@ export type SampleToGenerationChapter = {
   producerRelayStages?: readonly ProducerRelayStage[];
   fieldLifecycleEntries?: readonly FieldLifecycleEntry[];
   earlyFieldDiagnosticCases?: readonly EarlyFieldDiagnosticCase[];
+  groupingLabGroups?: readonly GroupingLabGroup[];
+  groupingCounterFrames?: readonly GroupingCounterFrame[];
+  groupingComparisonRules?: readonly GroupingComparisonRule[];
+  groupingAliasProbe?: GroupingAliasProbe;
+  requestAssemblyStages?: readonly RequestAssemblyStage[];
+  requestManifestEntries?: readonly RequestManifestEntry[];
+  requestSamplingParameters?: readonly RequestSamplingParameter[];
+  requestFixturePacket?: RequestFixturePacket;
+  responseDecodeStages?: readonly ResponseDecodeStage[];
+  responseEvidenceLanes?: readonly ResponseEvidenceLane[];
+  responseFixtureReceipt?: ResponseFixtureReceipt;
+  responseDiagnosticCases?: readonly ResponseDiagnosticCase[];
+  writebackCalibrationSteps?: readonly WritebackCalibrationStep[];
+  writebackCoordinateRows?: readonly WritebackCoordinateRow[];
+  writebackTerminalCases?: readonly WritebackTerminalCase[];
+  writebackFailureBoundaries?: readonly WritebackFailureBoundary[];
+  writebackFixture?: WritebackFixture;
   branch?: SampleToGenerationBranch;
   explanation: readonly SampleToGenerationExplanation[];
   observationIds: readonly string[];
@@ -185,6 +487,39 @@ export type SampleToGenerationSourceEvidence = {
   claim: string;
   focus: readonly string[];
   boundary: string;
+};
+
+export type AssessmentEvidenceStation = {
+  id: string;
+  order: number;
+  chapter: number;
+  title: string;
+  producer: string;
+  observation: string;
+  contract: string;
+  evidence: readonly string[];
+  sourceRefIds: readonly string[];
+};
+
+export type AssessmentCheckpoint = {
+  id: string;
+  order: number;
+  stationId: string;
+  required: boolean;
+  exercise: StructuredExercise;
+};
+
+export type ComprehensiveTraceAssessment = {
+  id: string;
+  title: string;
+  drivingQuestion: string;
+  imageSrc: string;
+  imageAlt: string;
+  scope: string;
+  teachingNotice: string;
+  fixture: ComprehensiveAssessmentFixture;
+  stations: readonly AssessmentEvidenceStation[];
+  checkpoints: readonly AssessmentCheckpoint[];
 };
 
 export type SampleToGenerationCourse = {
@@ -216,7 +551,7 @@ export type SampleToGenerationCourse = {
   teachingValuesNotice: string;
   learningObjectives: readonly string[];
   chapters: readonly SampleToGenerationChapter[];
-  finalAssessment: readonly StructuredExercise[];
+  finalAssessment: ComprehensiveTraceAssessment;
   sourceEvidence: readonly SampleToGenerationSourceEvidence[];
 };
 
@@ -258,11 +593,35 @@ export const sampleToGenerationSourceEvidence: readonly SampleToGenerationSource
       "内层循环次数由 n_samples_per_prompt 决定",
       "deepcopy 发生在写入 group_index 与 index 之前",
     ],
-    boundary: "源码证明复制和编号规则；2×2 的具体数值是教学 fixture，而不是框架常量。",
+    boundary: "源码证明嵌套 fan-out、复制和递增规则；2×2 与从 0 开始的具体数值属于 fresh-counter 教学 fixture，不是每次调用都成立的框架常量。",
+  },
+  {
+    id: "evidence-sample-identity-defaults",
+    title: "候选身份在 DataSource 之前仍为空",
+    sourceRefId: "sample.identity-defaults",
+    claim: "Sample dataclass 把 group_index 与 index 初始化为 None；Dataset 创建 seed 时不会提前赋予本轮候选身份。",
+    focus: [
+      "group_index 与 index 是两个独立字段",
+      "二者的默认值都是 None",
+      "rollout_id 是另一种下游身份语义，本章不展开",
+    ],
+    boundary: "摘录只证明 dataclass 默认值，不证明 DataSource 的 fan-out 或计数器起点。",
+  },
+  {
+    id: "evidence-datasource-counter-init",
+    title: "fresh DataSource 的两个计数器从 0 起步",
+    sourceRefId: "rollout.datasource-counter-init",
+    claim: "新建 RolloutDataSource 时，sample_group_index 与 sample_index 都初始化为 0。",
+    focus: [
+      "组计数器与样本计数器分别保存",
+      "本教学 fixture 使用 fresh DataSource",
+      "计数器可以随调用推进，因此 0/1/2/3 不是全局常量",
+    ],
+    boundary: "本摘录只证明新实例的初始值；恢复状态和跨调用续接不属于本章主路径。",
   },
   {
     id: "evidence-prompt-request",
-    title: "prompt IDs 与 sampling params 在请求边界汇合",
+    title: "源码核对：prompt 先成为局部 token IDs",
     sourceRefId: "rollout.prepare-prompt-ids",
     claim: "纯文本默认路径由 checkpoint tokenizer 生成 prompt IDs；已有 token 或多模态输入会走其他分支。",
     focus: [
@@ -273,28 +632,148 @@ export const sampleToGenerationSourceEvidence: readonly SampleToGenerationSource
     boundary: "课程 fixture 使用教学 tokenizer；真实 token ID 必须由实际 checkpoint 决定。",
   },
   {
-    id: "evidence-response-projection",
-    title: "HTTP 响应先被投影为 token 与 log-prob 数组",
-    sourceRefId: "rollout.generate",
-    claim: "generate 从 output_token_logprobs 分别提取 token ID 与 log-prob，再交给 Sample 的写回方法。",
+    id: "evidence-sampling-recipe",
+    title: "源码核对：采样配方来自运行参数",
+    sourceRefId: "rollout.generate-state-init",
+    claim: "GenerateState 载入 checkpoint tokenizer / processor，并从 rollout 参数建立默认 sampling_params；提交任务时传给 generate 的是这份配置的副本。",
     focus: [
-      "payload 明确请求 return_logprob",
-      "tuple 的索引 1 是 token ID，索引 0 是 log-prob",
-      "output.text 与 meta_info 仍是服务器返回，不是完整 Sample",
+      "temperature、top_p、top_k 与 max_new_tokens 都来自运行配置",
+      "sampling_params 描述生成策略，不是 Sample 的任务语义字段",
+      "本课 fixture 固定一份可复算的配置，不声称与任意部署默认值相同",
     ],
-    boundary: "mock HTTP 响应只固定教学数据；tuple 的投影顺序由源码验证。",
+    boundary: "摘录证明 GenerateState 的默认配方；具体 generate 调用接收的是调用链传入的 sampling_params，而不是教学页面中可变的共享对象。",
   },
   {
-    id: "evidence-atomic-writeback",
-    title: "写回必须维持 response 空间长度契约",
-    sourceRefId: "sample.validate-response-metadata-lengths",
-    claim: "Sample 在写回后验证 loss_mask、rollout_log_probs 与 response_length 的对齐关系。",
+    id: "evidence-request-budget",
+    title: "源码核对：零生成预算不会发出请求",
+    sourceRefId: "rollout.generate-request-budget",
+    claim: "generate 在 prompt_ids 准备完成后检查 max_new_tokens；负值无效，零值把 Sample 标记为 truncated 并直接返回，只有正值继续进入请求装配。",
     focus: [
-      "tokens 保存 prompt 前缀与 response 后缀",
-      "response_length 只统计 response token",
-      "loss_mask 与 rollout_log_probs 只在 response 空间对齐",
+      "预算检查发生在 payload/input_ids 与 POST 之前",
+      "本课 fixture 固定 max_new_tokens=1，因此进入主路径",
+      "truncated 描述生成终止边界，不判断答案正确性",
     ],
-    boundary: "课程 reducer 在写入前预检以展示原子失败；生产方法的最终防线是长度校验。",
+    boundary: "摘录同时露出 routing replay 对 payload 的条件扩展；该字段不属于本课默认 pure-text 三键 fixture。",
+  },
+  {
+    id: "evidence-request-envelope",
+    title: "源码底片：三键请求信封与前缀留档",
+    sourceRefId: "rollout.generate-request-envelope",
+    claim: "默认纯文本分支把 input_ids、sampling_params 与 return_logprob 放入 payload；随后在 Sample.tokens 为空时保存同一 prompt 前缀。",
+    focus: [
+      "return_logprob 是 payload 顶层协议开关，不在 sampling_params 内",
+      "纯文本路径发送 input_ids，不发送原始 prompt 字段",
+      "payload 与 Sample.tokens 保存相同的序列值，但承担网络输入与调用方状态两种职责",
+    ],
+    boundary: "三键白名单只适用于本课纯文本 fixture。多模态、routing replay 等条件分支会改变 envelope；源码也不保证两个列表具有独立 Python identity。",
+  },
+  {
+    id: "evidence-request-dispatch",
+    title: "源码核对：可选路由 header 与真实 POST",
+    sourceRefId: "rollout.generate-request-dispatch",
+    claim: "generate 只在特定 consistent-hashing 条件下从 session_id 构造路由 header，然后把 payload 发往 /generate。",
+    focus: [
+      "session_id 不会成为本课 JSON payload 字段",
+      "header 分支是条件路径，不是所有请求都携带身份",
+      "POST 之后才进入下一章的 response 投影",
+    ],
+    boundary: "本课 fixture 没有 session_id，也不运行真实服务器；request sidecar 是课程观察工具，不是 upstream Sample 字段。",
+  },
+  {
+    id: "evidence-http-json-decode",
+    title: "源码底片：HTTP bytes 先通过 JSON 解码",
+    sourceRefId: "http.post-json-decode",
+    claim: "_post 对成功 response 读取 bytes，并优先通过 json.loads 建立 generate 随后访问的 output 值。",
+    focus: [
+      "raise_for_status 先于 body 解析",
+      "aread 取得 response bytes",
+      "非 JSON body 会回退为 decoded string，因此本课 nested mapping 是固定主路径，不是 helper 的唯一返回类型",
+    ],
+    boundary: "摘录只证明传输层到 Python 值的第一层解码；它不证明 SGLang response 的完整 schema，也不涉及 Sample。",
+  },
+  {
+    id: "evidence-response-decode",
+    title: "源码底片：同一 tuple 分出 token 与 log-prob 两条轨",
+    sourceRefId: "rollout.generate-response-decode",
+    claim: "generate 在 output_token_logprobs 存在时以 item[1] 投影 token ID、item[0] 投影 log-prob；字段缺失时两者都回退为空数组。",
+    focus: [
+      "tuple 的索引 1 是 token ID，索引 0 是 log-prob",
+      "列表推导式维持输入 tuple 的顺序与数量",
+      "真实 tuple 可以带未被本路径读取的尾随元素；课程二元值只覆盖前两个位置",
+    ],
+    boundary: "output.text 没有在这里重新 tokenizer，也没有与 tokens 互证；return_logprob=true 是请求意图，不是强制客户端 schema。",
+  },
+  {
+    id: "evidence-response-handoff",
+    title: "源码边界：证据怎样站到写回方法门前",
+    sourceRefId: "rollout.generate-writeback-handoff",
+    claim: "generate 把 tokens、log_probs、text、meta_info 与调用方常量 trainable=True 一并交给 append_response_tokens。",
+    focus: [
+      "trainable=True 来自调用方代码，不来自 HTTP response",
+      "原始 meta_info 被整体交接，终止状态与权重版本尚未在本章兑现",
+      "方法调用是第五章的停止线，也是第六章的起点",
+    ],
+    boundary: "摘录展示参数交接与方法调用，但第五章课程观察点冻结在调用发生之前；Sample 字段变化由第六章负责解释。",
+  },
+  {
+    id: "evidence-writeback-preflight",
+    title: "源码底片：哪些错误确实在原地修改前被拒绝",
+    sourceRefId: "sample.append-preflight",
+    claim: "append_response_tokens 先规范化 token/log-prob 输入，并在写 response 文本之前完成三类局部 preflight。",
+    focus: [
+      "token 与 log-prob 数量不等会立刻抛错",
+      "非空 trainable token 必须携带 log-prob",
+      "非空 non-trainable token 不接受调用方传入的 log-prob，而会在通过后自行补 0.0",
+    ],
+    boundary: "这些检查只覆盖调用入口的局部数组契约；既有 log-prob 连续性、top-p、routed experts 与最终 response metadata 长度在后面检查。",
+  },
+  {
+    id: "evidence-writeback-core",
+    title: "源码底片：两套坐标按怎样的顺序被原地推进",
+    sourceRefId: "sample.append-core-coordinates",
+    claim: "生产方法先拼接 response 文本，再尾部追加完整 tokens、增长 response_length、扩展 loss_mask，最后处理 rollout_log_probs。",
+    focus: [
+      "response 字符串先于 token 变化，且不与 token IDs 互证",
+      "tokens 是完整序列；loss_mask 与 rollout_log_probs 以 previous_response_length 为回答坐标基准",
+      "既有 response 缺少历史 rollout_log_probs 的连续性错误发生在核心 mutation 之后",
+    ],
+    boundary: "摘录证明固定源码的原地执行顺序；它没有存储 prefix_length，也不承诺 late failure 自动回滚。",
+  },
+  {
+    id: "evidence-writeback-terminal",
+    title: "源码底片：terminal gate 怎样处理版本与状态",
+    sourceRefId: "sample.apply-terminal-info",
+    claim: "只有 terminal update 被允许且 meta_info 含 finish_reason 时，固定源码才继续累计统计、追加存在的 weight_version 并映射已知 finish type。",
+    focus: [
+      "缺 finish_reason 或 update_terminal_info=False 会提前 return",
+      "weight_version 按键存在追加，不是每次调用的必然结果",
+      "stop / length / abort 分别映射 completed / truncated / aborted；未知值保持原 status",
+    ],
+    boundary: "这些字段描述生成来源与结束方式，不包含 label 比较、reward 或训练可用性判断。",
+  },
+  {
+    id: "evidence-writeback-length-defense",
+    title: "源码底片：写回末端的 response-space 长度防线",
+    sourceRefId: "sample.validate-response-metadata-full",
+    claim: "生产方法在若干原地修改之后，才验证 loss_mask、rollout_log_probs 与 top-p replay 元数据是否和 response_length 对齐。",
+    focus: [
+      "loss_mask 与 rollout_log_probs 只有在非 None 时才要求等于 response_length",
+      "top-p replay 用扁平 token IDs 与 response_length+1 个 offsets 表示 ragged spans",
+      "这是一道 late validation 防线，不是事务回滚机制",
+    ],
+    boundary: "课程 reducer 采用 copy-on-write 与整批替换，能在教学 trace 中避免半发布；固定源码的 Sample.append_response_tokens 原地修改 self，晚期校验失败时不承诺回滚。",
+  },
+  {
+    id: "evidence-writeback-top-p",
+    title: "进阶源码底片：ragged top-p replay 怎样占用回答坐标",
+    sourceRefId: "sample.top-p-extract-contract",
+    claim: "top-p replay 用一列扁平 token IDs 和一列 offsets 表示每个 response position 的变长 nucleus；新 chunk 的 offsets 数量必须是新 token 数加一。",
+    focus: [
+      "token IDs 与 offsets 必须成对出现",
+      "chunk offsets 从 0 开始，末项等于扁平 token ID 数",
+      "累计 Sample 的 offsets 还要在最终 validator 中与 response_length+1 对齐",
+    ],
+    boundary: "本课 a0 fixture 未启用 top-p replay；该证据用于解释最终 validator 为什么不只检查 loss_mask 与 rollout_log_probs。",
   },
 ];
 
@@ -644,12 +1123,149 @@ const chapterTwoExercise = {
   },
 } as const satisfies StructuredExercise;
 
+export const groupingLabGroups: readonly GroupingLabGroup[] = [
+  {
+    id: "group-a",
+    originId: "origin-a",
+    prompt: "3 + 2 = ?",
+    label: "5",
+    metadata: { source_name: "mechanism_course", difficulty: "warmup" },
+    groupIndex: 0,
+    candidates: [
+      { id: "a0", index: 0 },
+      { id: "a1", index: 1 },
+    ],
+    identityChecks: [
+      { expression: "a0 is a1", result: false, meaning: "两个候选不是同一个 Sample 对象" },
+      { expression: "a0.metadata is a1.metadata", result: false, meaning: "两个可变 metadata 容器没有别名" },
+    ],
+  },
+  {
+    id: "group-b",
+    originId: "origin-b",
+    prompt: "4 + 3 = ?",
+    label: "7",
+    metadata: { source_name: "mechanism_course", difficulty: "warmup" },
+    groupIndex: 1,
+    candidates: [
+      { id: "b0", index: 2 },
+      { id: "b1", index: 3 },
+    ],
+    identityChecks: [
+      { expression: "b0 is b1", result: false, meaning: "两个候选不是同一个 Sample 对象" },
+      { expression: "b0.metadata is b1.metadata", result: false, meaning: "两个可变 metadata 容器没有别名" },
+    ],
+  },
+] as const;
+
+export const groupingCounterFrames: readonly GroupingCounterFrame[] = [
+  {
+    id: "copy-a0",
+    order: 1,
+    operation: "deepcopy(origin-a) → a0",
+    groupCounterBefore: 0,
+    sampleCounterBefore: 0,
+    writes: ["a0.group_index = 0", "a0.index = 0"],
+    groupCounterAfter: 0,
+    sampleCounterAfter: 1,
+    explanation: "还在处理 origin-a，所以组计数器不动；每产出一个物理副本，sample_index 立即加一。",
+  },
+  {
+    id: "copy-a1",
+    order: 2,
+    operation: "deepcopy(origin-a) → a1",
+    groupCounterBefore: 0,
+    sampleCounterBefore: 1,
+    writes: ["a1.group_index = 0", "a1.index = 1"],
+    groupCounterAfter: 1,
+    sampleCounterAfter: 2,
+    explanation: "内层循环完成 N=2 次后，origin-a 的 group 才封口；随后 sample_group_index 加一。",
+  },
+  {
+    id: "copy-b0",
+    order: 3,
+    operation: "deepcopy(origin-b) → b0",
+    groupCounterBefore: 1,
+    sampleCounterBefore: 2,
+    writes: ["b0.group_index = 1", "b0.index = 2"],
+    groupCounterAfter: 1,
+    sampleCounterAfter: 3,
+    explanation: "新的 prompt group 使用新的 group_index；sample_index 沿本批候选继续递增，不在组边界归零。",
+  },
+  {
+    id: "copy-b1",
+    order: 4,
+    operation: "deepcopy(origin-b) → b1",
+    groupCounterBefore: 1,
+    sampleCounterBefore: 3,
+    writes: ["b1.group_index = 1", "b1.index = 3"],
+    groupCounterAfter: 2,
+    sampleCounterAfter: 4,
+    explanation: "第二个 group 封口后，本次教学调用累计得到 2 个 group、4 个物理 Sample。",
+  },
+] as const;
+
+export const groupingComparisonRules: readonly GroupingComparisonRule[] = [
+  {
+    id: "prompt-label",
+    subject: "prompt / label",
+    withinGroup: "值相同",
+    objectContract: "只要求语义值一致；字符串对象身份不是本课契约",
+    reason: "候选必须在同一道题、同一个参考答案条件下开始，后续差异才可归因于生成。",
+  },
+  {
+    id: "metadata",
+    subject: "metadata",
+    withinGroup: "初始内容相同",
+    objectContract: "容器对象必须独立",
+    reason: "后续 hook 修改 a0.metadata 时，不得通过别名污染 a1。",
+  },
+  {
+    id: "group-index",
+    subject: "group_index",
+    withinGroup: "相同",
+    objectContract: "表示比较关系，不表示对象身份",
+    reason: "a0 与 a1 必须被识别为同一 prompt 的候选；b0 与 b1 属于另一个比较组。",
+  },
+  {
+    id: "sample-index",
+    subject: "index",
+    withinGroup: "不同",
+    objectContract: "每个物理 Sample 唯一",
+    reason: "四次生成必须能够独立记录、定位和写回，不能只凭 group_index 区分。",
+  },
+  {
+    id: "future-fields",
+    subject: "response / log-prob / status / reward",
+    withinGroup: "此刻仍是默认值或空值",
+    objectContract: "未来必须能够各自变化",
+    reason: "DataSource 只建立候选集合；生成与评价尚未运行，不能提前填入结果。",
+  },
+] as const;
+
+export const groupingAliasProbe: GroupingAliasProbe = {
+  mutation: 'a0.metadata.difficulty = "audited"',
+  fixtureValue: "warmup",
+  mutatedValue: "audited",
+  actualAfter: [
+    { sampleId: "a0", value: "audited", explanation: "目标副本接收本地修改。" },
+    { sampleId: "a1", value: "warmup", explanation: "独立 metadata 容器保持原值。" },
+    { sampleId: "origin-a seed", value: "warmup", explanation: "原始 seed 也未被副本修改。" },
+  ],
+  counterfactualAfter: [
+    { sampleId: "a0", value: "audited", explanation: "目标对象被修改。" },
+    { sampleId: "a1", value: "audited", explanation: "若共享引用，a1 会被静默污染。" },
+    { sampleId: "origin-a seed", value: "audited", explanation: "浅复制还会把修改反向泄漏到 seed。" },
+  ],
+  boundary: "audited 是页面内的反事实探针值，不属于固定 fixture。它只演示对象别名后果；生产源码是否使用 deepcopy 由固定 commit 摘录证明。",
+};
+
 const chapterThreeExercise = {
-  id: "stg.chapter-3-gate",
+  id: "stg.chapter-3-identity-matrix-v2",
   kind: "field-entry",
   title: "2×2 身份矩阵",
-  prompt: "补全 a0、a1、b0、b1 的 group_index 与 index。",
-  instruction: "每格输入一个十进制整数。",
+  prompt: "固定 P=2、N=2，且调用前 sample_group_index=0、sample_index=0。补全四个候选的身份字段。",
+  instruction: "每格输入一个十进制整数；fixture ID 只用于课程关联，不是 upstream Sample 字段。",
   fields: [
     { id: "a0-group", label: "a0.group_index", acceptedAnswers: ["0"] },
     { id: "a0-index", label: "a0.index", acceptedAnswers: ["0"] },
@@ -662,80 +1278,852 @@ const chapterThreeExercise = {
   ],
   sourceRefIds: ["rollout.datasource-get-samples"],
   feedback: {
-    correct: "矩阵正确。同一 prompt 的候选共享组号，四次物理生成拥有独立 index。",
-    incorrect: "沿 DataSource 的两个计数器检查：group counter 每组加一，sample counter 每个副本加一。",
+    correct: "矩阵正确。同一 seed 的候选共享组号，四个物理候选 Sample 拥有独立 index；metadata 隔离还要由上方别名探针和源码共同证明。",
+    incorrect: "沿 DataSource 的两个计数器检查：sample counter 每个副本加一，group counter 只在整组完成后加一。",
   },
 } as const satisfies StructuredExercise;
 
+export const requestAssemblyStages: readonly RequestAssemblyStage[] = [
+  {
+    id: "prepare-prompt",
+    order: 1,
+    title: "准备局部 prompt_ids",
+    producer: "_prepare_prompt_ids",
+    input: ['a0.prompt = "3 + 2 = ?"', "a0.tokens = []", "checkpoint tokenizer / processor"],
+    operation: "默认纯文本分支调用 tokenizer.encode(sample.prompt, add_special_tokens=False)。",
+    output: ["局部 prompt_ids = [11, 12, 13, 14, 15]（教学 tokenizer）"],
+    callerEffect: "此时只是得到局部变量；Sample.tokens 仍为空。",
+    networkEffect: "尚未构造 payload，也没有网络请求。",
+    sourceRefIds: ["rollout.prepare-prompt-ids"],
+  },
+  {
+    id: "validate-budget",
+    order: 2,
+    title: "检查生成预算",
+    producer: "generate",
+    input: ["sampling_params.max_new_tokens = 1"],
+    operation: "负数触发断言；0 会把 Sample 标记为 truncated 并直接返回；本 fixture 的 1 通过检查。",
+    output: ["继续装配请求"],
+    callerEffect: "a0.status 仍为 pending。",
+    networkEffect: "只有通过该检查的路径才会抵达 /generate。",
+    sourceRefIds: ["rollout.generate-request-budget"],
+  },
+  {
+    id: "assemble-envelope",
+    order: 3,
+    title: "装配最小请求信封",
+    producer: "generate",
+    input: ["prompt_ids", "调用链传入的 sampling_params 副本", "return_logprob=True"],
+    operation: "建立 payload；纯文本分支把 prompt_ids 放入 input_ids。",
+    output: ["payload.input_ids", "payload.sampling_params", "payload.return_logprob"],
+    callerEffect: "完整 Sample 仍由调用方持有；label 与身份没有被序列化。",
+    networkEffect: "payload 只在内存中完成，尚未 POST。",
+    sourceRefIds: ["rollout.generate-request-envelope", "rollout.generate-state-init"],
+  },
+  {
+    id: "persist-prefix",
+    order: 4,
+    title: "在 Sample 留下同一前缀",
+    producer: "generate",
+    input: ["a0.tokens = []", "prompt_ids = [11, 12, 13, 14, 15]"],
+    operation: "若 Sample.tokens 为空，将 prompt_ids 保存为调用方的完整序列前缀。",
+    output: ["a0.tokens = [11, 12, 13, 14, 15]"],
+    callerEffect: "Sample 获得 prompt 前缀；response、reward 与 status 仍未变化。",
+    networkEffect: "payload.input_ids 与 Sample.tokens 的序列值一致，职责不同。",
+    sourceRefIds: ["rollout.generate-request-envelope"],
+  },
+  {
+    id: "dispatch-request",
+    order: 5,
+    title: "越过网络边界",
+    producer: "post",
+    input: ["url = http://…/generate", "payload", "可选 consistent-hashing header"],
+    operation: "调用 post(url, payload, headers=headers)；等待真实 SGLang response。",
+    output: ["HTTP request 已发出；response 尚未投影"],
+    callerEffect: "调用方继续保有 a0，并等待把返回材料写回同一对象。",
+    networkEffect: "本课 pure-text fixture 的 JSON body 只有三个顶层键。",
+    sourceRefIds: ["rollout.generate-request-dispatch"],
+  },
+] as const;
+
+export const requestManifestEntries: readonly RequestManifestEntry[] = [
+  {
+    id: "prompt",
+    field: "Sample.prompt",
+    fixtureValue: '"3 + 2 = ?"',
+    origin: "Dataset 提供的任务输入",
+    destination: "transformed",
+    path: "prompt → tokenizer → prompt_ids",
+    reason: "默认纯文本请求发送 token IDs，而不是原始 prompt 字段。",
+    mainPath: true,
+    sourceRefIds: ["rollout.prepare-prompt-ids"],
+  },
+  {
+    id: "prompt-ids",
+    field: "局部 prompt_ids",
+    fixtureValue: "[11, 12, 13, 14, 15]",
+    origin: "教学 tokenizer 对 a0.prompt 的确定性编码",
+    destination: "transformed",
+    path: "prompt_ids → payload.input_ids + Sample.tokens",
+    reason: "同一序列值同时服务于网络输入和调用方前缀账本。",
+    mainPath: true,
+    sourceRefIds: ["rollout.prepare-prompt-ids", "rollout.generate-request-envelope"],
+  },
+  {
+    id: "tokens",
+    field: "Sample.tokens",
+    fixtureValue: "[] → [11, 12, 13, 14, 15]",
+    origin: "generate 在 POST 前保存 prompt 前缀",
+    destination: "caller-ledger",
+    path: "留在调用方；不作为名为 tokens 的 JSON 字段",
+    reason: "后续 response token 要追加在这个前缀之后。",
+    mainPath: true,
+    sourceRefIds: ["rollout.generate-request-envelope"],
+  },
+  {
+    id: "input-ids",
+    field: "payload.input_ids",
+    fixtureValue: "[11, 12, 13, 14, 15]",
+    origin: "局部 prompt_ids",
+    destination: "json-body",
+    path: "POST /generate JSON body",
+    reason: "它是本课纯文本路径的模型输入表示。",
+    mainPath: true,
+    sourceRefIds: ["rollout.generate-request-envelope"],
+  },
+  {
+    id: "sampling-params",
+    field: "payload.sampling_params",
+    fixtureValue: "9 项固定教学配置",
+    origin: "rollout 运行参数形成的调用副本",
+    destination: "json-body",
+    path: "POST /generate JSON body",
+    reason: "它规定如何生成，不描述题目的正确答案或候选身份。",
+    mainPath: true,
+    sourceRefIds: ["rollout.generate-state-init", "rollout.generate-request-envelope"],
+  },
+  {
+    id: "return-logprob",
+    field: "payload.return_logprob",
+    fixtureValue: "true",
+    origin: "generate 的协议开关",
+    destination: "json-body",
+    path: "POST /generate JSON body 顶层",
+    reason: "请求服务器返回所选 token 的概率证据；它不运行 reward，也不判断正确性。",
+    mainPath: true,
+    sourceRefIds: ["rollout.generate-request-envelope"],
+  },
+  {
+    id: "label",
+    field: "Sample.label",
+    fixtureValue: '"5"',
+    origin: "Dataset 任务语义",
+    destination: "caller-ledger",
+    path: "留在调用方",
+    reason: "生成服务器只负责续写；答案比较属于后续 reward 机制。",
+    mainPath: true,
+    sourceRefIds: ["rollout.generate-request-envelope"],
+  },
+  {
+    id: "identity",
+    field: "group_index / index",
+    fixtureValue: "0 / 0",
+    origin: "DataSource 候选身份",
+    destination: "caller-ledger",
+    path: "留在调用方",
+    reason: "调用方以自己保有的 Sample 关联 response，不需要把比较身份交给 SGLang。",
+    mainPath: true,
+    sourceRefIds: ["rollout.generate-request-envelope"],
+  },
+  {
+    id: "metadata",
+    field: "Sample.metadata",
+    fixtureValue: '{source_name: "mechanism_course", difficulty: "warmup"}',
+    origin: "Dataset 任务上下文",
+    destination: "caller-ledger",
+    path: "留在调用方",
+    reason: "默认纯文本 generate 路径不会把该任意字典放入 JSON body。",
+    mainPath: true,
+    sourceRefIds: ["rollout.generate-request-envelope"],
+  },
+  {
+    id: "reward",
+    field: "Sample.reward",
+    fixtureValue: "null",
+    origin: "Reward 尚未运行",
+    destination: "not-produced",
+    path: "本章不存在可发送的 reward 结果",
+    reason: "null 不是“已计算后被拦截”；它表示生产者尚未运行。",
+    mainPath: true,
+    sourceRefIds: ["rollout.generate-request-envelope"],
+  },
+  {
+    id: "multimodal",
+    field: "image_data + text",
+    fixtureValue: "本 fixture 不存在",
+    origin: "多模态条件分支",
+    destination: "conditional-body",
+    path: "有 images 时替代纯文本 input_ids 分支",
+    reason: "因此“三键 payload”是本课主路径事实，不是 slime 的无条件全局规则。",
+    mainPath: false,
+    sourceRefIds: ["rollout.generate-request-envelope"],
+  },
+  {
+    id: "session-header",
+    field: "session_id → X-SMG-Routing-Key",
+    fixtureValue: "本 fixture 不存在",
+    origin: "consistent-hashing 条件分支",
+    destination: "conditional-header",
+    path: "HTTP header，不是 JSON payload",
+    reason: "只有 session_id 存在且 router_policy=consistent_hashing 时才建立。",
+    mainPath: false,
+    sourceRefIds: ["rollout.generate-request-dispatch"],
+  },
+] as const;
+
+export const requestSamplingParameters: readonly RequestSamplingParameter[] = [
+  { key: "temperature", fixtureValue: "0", runtimeArgument: "--rollout-temperature", role: "关闭随机温度，便于固定教学输出" },
+  { key: "top_p", fixtureValue: "1", runtimeArgument: "--rollout-top-p", role: "保留完整 nucleus 范围" },
+  { key: "top_k", fixtureValue: "-1", runtimeArgument: "--rollout-top-k", role: "不启用 top-k 截断" },
+  { key: "max_new_tokens", fixtureValue: "1", runtimeArgument: "--rollout-max-response-len", role: "本课只生成一个回答 token；大于 0 才会发请求" },
+  { key: "stop", fixtureValue: "[]", runtimeArgument: "--rollout-stop", role: "不增加字符串停止条件" },
+  { key: "stop_token_ids", fixtureValue: "[]", runtimeArgument: "--rollout-stop-token-ids", role: "不增加 token 停止条件" },
+  { key: "skip_special_tokens", fixtureValue: "true", runtimeArgument: "--rollout-skip-special-tokens", role: "控制返回文本解码" },
+  { key: "no_stop_trim", fixtureValue: "true", runtimeArgument: "generate 固定协议值", role: "保留停止内容处理策略" },
+  { key: "spaces_between_special_tokens", fixtureValue: "false", runtimeArgument: "generate 固定协议值", role: "控制 special token 之间的文本空格" },
+] as const;
+
+export const requestFixturePacket: RequestFixturePacket = {
+  sampleId: "a0",
+  fromObservation: "groups-built",
+  toObservation: "requests-prepared",
+  prompt: "3 + 2 = ?",
+  promptIds: [11, 12, 13, 14, 15],
+  method: "POST",
+  endpoint: "/generate",
+  payload: {
+    input_ids: [11, 12, 13, 14, 15],
+    sampling_params: {
+      temperature: 0,
+      top_p: 1,
+      top_k: -1,
+      max_new_tokens: 1,
+      stop: [],
+      stop_token_ids: [],
+      skip_special_tokens: true,
+      no_stop_trim: true,
+      spaces_between_special_tokens: false,
+    },
+    return_logprob: true,
+  },
+};
+
+export const responseDecodeStages: readonly ResponseDecodeStage[] = [
+  {
+    id: "http-json",
+    order: 1,
+    title: "HTTP bytes 先成为 Python 值",
+    input: ["成功响应的 body bytes", "HTTP status"],
+    operation: "_post() 先执行 raise_for_status()，读取 body，再尝试 json.loads(content)。",
+    output: ["output mapping", "或非 JSON 时的 decoded string fallback"],
+    proof: "固定源码能证明 JSON 解码发生在 generate 取得 output 之前。",
+    notYet: "这一层还没有读取 text、tuple，也不知道 response 属于哪条 Sample。",
+    sourceRefIds: ["http.post-json-decode"],
+  },
+  {
+    id: "output-mapping",
+    order: 2,
+    title: "generate 取得 text 与 meta_info",
+    input: ["output[\"text\"]", "output[\"meta_info\"]"],
+    operation: "调用方把返回 mapping 当作两类材料读取：人类可读文本，以及生成过程元数据。",
+    output: ["text=\"5\"", "nested meta_info"],
+    proof: "generate 直接访问这两个键；课程只重建固定路径访问到的最小 shape，不冒充完整 SGLang schema。",
+    notYet: "text 没有被重新 tokenizer，也没有与 token IDs 做一致性验证。",
+    sourceRefIds: ["rollout.generate-response-decode"],
+  },
+  {
+    id: "tuple-split",
+    order: 3,
+    title: "同一 tuple 序列分成两条等长轨",
+    input: ["meta_info.output_token_logprobs[*]", "教学 tuple [-0.356675, 25]"],
+    operation: "逐项以 item[1] 取 response token ID，以 item[0] 取 rollout log-prob；字段缺失时两条轨都回退为空数组。",
+    output: ["response_token_ids=[25]", "response_log_probs=[-0.356675]"],
+    proof: "两条列表推导式共享同一输入顺序，因此课程 fixture 的投影长度与顺序可以确定性复算。",
+    notYet: "真实 tuple 可以带尾随元素；本课严格二元教学值不是完整 wire schema。return_logprob=true 也不等于客户端强制收到该字段。",
+    sourceRefIds: ["rollout.generate-response-decode"],
+  },
+  {
+    id: "candidate-package",
+    order: 4,
+    title: "调用方补上关联键，形成候写证据包",
+    input: ["sample_id=a0（调用方）", "text / token IDs / log-probs / meta_info（服务器与解码器）"],
+    operation: "课程把各来源并列保存为 response evidence sidecar，便于在写回前逐项核对。",
+    output: ["a0 的候写证据", "原始 meta_info 未丢弃"],
+    proof: "sample_id 只负责课程关联；它既不在 HTTP body 内，也不是新写入的 upstream Sample 字段。",
+    notYet: "候写证据包是教学观察工具，不是 slime 中命名为 ResponseProjection 的正式持久对象。",
+    sourceRefIds: ["rollout.generate-response-decode"],
+  },
+  {
+    id: "writeback-gate",
+    order: 5,
+    title: "停在 append_response_tokens 调用之前",
+    input: ["tokens", "log_probs", "text", "meta_info", "trainable=True"],
+    operation: "下一行源码将这些参数交给 Sample.append_response_tokens；本章在方法真正执行前冻结观察。",
+    output: ["可交接的调用参数", "未改变的 a0"],
+    proof: "源码底片能看见参数交接位置；trainable=True 来自调用方代码，不来自 HTTP response。",
+    notYet: "response、status、weight_versions、loss_mask 与 response_length 都必须等第六章的写回方法处理。",
+    sourceRefIds: ["rollout.generate-writeback-handoff"],
+  },
+] as const;
+
+export const responseEvidenceLanes: readonly ResponseEvidenceLane[] = [
+  {
+    id: "text-evidence",
+    kind: "server-field",
+    label: "人类可读文本",
+    sourcePath: "output.text",
+    fixtureValue: '"5"',
+    projectedAs: "text argument",
+    proves: "服务器返回了一段可读续写。",
+    doesNotProve: "不证明 token 对齐，也不证明答案正确。源码没有在这里重新 tokenizer 文本。",
+    sourceRefIds: ["rollout.generate-response-decode", "rollout.generate-writeback-handoff"],
+  },
+  {
+    id: "token-evidence",
+    kind: "decoded-evidence",
+    label: "response token 身份",
+    sourcePath: "output.meta_info.output_token_logprobs[*][1]",
+    fixtureValue: "25",
+    projectedAs: "tokens=[25]",
+    proves: "固定 tuple 的第二个位置被 generate 当作 token ID。",
+    doesNotProve: "token ID 依赖实际 tokenizer；25 只是明确标注的教学值，也不表达 reward。",
+    sourceRefIds: ["rollout.generate-response-decode"],
+  },
+  {
+    id: "logprob-evidence",
+    kind: "decoded-evidence",
+    label: "rollout policy 概率证据",
+    sourcePath: "output.meta_info.output_token_logprobs[*][0]",
+    fixtureValue: "-0.356675",
+    projectedAs: "log_probs=[-0.356675]",
+    proves: "固定 tuple 的第一个位置被 generate 当作已选 token 的 log-prob。",
+    doesNotProve: "log-prob 不是 reward，也不衡量数学答案是否正确。",
+    sourceRefIds: ["rollout.generate-response-decode"],
+  },
+  {
+    id: "terminal-evidence",
+    kind: "server-field",
+    label: "终止原因",
+    sourcePath: "output.meta_info.finish_reason.type",
+    fixtureValue: '"stop"',
+    projectedAs: "meta_info（原样交接）",
+    proves: "服务器报告这次生成因 stop 条件正常结束。",
+    doesNotProve: "第五章尚未把 stop 映射为 Sample.status；正常结束也不等于内容正确。",
+    sourceRefIds: ["rollout.generate-writeback-handoff", "sample.apply-meta-info"],
+  },
+  {
+    id: "version-evidence",
+    kind: "server-field",
+    label: "生成权重来源",
+    sourcePath: "output.meta_info.weight_version",
+    fixtureValue: '"actor@0"',
+    projectedAs: "meta_info（原样交接）",
+    proves: "教学响应声明自己由 actor@0 生成。",
+    doesNotProve: "第五章尚未把它追加到 Sample.weight_versions；版本号也不代表质量。",
+    sourceRefIds: ["rollout.generate-writeback-handoff", "sample.apply-meta-info"],
+  },
+  {
+    id: "sample-association",
+    kind: "caller-association",
+    label: "调用方关联键",
+    sourcePath: "course receipt.sample_id",
+    fixtureValue: '"a0"',
+    projectedAs: "把返回值与原 Sample 对上",
+    proves: "课程知道这份 output 要交回哪条物理候选。",
+    doesNotProve: "sample_id 不来自 HTTP JSON，也不是本步新写入的 Sample 字段。",
+    sourceRefIds: ["rollout.generate-response-decode"],
+  },
+  {
+    id: "caller-constant",
+    kind: "caller-association",
+    label: "调用方策略常量",
+    sourcePath: "generate call site",
+    fixtureValue: "trainable=True",
+    projectedAs: "append_response_tokens argument",
+    proves: "默认 generate 路径选择以可训练 response 交接。",
+    doesNotProve: "这个布尔值不是服务器返回字段；如何形成 loss_mask 要等写回方法。",
+    sourceRefIds: ["rollout.generate-writeback-handoff"],
+  },
+  {
+    id: "deferred-sample-write",
+    kind: "deferred-write",
+    label: "尚未出现的 Sample 结果",
+    sourcePath: "Sample.response / status / weight_versions / loss_mask",
+    fixtureValue: '"" / pending / [] / None',
+    projectedAs: "第六章写回后才改变",
+    proves: "responses-received 观察点只新增课程 sidecar，原 Sample 仍保持请求后的状态。",
+    doesNotProve: "不能把候写材料提前显示成已写入字段，更不能在本章出现 reward。",
+    sourceRefIds: ["rollout.generate-writeback-handoff", "sample.append-response-tokens", "sample.apply-meta-info"],
+  },
+] as const;
+
+export const responseFixtureReceipt: ResponseFixtureReceipt = {
+  sampleId: "a0",
+  fromObservation: "requests-prepared",
+  toObservation: "responses-received",
+  rawBody: {
+    text: "5",
+    metaInfo: {
+      outputTokenLogprobs: [[-0.356675, 25]],
+      finishReason: { type: "stop" },
+      weightVersion: "actor@0",
+    },
+  },
+  decoded: {
+    responseTokenIds: [25],
+    responseLogProbs: [-0.356675],
+    text: "5",
+    metaInfoKept: true,
+  },
+  sampleBeforeWrite: {
+    tokens: [11, 12, 13, 14, 15],
+    response: "",
+    responseLength: 0,
+    lossMask: null,
+    rolloutLogProbs: null,
+    weightVersions: [],
+    status: "pending",
+    reward: null,
+  },
+};
+
+export const responseDiagnosticCases: readonly ResponseDiagnosticCase[] = [
+  {
+    id: "tuple-order-inverted",
+    title: "把 -0.356675 当成 token ID",
+    snapshot: "decoder → tokens=[-0.356675], log_probs=[25]",
+    firstErrorBoundary: "tuple decoder",
+    explanation: "错误最早发生在位置语义被倒置：固定源码明确以 item[1] 取 token ID、item[0] 取 log-prob。",
+  },
+  {
+    id: "stop-means-correct",
+    title: "把 stop 当成答案正确",
+    snapshot: "finish_reason.type=stop → correct=true",
+    firstErrorBoundary: "evidence classification",
+    explanation: "stop 只解释生成为什么结束；没有 label 比较和 reward producer，就没有正确性结论。",
+  },
+  {
+    id: "response-written-too-early",
+    title: "收到响应时就显示 Sample.response=\"5\"",
+    snapshot: "responses-received → Sample.response=\"5\"",
+    firstErrorBoundary: "writeback boundary",
+    explanation: "课程在 append_response_tokens 执行前切开观察缝隙；此时只允许 sidecar 新增，Sample 必须保持未写回状态。",
+  },
+] as const;
+
+export const writebackFixture: WritebackFixture = {
+  sampleId: "a0",
+  fromObservation: "responses-received",
+  toObservation: "responses-written",
+  prefixLength: 5,
+  before: {
+    tokens: [11, 12, 13, 14, 15],
+    response: "",
+    responseLength: 0,
+    lossMask: null,
+    rolloutLogProbs: null,
+    weightVersions: [],
+    status: "pending",
+    reward: null,
+  },
+  incoming: {
+    tokens: [25],
+    logProbs: [-0.356675],
+    trainable: true,
+    text: "5",
+    metaInfo: {
+      finishReason: { type: "stop" },
+      weightVersion: "actor@0",
+    },
+  },
+  after: {
+    tokens: [11, 12, 13, 14, 15, 25],
+    response: "5",
+    responseLength: 1,
+    lossMask: [1],
+    rolloutLogProbs: [-0.356675],
+    weightVersions: ["actor@0"],
+    status: "completed",
+    reward: null,
+  },
+};
+
+export const writebackCalibrationSteps: readonly WritebackCalibrationStep[] = [
+  {
+    id: "call-entry",
+    order: 1,
+    title: "候写证据抵达同一个 Sample",
+    sourceOperation: "sample.append_response_tokens(tokens, log_probs, trainable=True, meta_info, text)",
+    reads: ["a0 的 pending Sample", "tokens=[25]", "log_probs=[-0.356675]", "text=\"5\"", "meta_info"],
+    writes: [],
+    proves: "第五章的课程 sidecar 已经成为方法实参；调用入口本身还没有证明任何字段修改成功。",
+    doesNotProve: "实参齐全不等于写回已通过，也不等于这段 response 正确。",
+    failureTiming: "no-mutation",
+    sourceRefIds: ["rollout.generate-writeback-handoff"],
+  },
+  {
+    id: "preflight",
+    order: 2,
+    title: "先规范化，再做真正的前置拒绝",
+    sourceOperation: "_to_int_list / _to_float_list → length 与 trainable checks",
+    reads: ["tokens", "log_probs", "trainable"],
+    writes: [],
+    proves: "本 fixture 的 1 个 token 与 1 个 log-prob 等长；trainable=True 且 log-prob 存在，因此可以继续。",
+    doesNotProve: "这组检查没有覆盖 top-p、routed experts、既有 log-prob 连续性或最终 metadata 长度。",
+    failureTiming: "pre-mutation",
+    sourceRefIds: ["sample.append-preflight"],
+  },
+  {
+    id: "text-append",
+    order: 3,
+    title: "文本轨先推进",
+    sourceOperation: "self.response += text",
+    reads: ["response=\"\"", "text=\"5\""],
+    writes: [{ field: "response", before: "\"\"", after: "\"5\"" }],
+    proves: "response 是独立累计的文本字段；固定源码在 token 写入之前直接拼接 text。",
+    doesNotProve: "源码没有重新 tokenize 文本，也没有检查 text 与 token IDs 是否逐项一致。",
+    failureTiming: "post-mutation",
+    sourceRefIds: ["sample.append-core-coordinates"],
+  },
+  {
+    id: "token-mask-append",
+    order: 4,
+    title: "完整序列与回答时钟同时走一格",
+    sourceOperation: "self.tokens += tokens; response_length += len(tokens); loss_mask += trainable bits",
+    reads: ["prompt prefix=[11,12,13,14,15]", "incoming token=[25]", "trainable=True"],
+    writes: [
+      { field: "tokens", before: "[11,12,13,14,15]", after: "[11,12,13,14,15,25]" },
+      { field: "response_length", before: "0", after: "1" },
+      { field: "loss_mask", before: "None", after: "[1]" },
+    ],
+    proves: "完整 tokens 尾部新增 R0；回答空间从空集增长到一个位置，trainable=True 使该位置的 mask 为 1。",
+    doesNotProve: "append_response_tokens 只做尾部追加；它没有保存 prefix_length，也没有单独验证旧 prompt 前缀。",
+    failureTiming: "post-mutation",
+    sourceRefIds: ["sample.append-core-coordinates"],
+  },
+  {
+    id: "logprob-append",
+    order: 5,
+    title: "概率证据对齐同一个回答位置",
+    sourceOperation: "self.rollout_log_probs += log_probs",
+    reads: ["previous_response_length=0", "rollout_log_probs=None", "log_probs=[-0.356675]"],
+    writes: [{ field: "rollout_log_probs", before: "None", after: "[-0.356675]" }],
+    proves: "R0 的 rollout log-prob 与 loss_mask[R0]、response token R0 共用回答坐标。",
+    doesNotProve: "若已有 response token 却没有既有 rollout_log_probs，生产方法会在前面若干字段已经改变后才拒绝新的 trainable log-probs。",
+    failureTiming: "post-mutation",
+    sourceRefIds: ["sample.append-core-coordinates"],
+  },
+  {
+    id: "terminal-meta",
+    order: 6,
+    title: "终止原因与权重来源盖章",
+    sourceOperation: "_apply_meta_info(..., update_terminal_info=True)",
+    reads: ["finish_reason.type=stop", "weight_version=actor@0"],
+    writes: [
+      { field: "weight_versions", before: "[]", after: "[actor@0]" },
+      { field: "status", before: "pending", after: "completed" },
+    ],
+    proves: "在默认 terminal gate 成立时，stop 映射为 completed，存在的 weight_version 被追加。",
+    doesNotProve: "completed 只描述生成正常停止；缺少 finish_reason 或 update_terminal_info=False 时，terminal bookkeeping 会被推迟。",
+    failureTiming: "post-mutation",
+    sourceRefIds: ["sample.apply-terminal-info"],
+  },
+  {
+    id: "late-audit",
+    order: 7,
+    title: "最后才执行完整 metadata 长度审计",
+    sourceOperation: "self._validate_response_metadata_lengths()",
+    reads: ["response_length=1", "loss_mask=[1]", "rollout_log_probs=[-0.356675]", "可选 top-p replay"],
+    writes: [],
+    proves: "本 fixture 的 response-side arrays 都有 1 项，满足最终长度防线。",
+    doesNotProve: "这是 late validation，不是数据库事务；失败时生产 Sample 可能已经被部分修改。",
+    failureTiming: "post-mutation",
+    sourceRefIds: ["sample.append-finalize", "sample.validate-response-metadata-full"],
+  },
+] as const;
+
+export const writebackCoordinateRows: readonly WritebackCoordinateRow[] = [
+  {
+    id: "full-tokens",
+    field: "tokens",
+    coordinateSpace: "full-sequence",
+    before: "[11,12,13,14,15]",
+    incoming: "[25]",
+    after: "[11,12,13,14,15,25]",
+    indexRule: "tokens[prefix_length + r]；本 fixture 的 r=0 对应 tokens[5]",
+    invariant: "默认调用路径以尾部追加保留 prompt prefix。",
+    caveat: "prefix_length 不存于 Sample；该关系由调用约定与 fixture 验证，不是 append 方法独自校验。",
+  },
+  {
+    id: "response-text",
+    field: "response",
+    coordinateSpace: "text",
+    before: "\"\"",
+    incoming: "\"5\"",
+    after: "\"5\"",
+    indexRule: "字符串累计，不使用 response token 下标",
+    invariant: "text is not None 时直接拼接。",
+    caveat: "源码不验证字符串字符数、token 数或 token IDs 彼此一致。",
+  },
+  {
+    id: "response-length",
+    field: "response_length",
+    coordinateSpace: "response",
+    before: "0",
+    incoming: "+1 token",
+    after: "1",
+    indexRule: "回答位置 r ∈ [0, response_length)",
+    invariant: "统计所有 response-side token，包括 trainable=False 的工具或环境 token。",
+    caveat: "它不等于 len(tokens)，也不等于 response 字符串长度。",
+  },
+  {
+    id: "loss-mask",
+    field: "loss_mask",
+    coordinateSpace: "response",
+    before: "None",
+    incoming: "trainable=True → [1]",
+    after: "[1]",
+    indexRule: "loss_mask[r] 对应回答位置 r",
+    invariant: "若非 None，最终长度必须等于 response_length。",
+    caveat: "无 token 时可以保持 None；trainable=False 的新位置写 0，不能概括为永远全 1。",
+  },
+  {
+    id: "rollout-logprobs",
+    field: "rollout_log_probs",
+    coordinateSpace: "response",
+    before: "None",
+    incoming: "[-0.356675]",
+    after: "[-0.356675]",
+    indexRule: "rollout_log_probs[r] 对应回答位置 r",
+    invariant: "若非 None，最终长度必须等于 response_length。",
+    caveat: "fresh 空-token fallback 可得到 []；已有 trainable response 却缺旧 log-prob 时不能用 0 冒充历史 policy 证据。",
+  },
+  {
+    id: "terminal-bookkeeping",
+    field: "status / weight_versions",
+    coordinateSpace: "terminal",
+    before: "pending / []",
+    incoming: "stop / actor@0",
+    after: "completed / [actor@0]",
+    indexRule: "由 terminal gate 处理，不与 token 下标逐项对应",
+    invariant: "finish_reason gate 成立后，已识别类型更新 status，存在的 weight_version 追加。",
+    caveat: "版本号不代表质量；缺 finish_reason 或禁用 terminal update 时，两者都可能不变。",
+  },
+  {
+    id: "reward-outside",
+    field: "reward",
+    coordinateSpace: "outside-course",
+    before: "None",
+    incoming: "—",
+    after: "None",
+    indexRule: "下一门 Reward 机制课才解释 producer",
+    invariant: "generate 写回不计算答案正确性。",
+    caveat: "completed 与 reward 是不同生产者、不同时间点的状态。",
+  },
+] as const;
+
+export const writebackTerminalCases: readonly WritebackTerminalCase[] = [
+  {
+    id: "stop",
+    incoming: "finish_reason.type=stop + weight_version=actor@0",
+    statusAfter: "completed",
+    weightVersionAfter: "追加 actor@0",
+    reason: "主路径 gate 成立；stop 表示正常停止，不表示回答正确。",
+  },
+  {
+    id: "length",
+    incoming: "finish_reason.type=length + weight_version=actor@3",
+    statusAfter: "truncated",
+    weightVersionAfter: "追加 actor@3",
+    reason: "达到生成长度边界，仍记录实际生成权重来源。",
+  },
+  {
+    id: "abort",
+    incoming: "finish_reason.type=abort，无 weight_version",
+    statusAfter: "aborted",
+    weightVersionAfter: "保持原列表",
+    reason: "终止类型改变 status；版本键不存在时不能伪造来源。",
+  },
+  {
+    id: "deferred",
+    incoming: "缺 finish_reason，或 update_terminal_info=False",
+    statusAfter: "保持原 status",
+    weightVersionAfter: "即使键存在也暂不追加",
+    reason: "固定源码在 terminal gate 处提前 return，bookkeeping 被推迟。",
+  },
+  {
+    id: "unknown",
+    incoming: "finish_reason.type=未知值",
+    statusAfter: "保持原 status",
+    weightVersionAfter: "键存在时已可能追加",
+    reason: "match 没有 default 报错；不能把未知类型擅自映射成 completed。",
+  },
+] as const;
+
+export const writebackFailureBoundaries: readonly WritebackFailureBoundary[] = [
+  {
+    id: "length-mismatch",
+    title: "2 个 token 只有 1 个 log-prob",
+    condition: "len(log_probs) != len(tokens)",
+    boundary: "preflight",
+    sampleMutation: "没有字段改变",
+    explanation: "生产方法在 response 文本与 token 追加之前拒绝数组长度不等。",
+    sourceRefIds: ["sample.append-preflight"],
+  },
+  {
+    id: "missing-trainable-logprobs",
+    title: "trainable token 没有 policy 概率证据",
+    condition: "tokens 非空、trainable=True、log_probs=None",
+    boundary: "preflight",
+    sampleMutation: "没有字段改变",
+    explanation: "可训练 token 不能在缺少 rollout log-prob 时进入主写回。",
+    sourceRefIds: ["sample.append-preflight"],
+  },
+  {
+    id: "missing-history",
+    title: "已有 response，却缺少既有 rollout_log_probs",
+    condition: "previous_response_length>0、rollout_log_probs=None，再追加 trainable log-probs",
+    boundary: "late-validation",
+    sampleMutation: "response、tokens、response_length、loss_mask 可能已经改变",
+    explanation: "连续性检查位于核心 mutation 之后；固定源码不承诺自动回滚这些原地修改。",
+    sourceRefIds: ["sample.append-core-coordinates"],
+  },
+  {
+    id: "top-p-offsets",
+    title: "top-p offsets 与 response_length 对不上",
+    condition: "offsets 数量不等于 response_length+1，或末 offset 不等于扁平 token IDs 数",
+    boundary: "late-validation",
+    sampleMutation: "核心 response 字段和 terminal metadata 可能已经改变",
+    explanation: "最终 validator 在方法末尾运行；它是错误探测器，不是事务撤销器。",
+    sourceRefIds: ["sample.validate-response-metadata-full"],
+  },
+  {
+    id: "teaching-copy-on-write",
+    title: "课程 trace 如何避免展示半成品",
+    condition: "课程 reducer 先构造完整 next Sample，并在四条记录全部成功后替换 map",
+    boundary: "course-reducer",
+    sampleMutation: "失败时课程 previous state 保持不变",
+    explanation: "这是本站确定性教学模型的 copy-on-write 保证；它帮助观察边界，但不能倒推生产方法具有事务语义。",
+    sourceRefIds: ["sample.append-response-tokens", "sample.validate-response-metadata-full"],
+  },
+] as const;
+
 const chapterFourExercise = {
-  id: "stg.chapter-4-gate",
-  kind: "ordering",
-  title: "调用顺序：请求发出之前发生什么",
-  prompt: "按默认纯文本 generate 路径排列四个动作。",
-  instruction: "从最早发生的动作排到最晚。",
+  id: "stg.chapter-4-request-boundary-v2",
+  kind: "mapping",
+  title: "边境复核：每项材料究竟去哪里",
+  prompt: "为本课默认纯文本 fixture 逐项选择实际目的地。不要把 Sample 任务字段误当成生成协议。",
+  instruction: "每项只能选择一个目的地；条件分支按题目写明的部署条件判断。",
   items: [
-    { id: "prepare", label: "_prepare_prompt_ids 取得 prompt IDs" },
-    { id: "payload", label: "构造包含 sampling_params 的 payload" },
-    { id: "persist-prefix", label: "若 Sample.tokens 为空则保存 prompt IDs" },
-    { id: "post", label: "POST /generate" },
+    { id: "prompt-ids", label: "prompt_ids 在 pure-text 请求中的字段名" },
+    { id: "prefix-ledger", label: "同一 prompt IDs 写入 Sample.tokens" },
+    { id: "sampling-config", label: "temperature / max_new_tokens 等调用配置" },
+    { id: "logprob-switch", label: "return_logprob = true" },
+    { id: "label", label: "Sample.label = \"5\"" },
+    { id: "identity", label: "group_index = 0 / index = 0" },
+    { id: "reward-null", label: "Sample.reward = null" },
+    { id: "session-id", label: "consistent-hashing 下存在的 session_id" },
   ],
-  correctOrder: ["prepare", "payload", "persist-prefix", "post"],
-  sourceRefIds: ["rollout.prepare-prompt-ids", "rollout.generate-state-init", "rollout.generate"],
+  targets: [
+    { id: "payload-input", label: "成为 payload.input_ids" },
+    { id: "payload-params", label: "成为 payload.sampling_params" },
+    { id: "payload-logprob", label: "成为 payload 顶层 return_logprob" },
+    { id: "caller-only", label: "留在调用方 Sample" },
+    { id: "not-produced", label: "生产者尚未运行，不存在可发送结果" },
+    { id: "conditional-header", label: "条件性 HTTP header（非 JSON）" },
+  ],
+  correctMapping: {
+    "prompt-ids": "payload-input",
+    "prefix-ledger": "caller-only",
+    "sampling-config": "payload-params",
+    "logprob-switch": "payload-logprob",
+    label: "caller-only",
+    identity: "caller-only",
+    "reward-null": "not-produced",
+    "session-id": "conditional-header",
+  },
+  sourceRefIds: [
+    "rollout.prepare-prompt-ids",
+    "rollout.generate-state-init",
+    "rollout.generate-request-envelope",
+    "rollout.generate-request-dispatch",
+  ],
   feedback: {
-    correct: "顺序正确。请求出发时，Sample 已保存了与 input_ids 相同的 prompt 前缀。",
-    incorrect: "对照 generate：先准备 prompt_ids，再构造 payload，再保存 tokens，最后调用 post。",
+    correct: "边境申报正确。完整 Sample 留在调用方；只有生成服务器执行任务所需的最小投影进入协议。",
+    incorrect: "逐项问两个问题：SGLang 生成 token 是否需要它？它属于 JSON body、条件 header，还是尚未产生的下游状态？",
   },
 } as const satisfies StructuredExercise;
 
 const chapterFiveExercise = {
-  id: "stg.chapter-5-gate",
-  kind: "mapping",
-  title: "tuple 解码：服务器证据怎样投影",
-  prompt: "将 output_token_logprobs 中的 tuple 位置映射到本地变量。",
-  instruction: "以教学响应 [-0.356675, 25] 为例。",
-  items: [
-    { id: "tuple-0", label: "item[0] = -0.356675" },
-    { id: "tuple-1", label: "item[1] = 25" },
-    { id: "output-text", label: "output.text = \"5\"" },
-    { id: "finish", label: "meta_info.finish_reason.type = \"stop\"" },
+  id: "stg.chapter-5-response-decoder-v2",
+  kind: "field-entry",
+  title: "迁移解码：两枚 token，仍停在写回门外",
+  prompt: "新响应为 text=\"57\"、output_token_logprobs=[[-0.2,25],[-1.1,27]]、finish_reason.type=\"length\"、weight_version=\"actor@3\"。请重建候写证据，并保持 Sample 的微观观察状态。",
+  instruction: "数组用英文逗号分隔；空字符串可填写 \"\"；None 按字面填写。不要把 length 提前映射进 Sample.status。",
+  fields: [
+    { id: "response-tokens", label: "new_response_tokens", placeholder: "25,27", acceptedAnswers: ["25,27", "25, 27", "[25,27]", "[25, 27]"] },
+    { id: "response-logprobs", label: "new_response_log_probs", placeholder: "-0.2,-1.1", acceptedAnswers: ["-0.2,-1.1", "-0.2, -1.1", "[-0.2,-1.1]", "[-0.2, -1.1]"] },
+    { id: "sample-response", label: "本章观察点的 Sample.response", placeholder: '""', acceptedAnswers: ['""', "''", "空字符串"] },
+    { id: "sample-status", label: "本章观察点的 Sample.status", placeholder: "pending", acceptedAnswers: ["pending"] },
+    { id: "sample-reward", label: "本章观察点的 Sample.reward", placeholder: "None", acceptedAnswers: ["None", "null"] },
   ],
-  targets: [
-    { id: "logprob", label: "new_response_log_probs" },
-    { id: "token", label: "new_response_tokens" },
-    { id: "text", label: "response 文本" },
-    { id: "terminal", label: "终止原因" },
-  ],
-  correctMapping: {
-    "tuple-0": "logprob",
-    "tuple-1": "token",
-    "output-text": "text",
-    finish: "terminal",
-  },
-  sourceRefIds: ["rollout.generate"],
+  sourceRefIds: ["rollout.generate-response-decode", "rollout.generate-writeback-handoff"],
   feedback: {
-    correct: "解码正确。HTTP response 提供写回材料，但仍没有 Sample 的身份、label 或 reward。",
-    incorrect: "直接检查两个列表推导式：item[1] 取 token ID，item[0] 取 log-prob。",
+    correct: "证据包已经重建，观察边界也守住了：tuple 可以解码，meta_info 可以交接，但原 Sample 仍未被写回。",
+    incorrect: "先逐 tuple 读取 item[1] 与 item[0]；再把观察点钉在 append_response_tokens 调用之前，此时 response、status 与 reward 都不能越界。",
   },
 } as const satisfies StructuredExercise;
 
 const chapterSixExercise = {
-  id: "stg.chapter-6-gate",
-  kind: "choice",
-  multiple: false,
-  title: "首错定位：拒绝半写入",
-  prompt: "a0 将追加 2 个 token，却只带来 1 个 log-prob。最早应在哪条边界拒绝它？",
-  instruction: "选择最接近错误来源、且能避免半写入的检查。",
-  options: [
-    { id: "preflight", label: "追加 tokens 之前校验 token/log-prob 长度" },
-    { id: "reward", label: "等待 reward 阶段判断答案是否正确" },
-    { id: "trainer", label: "等 trainer 构造 batch 时再修补长度" },
-    { id: "status", label: "把 status 改成 completed 即可" },
+  id: "stg.chapter-6-writeback-contract-v2",
+  kind: "mapping",
+  title: "坐标归档：每个字段在哪本账上",
+  prompt: "把写回后的字段映射到它真正使用的坐标或职责。这里不是按字段类型猜测，而是按固定源码的更新规则归档。",
+  instruction: "每项选择一个最精确的坐标空间；同一个目标可以被多次使用。",
+  items: [
+    { id: "tokens", label: "Sample.tokens" },
+    { id: "response", label: "Sample.response" },
+    { id: "response-length", label: "Sample.response_length" },
+    { id: "loss-mask", label: "Sample.loss_mask" },
+    { id: "rollout-logprobs", label: "Sample.rollout_log_probs" },
+    { id: "terminal", label: "Sample.status / weight_versions" },
+    { id: "reward", label: "Sample.reward" },
   ],
-  correctOptionIds: ["preflight"],
-  sourceRefIds: ["sample.append-response-tokens", "sample.validate-response-metadata-lengths"],
+  targets: [
+    { id: "full-sequence", label: "完整序列坐标：prompt prefix + response suffix" },
+    { id: "text-stream", label: "独立文本累计：源码不与 token 数互证" },
+    { id: "response-counter", label: "回答计数：定义 response position 的范围" },
+    { id: "response-space", label: "回答坐标：每个 response position 一项" },
+    { id: "terminal-meta", label: "terminal bookkeeping：终止原因与生成版本" },
+    { id: "later-producer", label: "本课边界外：等待 reward producer" },
+  ],
+  correctMapping: {
+    tokens: "full-sequence",
+    response: "text-stream",
+    "response-length": "response-counter",
+    "loss-mask": "response-space",
+    "rollout-logprobs": "response-space",
+    terminal: "terminal-meta",
+    reward: "later-producer",
+  },
+  sourceRefIds: [
+    "sample.append-core-coordinates",
+    "sample.apply-terminal-info",
+    "sample.validate-response-metadata-full",
+  ],
   feedback: {
-    correct: "正确。对齐是写回契约，必须在修改 Sample 之前拒绝不完整响应。",
-    incorrect: "reward 与正确性无关，trainer 又太晚；错误必须在 response 写回边界被隔离。",
+    correct: "两只时钟已经对齐：tokens 维护完整序列；mask 与 log-prob 维护回答位置；文本、terminal metadata 与 reward 各有独立职责。",
+    incorrect: "先找唯一的计数基准：response_length 定义回答位置；再问字段是否逐 response token 对齐。response 字符串、terminal metadata 与 reward 都不在这条数组坐标上。",
   },
 } as const satisfies StructuredExercise;
 
@@ -1067,298 +2455,499 @@ export const sampleToGenerationChapters: readonly SampleToGenerationChapter[] = 
     durationMinutes: 14,
     drivingQuestion: "同一道题的两个候选为什么既要相同，又必须是两个独立对象？",
     imageSrc: "/art/library-act-03-v1.webp",
-    conclusion: "DataSource 用 deepcopy 保存共同输入，用 group_index 表达比较关系，再用唯一 index 保持每次物理生成可独立追踪。",
+    imageAlt: "动画制作工作台上并列的屏幕与透明操作面板，暗示同一底稿被复制为可独立修改的候选。",
+    scopeLabel: "固定 commit 06ffdbe2 · fresh DataSource counters · 2 seeds × 2 candidates · 停在 groups-built",
+    objective: "给定 seed 数 P、n_samples_per_prompt=N 与调用前两个计数器，推导嵌套输出形状和每个候选的 group_index/index，并用 metadata 突变判断候选之间是否存在对象别名。",
+    conclusion: "相同的是 seed 内容与组归属；不同的是 Sample 身份、唯一 index，以及每条候选各自拥有的可变状态。",
     boundary: {
-      input: ["origin-a 与 origin-b 两个初始 Sample", "n_samples_per_prompt=2 的教学配置"],
-      output: ["group 0: a0/a1", "group 1: b0/b1", "四个独立 metadata 对象与唯一 index"],
-      excluded: ["四条 response 会是什么", "组内 reward 如何归一化", "rollout_id 的训练语义"],
+      input: ["samples-constructed 的 origin-a / origin-b 两个 seed Sample", "n_samples_per_prompt=2", "fresh counters：sample_group_index=0、sample_index=0"],
+      output: ["嵌套形状 [[a0, a1], [b0, b1]]", "2×2 身份矩阵", "四个独立 Sample 与 metadata 容器"],
+      excluded: ["tokenizer / SGLang / response 写回", "reward 与 TrainData", "rollout_id 与 partial rollout"],
     },
     stateTransition: {
-      before: "2 个未分组 seed Sample；group_index=null、index=null",
-      operation: "每个 seed deepcopy 两次，先写共享 group_index，再写递增 index",
-      after: "2 groups × 2 Samples；组号为 0/0/1/1，index 为 0/1/2/3",
+      before: "P=2 个未分组 seed Sample；group_index=None、index=None；计数器 G₀=0、I₀=0",
+      operation: "对每个 seed 分别执行 N=2 次 deepcopy；副本写入当前 group counter 与 sample counter",
+      after: "返回 [[a0,a1],[b0,b1]]；group_index=0/0/1/1，index=0/1/2/3；seed 不被改写",
     },
     explanation: [
       {
-        title: "复制建立同条件比较",
-        body: "同一 prompt 生成多个候选，才可能在后续比较它们的行为。共享 prompt 和 label 不是无意义重复，而是控制实验条件：变化来自生成，而不是输入题目。",
+        title: "P 决定组数，N 决定每组宽度",
+        body: "get_samples(num_samples) 先取得 P 个 seed；内层 range(n_samples_per_prompt) 再为每个 seed 产生 N 个候选。因此返回的是 list[group][sample]：P 组、每组 N 条、总计 P×N 个物理候选 Sample。组按 seed occurrence 建立，不按 prompt 文本哈希。",
       },
       {
         title: "两个计数器回答两个不同问题",
-        body: "group_index 回答“这条记录和谁比较”，所以 a0 与 a1 都是 0；index 回答“这是哪一次物理生成”，所以四条记录必须分别为 0、1、2、3。把两个编号合并会丢失一种关系。",
+        body: "group_index 回答“这条候选和谁比较”；index 回答“这是哪一个物理候选 Sample”。在 fresh-counter fixture 中，a0/a1 的组号同为 0，而四条 index 为 0、1、2、3。恢复状态或后续调用可以从非零计数器继续，所以这些数字不是框架常量。",
       },
       {
-        title: "deepcopy 阻断可变对象别名",
-        body: "若候选共享同一个 metadata 对象，a0 的后续 hook 修改会悄悄污染 a1。deepcopy 保证内容起点相同、对象身份不同，使每条生成可以独立演化。",
+        title: "值相同不等于对象相同",
+        body: "deepcopy 为 Sample 及其普通可变容器建立独立对象图。a0.metadata 与 a1.metadata 初始值相等，但不是同一个容器；修改 a0 不会污染 a1。不可变字符串等叶子无需承诺不同的 Python identity，本章验证的是可变状态隔离。",
       },
     ],
+    groupingLabGroups,
+    groupingCounterFrames,
+    groupingComparisonRules,
+    groupingAliasProbe,
     observationIds: ["groups-built"],
-    sourceRefIds: ["rollout.datasource-get-samples"],
+    sourceRefIds: ["sample.identity-defaults", "rollout.datasource-counter-init", "rollout.datasource-get-samples"],
     evidenceId: "evidence-deepcopy-groups",
+    additionalEvidenceIds: ["evidence-sample-identity-defaults", "evidence-datasource-counter-init"],
     exercise: chapterThreeExercise,
     misconception: {
-      belief: "同组候选 prompt 一样，因此 a0 和 a1 可以共享同一个对象。",
-      correction: "它们共享比较条件，不共享可变状态。response、log-prob、status 与后续 reward 都必须能独立变化。",
+      belief: "同组候选的 prompt 与 metadata 值一样，因此 a0 和 a1 可以共享同一个 Sample 或 metadata 对象。",
+      correction: "它们共享比较条件与 group_index，不共享可变对象。index 标识各自的物理候选；未来的 response、log-prob、status 与 reward 也必须能够独立变化。",
     },
     takeaway: "group_index 表示关系；index 表示身份；deepcopy 保证状态隔离。",
     transition: "四条 Sample 已经各自就位。下一章检查它们如何被翻译成四个 SGLang 请求。",
-    advancedAside: {
-      title: "支线：partial rollout",
-      body: "partial rollout 可能让可恢复的 group 再次进入队列，但“同组关系与对象独立性分开表达”的契约仍然成立。",
-    },
   },
   {
     id: "stg.chapter-4",
     number: 4,
     slug: "sample-to-request",
-    title: "Sample 怎样变成 SGLang 请求",
+    title: "请求装配与边境检查台",
     shortTitle: "请求",
     durationMinutes: 14,
-    drivingQuestion: "SGLang 需要生成输入；为什么 label、group_index 和 reward 不应出现在 HTTP payload？",
+    drivingQuestion: "为什么完整 Sample 不应原样成为 HTTP payload？",
     imageSrc: "/art/library-act-04-v1.webp",
-    conclusion: "请求边界只传生成所需的 input_ids、sampling_params 与返回证据开关；Sample 的任务语义和身份留在调用方。",
+    imageAlt: "植物与玻璃瓶环绕的工作台上，一名角色用天平称量材料；画面被用作请求字段逐项称量的章节关键帧。",
+    scopeLabel: "固定 commit 06ffdbe2 · a0 pure-text path · groups-built → requests-prepared · 不读取真实 response",
+    objective: "给定一条已分组的 pending Sample，按真实源码顺序重建 prompt_ids、生成预算检查、三键 payload、Sample.tokens 前缀留档与 POST；并能把每个字段判为 JSON、条件 header、调用方留置或尚未产生。",
+    conclusion: "Sample 并没有“变成”请求。调用方仍持有完整对象，只把生成服务器需要的最小投影送过网络。",
     boundary: {
-      input: ["pending Sample", "checkpoint tokenizer/processor", "GenerateState.sampling_params"],
-      output: ["Sample.tokens 中保存的 prompt 前缀", "POST /generate 的独立 request sidecar"],
-      excluded: ["label、reward、group_index、index", "真实服务器响应", "答案正确性"],
+      input: ["groups-built 的 a0：prompt、label、group/index 已存在，tokens=[]", "checkpoint tokenizer/processor", "调用链传入的 sampling_params 副本"],
+      output: ["Sample.tokens 中保存的 prompt 前缀", "POST /generate 的课程 request sidecar：input_ids、sampling_params、return_logprob"],
+      excluded: ["真实服务器 response", "reward 与答案正确性", "把课程 sidecar 说成 upstream Sample 字段"],
     },
     stateTransition: {
       before: "a0.tokens=[]，prompt=\"3 + 2 = ?\"，status=pending",
-      operation: "准备 prompt_ids，构造 payload，将 prompt_ids 保存到 Sample.tokens，再 POST /generate",
-      after: "a0.tokens=[11,12,13,14,15]；payload 只含 input_ids、sampling_params、return_logprob",
+      operation: "准备局部 prompt_ids → 检查 max_new_tokens → 构造 payload/input_ids → 若 tokens 为空则保存前缀 → POST /generate",
+      after: "a0.tokens=[11,12,13,14,15]；pure-text fixture payload 顶层恰为 input_ids、sampling_params、return_logprob",
     },
     explanation: [
       {
-        title: "tokenizer 属于部署模型，而非课程常量",
-        body: "默认纯文本路径调用所选 checkpoint 的 tokenizer，并显式关闭额外 special tokens。教学 fixture 用 [11,12,13,14,15] 让状态变化可复算；这些数值绝不能被理解成任何真实 tokenizer 的输出。",
+        title: "先做投影，不做整对象序列化",
+        body: "默认纯文本路径先用 checkpoint tokenizer 得到局部 prompt_ids，再把它放进 payload.input_ids。label、metadata 和 group/index 对 SGLang 的 token 生成没有必要，因此留在调用方。这里的 [11,12,13,14,15] 是可复算的教学 tokenizer 结果，不冒充真实 checkpoint。",
       },
       {
-        title: "GenerateState 汇总运行参数",
-        body: "temperature、top_p、top_k、max_new_tokens、stop 等参数来自运行配置。它们描述服务器如何采样，不描述这条 Sample 的 label 或分组身份。",
+        title: "采样配方属于运行策略",
+        body: "GenerateState 从 rollout 参数建立默认 sampling_params，任务提交时把配置副本传入 generate。temperature、top_p、top_k 与 max_new_tokens 告诉服务器如何生成，不描述这道题的正确答案，也不是 Sample 身份字段。",
       },
       {
-        title: "请求 sidecar 保持边界可审计",
-        body: "课程把 payload 单独保存为 sidecar，而不是塞回 Sample。这让学习者能逐键验证跨网络的数据，同时保留调用方的完整 Sample。return_logprob=true 很关键，因为后续训练需要知道生成时的 token 概率证据。",
+        title: "return_logprob 是协议开关，不是评价器",
+        body: "顶层 return_logprob=true 请求 SGLang 返回所选 token 的 log-prob 证据，供后续 response 投影与训练链路使用。它不会比较 response 与 label，不会运行 reward，也不会让服务器知道答案是否正确。",
       },
       {
-        title: "prompt 前缀在发请求前落入 Sample",
-        body: "若 Sample.tokens 为空，generate 会在 POST 前保存 prompt_ids。服务器只返回新生成部分；没有这个前缀，写回后就无法形成 prompt+response 的完整 token 序列。",
+        title: "同一前缀，两种职责",
+        body: "源码先把 prompt_ids 放入 payload.input_ids，随后在 Sample.tokens 为空时保存同一序列值，再发出 POST。payload 是即将跨网的输入；Sample.tokens 是调用方保留的完整序列前缀。课程只声称值相等，不声称两个列表具有独立 Python 对象身份。",
       },
     ],
+    requestAssemblyStages,
+    requestManifestEntries,
+    requestSamplingParameters,
+    requestFixturePacket,
     observationIds: ["prompts-tokenized", "requests-prepared"],
-    sourceRefIds: ["rollout.prepare-prompt-ids", "rollout.generate-state-init", "rollout.generate"],
-    evidenceId: "evidence-prompt-request",
+    sourceRefIds: [
+      "rollout.prepare-prompt-ids",
+      "rollout.generate-state-init",
+      "rollout.generate-request-budget",
+      "rollout.generate-request-envelope",
+      "rollout.generate-request-dispatch",
+    ],
+    evidenceId: "evidence-request-envelope",
+    additionalEvidenceIds: ["evidence-prompt-request", "evidence-request-budget", "evidence-sampling-recipe", "evidence-request-dispatch"],
     exercise: chapterFourExercise,
     misconception: {
-      belief: "把整个 Sample JSON 发给 SGLang 最完整，也最安全。",
-      correction: "网络接口应只包含生成所需字段。label 与身份留在调用方，既避免泄漏，也使组件边界明确。",
+      belief: "把完整 Sample JSON 发给 SGLang，信息更全，因而接口更可靠。",
+      correction: "可靠性来自可审计的最小协议：只发送生成所需投影，并让任务语义、候选身份和下游状态继续由调用方负责。这里是职责边界，不额外声称隐私或鉴权保证。",
     },
     takeaway: "payload 是生成协议，不是 Sample 的网络序列化。",
-    transition: "请求已经发出。下一章先停在 HTTP response，看看它距离完整 Sample 还差什么。",
+    transition: "a0 仍在调用方等待，三键请求刚刚越过边界。下一章只检查返回材料，暂不写回 Sample。",
     advancedAside: {
-      title: "支线：多模态与 prefix reuse",
-      body: "多模态路径可以发送 image_data 与 text；已有 token 也可能被复用。本课主路径固定纯文本和空 tokens，以便只研究默认边界。",
+      title: "条件支线：多模态、已有 tokens、零预算与路由 header",
+      body: "多模态路径可发送 image_data 与 text；满足条件时 _prepare_prompt_ids 会复用已有 tokens；max_new_tokens=0 会标记 truncated 并在 POST 前返回；routing replay 可增加 return_routed_experts；session_id 只在 consistent-hashing 条件下派生 HTTP header。本课主路径固定 pure text、tokens=[]、max_new_tokens=1 且无 session_id。",
     },
   },
   {
     id: "stg.chapter-5",
     number: 5,
     slug: "response-projection",
-    title: "HTTP 响应为什么还不是 Sample",
+    title: "响应分轨场",
     shortTitle: "响应",
     durationMinutes: 12,
-    drivingQuestion: "服务器已经返回文本“5”，为什么 generate 还不能直接 return？",
+    drivingQuestion: "在 output = await post(...) 之后、append_response_tokens(...) 之前，哪些事实已经成立，哪些仍未成立？",
     imageSrc: "/art/library-act-05-v1.webp",
-    conclusion: "HTTP response 只提供新文本、token/log-prob tuple 与终止元数据；调用方必须把这些材料投影回原来的 Sample。",
+    imageAlt: "少女站在长满植物的铁轨旁，电线与轨道向远处汇流，像一份返回信号正在分轨。",
+    scopeLabel: "固定源码的微观观察缝隙 · response 已返回 · Sample 尚未写回",
+    objective: "把真实 HTTP body、调用方关联、tuple 解码与写回参数分成四本账；能够判断每条证据证明什么、不证明什么。",
+    conclusion: "HTTP output 可以被确定性解码成 text、response token IDs、rollout log-probs 与原始 meta_info；但这些仍只是调用方持有的候写证据，原 Sample 没有因此自动改变。",
     boundary: {
-      input: ["SGLang output.text", "meta_info.output_token_logprobs", "finish_reason 与 weight_version"],
-      output: ["response token IDs", "response log-prob 数组", "待写回的 response projection"],
-      excluded: ["原始 prompt、label 与 group/index", "reward", "训练 mask 的最终验证"],
+      input: ["成功 HTTP response bytes", "SGLang output.text 与 nested meta_info", "调用方仍持有的 a0"],
+      output: ["response token ID 与 log-prob 两条等长轨", "保留原始 meta_info 的课程 response evidence sidecar", "明确属于 a0 的待调用参数"],
+      excluded: ["任何 Sample 字段写入", "finish_reason 到 status 的映射", "loss_mask / response_length 最终验证", "reward 与正确性判断"],
     },
     stateTransition: {
-      before: "HTTP 响应包含 text=\"5\" 与 output_token_logprobs=[[-0.356675,25]]",
-      operation: "分别以 item[1]、item[0] 投影 token ID 与 log-prob，并保留终止元数据",
-      after: "projection={tokens:[25], log_probs:[-0.356675], text:\"5\", finish_reason:stop}",
+      before: "a0 仍为 response=\"\"、status=pending；HTTP body 已返回 text=\"5\" 与 nested meta_info",
+      operation: "_post 解析 JSON；generate 按 item[1]/item[0] 分离 tuple，并把调用方 sample_id 与响应材料并列为课程 sidecar",
+      after: "response evidence={sample_id:a0, text:\"5\", response_token_ids:[25], response_log_probs:[-0.356675], meta_info:{...}}；a0 本身保持不变",
     },
     explanation: [
       {
-        title: "服务器不知道调用方的完整对象",
-        body: "SGLang 接收到的是 payload，而不是带有 label、group_index 和 metadata 的 Sample。因此 response 不可能自行成为 Sample；它只能作为生成结果被合并回调用方仍持有的对象。",
+        title: "第一层解码属于 HTTP helper",
+        body: "成功响应先经过 raise_for_status、aread 与 json.loads，generate 得到的 output 已经是 Python mapping。若 body 不是 JSON，helper 还有 decoded string fallback；默认 generate 随后按 mapping 访问，所以本课主路径只讨论结构化 JSON。",
       },
       {
-        title: "tuple 顺序必须由源码而不是直觉决定",
-        body: "output_token_logprobs 的每项在默认路径中以 item[1] 取 token ID、item[0] 取 log-prob。教学值把这种投影变得可见，但真正的契约来自 generate 的两条列表推导式。",
+        title: "第二层解码属于 generate",
+        body: "generate 不靠字段名猜 tuple 顺序，而是明确以 item[1] 取 token ID、item[0] 取 log-prob。真实 tuple 可能带尾随元素；课程只固定前两个被本路径读取的位置。字段缺失时源码回退为两个空数组，并不会在这几行自动宣告异常。",
       },
       {
-        title: "text 与 token evidence 各有用途",
-        body: "text 供人和任务逻辑读取；token ID 用于拼接完整序列；log-prob 记录 rollout policy 对已选 token 的概率证据。三者相关，却不能互相替代。",
+        title: "text、token 与 log-prob 是并列证据",
+        body: "text 供人类与任务逻辑阅读；token ID 标识模型实际选择的离散动作；rollout log-prob 记录生成时 policy 对该动作的概率证据。固定源码没有把 output.text 重新 tokenizer，也没有在此处验证 text 与 token IDs 是否互相一致。",
       },
       {
-        title: "stop 只回答为什么结束",
-        body: "finish_reason=stop 表明生成按正常停止条件终止。它没有比较 response 与 label，更没有运行 reward 函数，所以它不能证明“5”正确，也不能证明“6”错误。",
+        title: "meta_info 可以交接，但意义不能提前兑现",
+        body: "finish_reason=stop 与 weight_version=actor@0 都是可携带的生成元数据。它们要到下一章由 _apply_meta_info 解释为 Sample.status 与 weight_versions；stop 只回答为什么结束，actor@0 只回答来自哪版权重，两者都不回答内容是否正确。",
       },
     ],
+    responseDecodeStages,
+    responseEvidenceLanes,
+    responseFixtureReceipt,
+    responseDiagnosticCases,
     observationIds: ["responses-received"],
-    sourceRefIds: ["rollout.generate"],
-    evidenceId: "evidence-response-projection",
+    sourceRefIds: ["http.post-json-decode", "rollout.generate-response-decode", "rollout.generate-writeback-handoff"],
+    evidenceId: "evidence-response-decode",
+    additionalEvidenceIds: ["evidence-http-json-decode", "evidence-response-handoff"],
     exercise: chapterFiveExercise,
     misconception: {
-      belief: "output.text 就是完整结果，token 和 log-prob 只是可选日志。",
-      correction: "对训练链路而言，response token 与 rollout log-prob 是协议证据；只有文本无法建立正确的 response-space 对齐。",
+      belief: "服务器返回了 text=\"5\"，说明 a0.response 已经是 5，stop 也说明答案正确。",
+      correction: "收到 output、整理候写证据、修改 Sample、评价答案是四条不同边界。本章只完成前两条；a0.response 仍为空，status 仍为 pending，reward 仍为 None。",
     },
-    takeaway: "HTTP response 是写回材料，不是 Sample 本身。",
-    transition: "最后一章执行合并，并用三条长度关系验证 Sample 没有在边界上被写坏。",
+    takeaway: "候写证据已经齐备；Sample 尚未改变。",
+    transition: "下一章打开写回闸门：append_response_tokens 怎样消费这份证据，并维持 prompt 前缀与 response-space 数组的契约。",
+    advancedAside: {
+      title: "支线：缺失 output_token_logprobs 时会怎样",
+      body: "固定源码在该键缺失时令 new_response_tokens=[]、new_response_log_probs=[]。这只描述默认路径的局部回退，不等于本 fixture 已具备单 token 训练证据，也不等于所有下游 metadata 检查必然通过。return_logprob=true 是请求意图，不是客户端强制响应 schema。",
+    },
   },
   {
     id: "stg.chapter-6",
     number: 6,
     slug: "writeback-contract",
-    title: "写回怎样维持数据契约",
+    title: "写回双时钟",
     shortTitle: "写回",
     durationMinutes: 15,
-    drivingQuestion: "response 只有一个 token 时，为什么 tokens 长度是 6，而 mask 和 log-prob 长度都是 1？",
+    drivingQuestion: "同一枚 response token，为什么在 tokens 中位于第 6 格，在 loss_mask 与 rollout_log_probs 中却位于第 1 格？",
     imageSrc: "/art/library-act-06-v1.webp",
-    conclusion: "tokens 位于完整序列空间；response_length、loss_mask 和 rollout_log_probs 位于回答空间。写回必须同时维护两套坐标。",
+    imageAlt: "巨大钟表与齿轮前站着一名角色；画面作为完整序列与回答坐标同步推进的章节关键帧",
+    scopeLabel: "默认纯文本 generate · trainable=True · 单次 terminal writeback · 固定 commit 06ffdbe2",
+    objective: "给定任意 prompt 前缀、response token、trainable 标记与 terminal meta_info，重建写回后的两个坐标空间，并判断错误是在原地修改前还是修改后才被发现。",
+    conclusion: "a0 写回后，完整 tokens 从 5 格增至 6 格；response_length、loss_mask 与 rollout_log_probs 只在回答坐标中各占 1 格。文本、terminal metadata 与 reward 另有独立职责。",
     boundary: {
-      input: ["已保存 prompt tokens 的 Sample", "response projection", "finish_reason=stop 与 actor@0"],
-      output: ["prompt+response 完整 tokens", "对齐的 response-side arrays", "status=completed 与 weight_versions=[actor@0]"],
-      excluded: ["reward 与答案正确性", "collect", "训练数据转换与 optimizer step"],
+      input: [
+        "已保存 prompt tokens 的 pending Sample a0",
+        "第五章解码出的 tokens=[25]、log_probs=[-0.356675] 与 text=\"5\"",
+        "调用方常量 trainable=True，以及 stop / actor@0 的 meta_info",
+      ],
+      output: [
+        "尾部追加 response 的完整 token 序列",
+        "以 response_length 为基准的 loss_mask 与 rollout_log_probs",
+        "terminal gate 处理后的 completed 与 weight_versions=[actor@0]",
+      ],
+      excluded: [
+        "reward、label 比较与答案正确性",
+        "collect、训练数据转换与 optimizer step",
+        "把课程 copy-on-write reducer 冒充为生产方法的事务保证",
+      ],
     },
     stateTransition: {
-      before: "a0.tokens 长度 5；response_length=0；loss_mask/log_probs=null；reward=null",
-      operation: "预检 tuple 长度，追加 token 25，建立 mask/log-prob，应用 meta_info，再验证长度",
-      after: "tokens 长度 6；response_length=1；loss_mask=[1]；log_probs=[-0.356675]；status=completed",
+      before: "a0.tokens=[11,12,13,14,15]；response_length=0；loss_mask/rollout_log_probs=None；status=pending；reward=None",
+      operation: "规范化并前置校验 token/log-prob 数组；按源码顺序写 text、tokens/mask、log-probs、terminal meta；最后执行 response metadata 长度审计",
+      after: "tokens=[11,12,13,14,15,25]；response_length=1；loss_mask=[1]；rollout_log_probs=[-0.356675]；status=completed；reward=None",
     },
     explanation: [
       {
-        title: "完整序列与回答空间不可混用",
-        body: "Sample.tokens 保留 5 个 prompt tokens，并在尾部追加 1 个 response token，所以长度为 6。response_length 只计新生成部分，因此为 1；loss_mask 和 rollout_log_probs 同样只为回答 token 提供一项。",
+        title: "两套坐标共享一枚 response token",
+        body: "本 fixture 的 response position r=0 对应 tokens[prefix_length+r]=tokens[5]，同时对应 loss_mask[0] 与 rollout_log_probs[0]。tokens 记录完整序列；另外两条数组只记录回答位置。",
       },
       {
-        title: "写回是一组不可分割的状态变化",
-        body: "若 token 有两项而 log-prob 只有一项，继续追加会制造无法解释的 Sample。课程 reducer 因而在任何字段修改前完成预检，并在构造四条 next Sample 全部成功后才替换 batch。失败时旧 state 保持不变。",
+        title: "生产写回是原地 mutation，不是事务",
+        body: "token/log-prob 长度等局部错误会在 mutation 前被拒绝；但 log-prob 连续性、top-p/routed-experts 与最终长度错误可能在 response、tokens 或 mask 已改变后才抛出。最终 validator 负责发现错位，不负责自动回滚。",
       },
       {
-        title: "meta_info 补充来源与终止状态",
-        body: "weight_version=actor@0 说明这一段 response 由哪版 rollout 权重生成；finish_reason=stop 映射为 completed。两者都描述生成过程，不评价内容质量。",
+        title: "课程 reducer 另有 copy-on-write 保护",
+        body: "本站为确定性 trace 先构造完整 next Sample，并在四条记录都成功后替换 map，因此页面不会展示半发布状态。这是教学模拟的观察保证，不是对 upstream Sample API 的等价复刻。",
       },
       {
-        title: "四条 completed 中仍有两个错误答案",
-        body: "a0 与 b0 分别回答 5 和 7，a1 与 b1 分别回答 6 和 8。四条都正常停止，因此全部 completed；但 reward 仍为 null。这个反例直接排除了 completed=正确的误读。",
+        title: "response 文本不在 token 坐标中",
+        body: "固定源码先执行 self.response += text，再追加 token；它不重新 tokenizer，也不验证字符串与 token IDs 一致。因此 response 是人类可读累计值，不是 response_length 的另一种写法。",
       },
       {
-        title: "课程边界在 generate 返回处闭合",
-        body: "此刻我们已经解释了输入如何成为请求、响应如何成为 Sample。Reward、collect、训练转换和权重更新属于下一批机制课；在这里提前加入它们会破坏可验证的因果边界。",
+        title: "terminal bookkeeping 不评价答案",
+        body: "主路径中 stop→completed、length→truncated、abort→aborted；存在的 weight_version 记录生成来源。缺 finish_reason 或 update_terminal_info=False 会推迟这组更新。无论哪种 status，reward 此时仍为 None。",
       },
     ],
+    writebackCalibrationSteps,
+    writebackCoordinateRows,
+    writebackTerminalCases,
+    writebackFailureBoundaries,
+    writebackFixture,
     observationIds: ["responses-written"],
-    sourceRefIds: ["sample.append-response-tokens", "sample.apply-meta-info", "sample.validate-response-metadata-lengths"],
-    evidenceId: "evidence-atomic-writeback",
+    sourceRefIds: [
+      "sample.append-preflight",
+      "sample.append-core-coordinates",
+      "sample.append-finalize",
+      "sample.apply-terminal-info",
+      "sample.validate-response-metadata-full",
+      "sample.validate-top-p-tail",
+    ],
+    evidenceId: "evidence-writeback-length-defense",
+    additionalEvidenceIds: [],
     exercise: chapterSixExercise,
     misconception: {
-      belief: "status=completed 表示模型给出了正确答案，可以直接训练。",
-      correction: "completed 只表示生成正常终止。正确性要等待 reward；能否训练还要等待收集、转换与排程。",
+      belief: "append_response_tokens 要么整体成功、要么自动回滚；写回后 len(tokens) 也应等于 response_length。",
+      correction: "生产方法原地修改 self，只有部分 preflight 错误保证发生在 mutation 前；tokens 与 response_length 又属于两套坐标。课程 reducer 的 copy-on-write 只是本站观察模型的额外保护。",
     },
-    takeaway: "一次可靠写回同时保留 prompt 前缀、对齐 response 元数据，并记录生成来源；它仍不产生 reward。",
-    transition: "六章机制到此闭合。终测将给出一条新 trace，要求你定位第一个被破坏的边界。",
+    takeaway: "写回可信，不是因为字段都变了，而是每个字段在自己的坐标与失败时机里都能被解释。",
+    transition: "六章到这里闭合：终测不再给熟悉的 a0，而会让你在一条新 trace 中找到最早被破坏的边界。",
     advancedAside: {
-      title: "支线：prefix cache 与 custom generate",
-      body: "prefix cache 统计、top-p replay、工具调用和 custom generate 会增加元数据，但不能取消 response-space 数组必须对齐的基本契约。",
+      title: "进阶支线：non-trainable token、top-p replay 与 routed experts 不共用一套坐标",
+      body: "trainable=False 的 response-side token 仍增加 response_length，但 loss_mask 写 0，log-prob 自动补 0.0。top-p replay 用 response_length+1 个 offsets 表示每个回答位置的 ragged nucleus；routed experts 则按完整 token 序列的 next-token transition rows 校验。它们都经过 _apply_meta_info，却不能被笼统称为同一种 response-space 数组。",
     },
   },
 ];
 
-export const sampleToGenerationFinalAssessment: readonly StructuredExercise[] = [
+function assessmentCheckpoint<const Exercise extends StructuredExercise>(
+  order: number,
+  stationId: string,
+  required: boolean,
+  exercise: Exercise,
+): AssessmentCheckpoint {
+  return { id: exercise.id, order, stationId, required, exercise };
+}
+
+const comprehensiveAssessmentStations = [
   {
-    id: "stg.final-q1",
-    kind: "choice",
-    multiple: false,
-    title: "外部记录与内部协议",
-    prompt: "下面哪句话最准确地区分 Dataset row 与 Sample？",
-    instruction: "选择一个答案。",
-    options: [
-      { id: "contract", label: "row 属于外部 schema；Sample 是 slime 内跨阶段演化的协议对象" },
-      { id: "same", label: "两者完全相同，只是变量名不同" },
-      { id: "tensor", label: "Sample 是已经上 GPU 的训练 tensor" },
+    id: "station-dataset-contract",
+    order: 1,
+    chapter: 1,
+    title: "外部行进入协议",
+    producer: "Dataset",
+    observation: "origin-c 的 row 使用 question / answer / context，而不是首课 trace 的 text / label / metadata。",
+    contract: "字段名由配置解释；只有经过 prompt_key、label_key 与 metadata_key 映射后，外部 row 才成为初始 Sample。",
+    evidence: [
+      'row.question="6 × 2 = ?" → Sample.prompt',
+      'row.answer="12" → Sample.label',
+      "row.context → Sample.metadata",
+      "生成字段仍处在 dataclass 默认状态",
     ],
-    correctOptionIds: ["contract"],
     sourceRefIds: ["dataset.construct-sample", "sample.dataclass"],
-    feedback: { correct: "正确。", incorrect: "区分文件 schema、协议对象与训练 batch。" },
   },
   {
-    id: "stg.final-q2",
-    kind: "field-entry",
-    title: "身份推导（必答）",
-    prompt: "3 个 prompt、每个复制 4 次。填写 group 数和物理 Sample 数。",
-    instruction: "输入十进制整数。",
-    fields: [
-      { id: "groups", label: "group 数", acceptedAnswers: ["3"] },
-      { id: "samples", label: "物理 Sample 数", acceptedAnswers: ["12"] },
+    id: "station-producer-boundary",
+    order: 2,
+    chapter: 2,
+    title: "字段存在不等于已经计算",
+    producer: "Sample dataclass 与后续生产者",
+    observation: "initial Sample 已声明 status、reward 与 train_metadata，但三者仍分别是 pending、null 与 null。",
+    contract: "声明字段、给出默认值、首次产生非默认值和被下游消费，是四个不同事件。",
+    evidence: [
+      "Dataset 只提供 prompt、label、metadata 与 multimodal_inputs",
+      "DataSource 才首次写入 group_index / index",
+      "generation path 才首次写入 response 与 terminal status",
+      "reward 与训练数据仍在本课止线之外",
+    ],
+    sourceRefIds: ["sample.dataclass", "dataset.construct-sample", "rollout.datasource-get-samples"],
+  },
+  {
+    id: "station-grouping-identity",
+    order: 3,
+    chapter: 3,
+    title: "非零计数器下的分组与独立性",
+    producer: "RolloutDataSource.get_samples",
+    observation: "计数器从 group=7、index=20 起步，origin-c 产生 c20=(7,20) 与 c21=(7,21)。",
+    contract: "同组候选共享 group_index；物理 Sample 的 index 唯一；deepcopy 使嵌套 metadata 的修改不跨候选传播。",
+    evidence: [
+      "两个候选共享 group_index=7",
+      "c20.index=20，c21.index=21",
+      "处理完一组后计数器变为 group=8、index=22",
+      "把 c21.metadata.difficulty 改为 diagnostic 后，c20 仍为 transfer",
     ],
     sourceRefIds: ["rollout.datasource-get-samples"],
-    feedback: { correct: "正确。", incorrect: "group 数由 prompt 数决定，总记录数再乘每组候选数。" },
   },
   {
-    id: "stg.final-q3",
-    kind: "choice",
-    multiple: true,
-    title: "网络边界",
-    prompt: "默认纯文本教学路径的 SGLang payload 必须包含哪些顶层字段？",
-    instruction: "选择所有正确项。",
-    options: [
-      { id: "input", label: "input_ids" },
-      { id: "params", label: "sampling_params" },
-      { id: "logprob", label: "return_logprob" },
-      { id: "label", label: "label" },
-      { id: "identity", label: "group_index / index" },
+    id: "station-request-boundary",
+    order: 4,
+    chapter: 4,
+    title: "Sample 前缀跨过网络边界",
+    producer: "slime rollout generation path",
+    observation: "c21 的调用方状态与 /generate payload 分别留下了下面四条记录。",
+    contract: "默认纯文本路径中，payload.input_ids 必须与调用方为该 Sample 保存的 prompt token 序列一致。",
+    evidence: [
+      "tokenizer.prompt_ids=[41,42,43,44,45]",
+      "c21.tokens=[41,42,43,44,45]",
+      "payload.input_ids=[41,42,43,44]",
+      "sampling_params 合法；return_logprob=true",
     ],
-    correctOptionIds: ["input", "params", "logprob"],
+    sourceRefIds: ["rollout.prepare-prompt-ids", "rollout.generate-state-init", "rollout.generate-request-envelope"],
+  },
+  {
+    id: "station-response-evidence",
+    order: 5,
+    chapter: 5,
+    title: "HTTP body 仍只是写回证据",
+    producer: "SGLang 与调用方 response projection",
+    observation: 'raw body 给出 text="13" 与 tuples=[[-0.223144,31],[-0.105361,32]]。',
+    contract: "tuple[0] 是 log-prob，tuple[1] 是 token ID；text 与 terminal meta_info 保留各自语义，HTTP body 本身不是 Sample。",
+    evidence: [
+      "response token IDs=[31,32]",
+      "response log-probs=[-0.223144,-0.105361]",
+      'finish_reason.type="stop"',
+      'weight_version="actor@3"',
+    ],
     sourceRefIds: ["rollout.generate"],
-    feedback: { correct: "正确。", incorrect: "只保留服务器执行生成所需的字段。" },
   },
   {
-    id: "stg.final-q4",
-    kind: "ordering",
-    title: "端到端调用链（必答）",
-    prompt: "排列从外部记录到 response 写回的顺序。",
-    instruction: "从最早到最晚排序。",
-    items: [
-      { id: "dataset", label: "Dataset 构造 seed Sample" },
-      { id: "group", label: "DataSource deepcopy 并编号" },
-      { id: "tokenize", label: "准备 prompt IDs" },
-      { id: "request", label: "POST /generate" },
-      { id: "project", label: "投影 token/log-prob tuple" },
-      { id: "append", label: "append_response_tokens 写回" },
+    id: "station-writeback-contract",
+    order: 6,
+    chapter: 6,
+    title: "两套坐标完成写回",
+    producer: "Sample.append_response_tokens",
+    observation: "写回沿用原 Sample 的 5-token prompt 前缀，再在回答侧追加 [31,32]。",
+    contract: "tokens 位于完整序列空间；response_length、loss_mask 与 rollout_log_probs 位于回答空间。terminal status 不评价答案正确性。",
+    evidence: [
+      "len(tokens)=7，且前 5 项仍为 [41,42,43,44,45]",
+      "response_length=2，len(loss_mask)=2，len(rollout_log_probs)=2",
+      "stop → status=completed，actor@3 写入 weight_versions",
+      'response="13" 与 label="12" 不同，但 reward 仍为 null',
     ],
-    correctOrder: ["dataset", "group", "tokenize", "request", "project", "append"],
-    sourceRefIds: ["dataset.construct-sample", "rollout.datasource-get-samples", "rollout.generate", "sample.append-response-tokens"],
-    feedback: { correct: "正确。", incorrect: "按对象边界与网络边界逐步重建调用链。" },
+    sourceRefIds: ["sample.append-core-coordinates", "sample.apply-terminal-info", "sample.validate-response-metadata-full"],
   },
-  {
-    id: "stg.final-q5",
+] as const satisfies readonly AssessmentEvidenceStation[];
+
+const comprehensiveAssessmentCheckpoints = [
+  assessmentCheckpoint(1, "station-dataset-contract", false, {
+    id: "stg.final-q1-v2",
     kind: "mapping",
-    title: "响应投影",
-    prompt: "把 response 的三种证据映射到用途。",
-    instruction: "每项选择一个用途。",
+    title: "Dataset 字段翻译",
+    prompt: "根据 assessment-orion-v1 的配置，把外部 row 字段映射到初始 Sample。",
+    instruction: "每个外部字段选择一个 Sample 目标字段。",
     items: [
-      { id: "text", label: "output.text" },
-      { id: "token", label: "item[1]" },
-      { id: "logprob", label: "item[0]" },
+      { id: "question", label: "row.question" },
+      { id: "answer", label: "row.answer" },
+      { id: "context", label: "row.context" },
     ],
     targets: [
-      { id: "readable", label: "可读 response" },
-      { id: "append", label: "追加的 token ID" },
-      { id: "policy", label: "rollout policy 概率证据" },
+      { id: "prompt", label: "Sample.prompt" },
+      { id: "label", label: "Sample.label" },
+      { id: "metadata", label: "Sample.metadata" },
     ],
-    correctMapping: { text: "readable", token: "append", logprob: "policy" },
-    sourceRefIds: ["rollout.generate"],
-    feedback: { correct: "正确。", incorrect: "回到两个列表推导式与 text 参数。" },
-  },
-  {
-    id: "stg.final-q6",
+    correctMapping: { question: "prompt", answer: "label", context: "metadata" },
+    sourceRefIds: ["dataset.construct-sample"],
+    feedback: {
+      correct: "映射成立：配置解释外部 schema，Sample 不要求文件预先使用内部字段名。",
+      incorrect: "先读取 prompt_key、label_key 与 metadata_key，再判断三个 row 字段的去向。",
+    },
+  }),
+  assessmentCheckpoint(2, "station-grouping-identity", true, {
+    id: "stg.final-q2-v2",
     kind: "field-entry",
-    title: "长度坐标（必答）",
-    prompt: "prompt 有 5 个 token，response 有 2 个 token。写回后填写四个长度。",
+    title: "非零身份计数（必答）",
+    prompt: "计数器从 group=7、index=20 开始，一个 origin 复制两次。填写 c20、c21 与下一组开始前的计数器。",
+    instruction: "输入十进制整数。",
+    fields: [
+      { id: "group", label: "c20 与 c21 的 group_index", acceptedAnswers: ["7"] },
+      { id: "c20-index", label: "c20.index", acceptedAnswers: ["20"] },
+      { id: "c21-index", label: "c21.index", acceptedAnswers: ["21"] },
+      { id: "next-group", label: "下一 group 计数器", acceptedAnswers: ["8"] },
+      { id: "next-index", label: "下一 index 计数器", acceptedAnswers: ["22"] },
+    ],
+    sourceRefIds: ["rollout.datasource-get-samples"],
+    feedback: {
+      correct: "身份推导正确：group 每个 origin 前进一次，index 每个物理 Sample 前进一次。",
+      incorrect: "不要从 0 重新编号；沿给定的 group=7、index=20 两个计数器逐次推进。",
+    },
+  }),
+  assessmentCheckpoint(3, "station-grouping-identity", false, {
+    id: "stg.final-q3-v2",
+    kind: "choice",
+    multiple: true,
+    title: "同组关系与对象独立",
+    prompt: "对 c20 与 c21，哪些判断分别能由分组规则或 deepcopy 证据支持？",
+    instruction: "选择所有正确项。",
+    options: [
+      { id: "same-group", label: "两者共享 group_index=7，可作为同一 prompt 的候选比较" },
+      { id: "unique-index", label: "两者拥有不同且唯一的 index" },
+      { id: "independent-metadata", label: "修改 c21.metadata 不会改动 c20.metadata" },
+      { id: "same-object", label: "两者是同一对象的两个别名" },
+      { id: "same-response", label: "同组意味着两者必须生成相同 response" },
+    ],
+    correctOptionIds: ["same-group", "unique-index", "independent-metadata"],
+    sourceRefIds: ["rollout.datasource-get-samples"],
+    feedback: {
+      correct: "正确：统计关联由 group_index 表达，对象独立由 deepcopy 保证。",
+      incorrect: "区分“属于同一候选组”和“共享同一个可变对象”；前者不推出后者，也不保证回答相同。",
+    },
+  }),
+  assessmentCheckpoint(4, "station-producer-boundary", true, {
+    id: "stg.final-q4-v2",
+    kind: "ordering",
+    title: "跨边界因果链（必答）",
+    prompt: "把 origin-c 从外部 row 到 terminal writeback 的六个事件按因果顺序排列。",
+    instruction: "从最早到最晚排序。",
+    items: [
+      { id: "request", label: "调用方向 /generate 发送 request payload" },
+      { id: "dataset", label: "Dataset 按配置构造 initial Sample" },
+      { id: "writeback", label: "Sample 写回 response-space 与 terminal 字段" },
+      { id: "group", label: "DataSource deepcopy 并分配 group/index" },
+      { id: "decode", label: "调用方把 response tuples 投影为 token 与 log-prob" },
+      { id: "tokenize", label: "tokenizer 准备并保存 prompt IDs" },
+    ],
+    correctOrder: ["dataset", "group", "tokenize", "request", "decode", "writeback"],
+    sourceRefIds: [
+      "dataset.construct-sample",
+      "rollout.datasource-get-samples",
+      "rollout.prepare-prompt-ids",
+      "rollout.generate",
+      "sample.append-core-coordinates",
+    ],
+    feedback: {
+      correct: "因果链正确；每一步都消费上一边界已经成立的契约。",
+      incorrect: "从生产者依赖出发：没有 Sample 就不能分组，没有 prompt IDs 就不能发请求，没有 HTTP evidence 就不能写回。",
+    },
+  }),
+  assessmentCheckpoint(5, "station-response-evidence", false, {
+    id: "stg.final-q5-v2",
+    kind: "mapping",
+    title: "Response tuple 投影",
+    prompt: "把 assessment-orion-v1 的 HTTP response 证据映射到调用方保留的语义。",
+    instruction: "每项选择一个语义。",
+    items: [
+      { id: "text", label: 'raw_body.text="13"' },
+      { id: "tuple-zero", label: "tuple[0]：-0.223144 / -0.105361" },
+      { id: "tuple-one", label: "tuple[1]：31 / 32" },
+      { id: "finish", label: 'finish_reason.type="stop"' },
+    ],
+    targets: [
+      { id: "readable", label: "人类可读 response 文本" },
+      { id: "logprob", label: "rollout log-prob 证据" },
+      { id: "token", label: "待追加的 response token IDs" },
+      { id: "terminal", label: "terminal status 的输入" },
+    ],
+    correctMapping: {
+      text: "readable",
+      "tuple-zero": "logprob",
+      "tuple-one": "token",
+      finish: "terminal",
+    },
+    sourceRefIds: ["rollout.generate"],
+    feedback: {
+      correct: "投影正确；HTTP body 提供写回证据，但并不因此变成 Sample。",
+      incorrect: "先拆 tuple 位置，再把 text 与 finish_reason 保留在各自的语义边界。",
+    },
+  }),
+  assessmentCheckpoint(6, "station-writeback-contract", true, {
+    id: "stg.final-q6-v2",
+    kind: "field-entry",
+    title: "双时钟长度审计（必答）",
+    prompt: "原 Sample 有 5 个 prompt token，本次 response 有 2 个 token。写回后填写四个长度。",
     instruction: "输入十进制整数。",
     fields: [
       { id: "tokens", label: "len(tokens)", acceptedAnswers: ["7"] },
@@ -1366,44 +2955,73 @@ export const sampleToGenerationFinalAssessment: readonly StructuredExercise[] = 
       { id: "mask", label: "len(loss_mask)", acceptedAnswers: ["2"] },
       { id: "logprob", label: "len(rollout_log_probs)", acceptedAnswers: ["2"] },
     ],
-    sourceRefIds: ["sample.append-response-tokens", "sample.validate-response-metadata-lengths"],
-    feedback: { correct: "正确。", incorrect: "tokens 在完整序列空间，另外三项在 response 空间。" },
-  },
-  {
-    id: "stg.final-q7",
+    sourceRefIds: ["sample.append-core-coordinates", "sample.validate-response-metadata-full"],
+    feedback: {
+      correct: "双时钟对齐：完整序列长 7，三个回答空间量都长 2。",
+      incorrect: "tokens 包含 prompt+response；response_length、loss_mask 与 rollout_log_probs 只沿回答坐标计数。",
+    },
+  }),
+  assessmentCheckpoint(7, "station-writeback-contract", false, {
+    id: "stg.final-q7-v2",
     kind: "choice",
     multiple: false,
-    title: "终止不等于正确",
-    prompt: "response 与 label 不同，但 finish_reason.type=stop。generate 返回时 status 和 reward 应是什么？",
+    title: "正常终止与答案正确性",
+    prompt: 'response="13"、label="12"，但 finish_reason.type="stop"。generate 写回结束时应观察到什么？',
     instruction: "选择一个答案。",
     options: [
       { id: "completed-null", label: "status=completed，reward=null" },
       { id: "failed-zero", label: "status=failed，reward=0" },
       { id: "completed-one", label: "status=completed，reward=1" },
+      { id: "pending-null", label: "status=pending，reward=null" },
     ],
     correctOptionIds: ["completed-null"],
-    sourceRefIds: ["sample.apply-meta-info"],
-    feedback: { correct: "正确。", incorrect: "stop 描述终止原因；reward 尚未运行。" },
-  },
-  {
-    id: "stg.final-q8",
+    sourceRefIds: ["sample.apply-terminal-info"],
+    feedback: {
+      correct: "正确：completed 只说明生成正常终止；reward 生产者尚未运行。",
+      incorrect: "不要在 generation path 内提前比较 label，也不要把 stop 解释为答案正确。",
+    },
+  }),
+  assessmentCheckpoint(8, "station-request-boundary", true, {
+    id: "stg.final-q8-v2",
     kind: "choice",
-    multiple: true,
-    title: "课程边界（必答）",
-    prompt: "generate 刚返回、reward 尚未执行。哪些状态此时应当仍未产生？",
-    instruction: "选择所有正确项。",
+    multiple: false,
+    title: "定位最早错误边界（必答）",
+    prompt: "沿六个 evidence station 审计 assessment-orion-v1，最早被破坏的契约是哪一个？",
+    instruction: "选择最早出现、且能由当前证据直接验证的错误。",
     options: [
-      { id: "reward", label: "reward" },
-      { id: "train", label: "trainer batch / train_metadata" },
-      { id: "optimizer", label: "optimizer step" },
-      { id: "response", label: "response" },
-      { id: "status", label: "terminal status" },
+      { id: "dataset-mapping", label: "Dataset 错把 answer 映射成 metadata" },
+      { id: "identity", label: "c20 与 c21 不应共享 group_index" },
+      { id: "request-prefix", label: "request.payload.input_ids 漏掉 Sample prompt 前缀末尾的 token 45" },
+      { id: "response-label", label: 'SGLang 返回 "13" 而 label 是 "12"，所以 HTTP schema 已损坏' },
+      { id: "reward", label: "status=completed 时 reward 不应为 null" },
     ],
-    correctOptionIds: ["reward", "train", "optimizer"],
-    sourceRefIds: ["rollout.generate", "sample.append-response-tokens"],
-    feedback: { correct: "正确。", incorrect: "本课只到生成写回；response 和 terminal status 已经产生。" },
-  },
-];
+    correctOptionIds: ["request-prefix"],
+    sourceRefIds: ["rollout.prepare-prompt-ids", "rollout.generate-request-envelope"],
+    feedback: {
+      correct: "定位正确：发送请求时已经丢失 token 45；后续快照即使长度自洽，也不能抹去更早的输入边界错误。",
+      incorrect: "按时间从 Dataset 向后审计。response 与 label 不同尚不是 schema 错误，reward=null 也符合本课止线。",
+    },
+  }),
+] as const satisfies readonly AssessmentCheckpoint[];
+
+export const sampleToGenerationComprehensiveAssessment: ComprehensiveTraceAssessment = {
+  id: "stg.comprehensive-trace-v2",
+  title: "综合终测：在陌生 trace 中找到第一处失真",
+  drivingQuestion: "如果每个局部快照看起来都说得通，你还能沿生产者边界找出最早被破坏的那一条契约吗？",
+  imageSrc: "/art/library-act-07-v1.webp",
+  imageAlt: "角色站在层叠档案与观测仪器之间，逐站核对一条陌生生成 trace",
+  scope: "新 trace assessment-orion-v1 · origin-c · 默认纯文本 generate · 固定 commit 06ffdbe2 · 无需 GPU",
+  teachingNotice: comprehensiveAssessmentFixture.teaching_notice,
+  fixture: comprehensiveAssessmentFixture,
+  stations: comprehensiveAssessmentStations,
+  checkpoints: comprehensiveAssessmentCheckpoints,
+};
+
+/** Compatibility array for grading and progress code that consumes exercises directly. */
+export const sampleToGenerationFinalAssessment: readonly StructuredExercise[] =
+  sampleToGenerationComprehensiveAssessment.checkpoints.map(
+    (checkpoint) => checkpoint.exercise,
+  );
 
 export const sampleToGenerationCourse: SampleToGenerationCourse = {
   metadata: {
@@ -1412,8 +3030,8 @@ export const sampleToGenerationCourse: SampleToGenerationCourse = {
     locale: "zh-CN",
     title: "Sample 如何得到回答——从一行输入到 SGLang 写回",
     summary: "沿固定 2×2 trace 逐边界验证 Dataset、Sample、DataSource 与 SGLang generation 的数据契约。",
-    lessonRevision: 4,
-    assessmentVersion: 1,
+    lessonRevision: 8,
+    assessmentVersion: 2,
     durationMinutes: { chapters: 78, assessment: 10, total: 88 },
     requiresGpu: false,
     sourceBaseline: {
@@ -1425,7 +3043,12 @@ export const sampleToGenerationCourse: SampleToGenerationCourse = {
   completion: {
     requiredChapterIds: sampleToGenerationChapters.map((chapter) => chapter.id),
     minCorrect: 7,
-    requiredQuestionIds: ["stg.final-q2", "stg.final-q4", "stg.final-q6", "stg.final-q8"],
+    requiredQuestionIds: [
+      "stg.final-q2-v2",
+      "stg.final-q4-v2",
+      "stg.final-q6-v2",
+      "stg.final-q8-v2",
+    ],
   },
   teachingValuesNotice:
     "课程中的 token ID、采样输出与 log-prob 是确定性的教学 fixture，不来自真实 checkpoint；系统边界与调用关系由固定 commit 的源码证据验证。",
@@ -1438,6 +3061,6 @@ export const sampleToGenerationCourse: SampleToGenerationCourse = {
     "解释 completed 为什么不代表答案正确",
   ],
   chapters: sampleToGenerationChapters,
-  finalAssessment: sampleToGenerationFinalAssessment,
+  finalAssessment: sampleToGenerationComprehensiveAssessment,
   sourceEvidence: sampleToGenerationSourceEvidence,
 };

@@ -251,7 +251,11 @@ describe("M1 evidence and navigation contract", () => {
       environment: { num_gpus: 0 },
       result: { status: "passed", passed: 21, failed: 0 },
     });
-    expect(refsPayload.refs).toHaveLength(27);
+    expect(refsPayload.refs).toHaveLength(42);
+    expect([...sourceIds]).toEqual(expect.arrayContaining([
+      "sample.identity-defaults",
+      "rollout.datasource-counter-init",
+    ]));
 
     const anchorIds = new Set(anchorsPayload.anchors.map((anchor) => anchor.id));
     expect(anchorIds).toEqual(sourceIds);

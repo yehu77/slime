@@ -1,0 +1,133 @@
+{
+  "schema_version": "sample-to-generation-assessment/1",
+  "fixture_id": "assessment-orion-v1",
+  "slime_ref": {
+    "tag": "v0.3.1",
+    "describe": "v0.3.1-1-g06ffdbe2",
+    "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e"
+  },
+  "teaching_notice": "本终测 trace 的 token ID、sampling 参数、SGLang 响应与 log-prob 都是确定性的教学 mock；它们不来自真实 checkpoint。边界与调用关系仍由固定 commit 06ffdbe2 的源码证据约束。",
+  "origin_id": "origin-c",
+  "dataset_config": {
+    "prompt_key": "question",
+    "label_key": "answer",
+    "metadata_key": "context",
+    "n_samples_per_prompt": 2
+  },
+  "row": {
+    "question": "6 × 2 = ?",
+    "answer": "12",
+    "context": {
+      "source_name": "terminal_assessment",
+      "difficulty": "transfer"
+    }
+  },
+  "grouping": {
+    "counters_before": { "group": 7, "index": 20 },
+    "counters_after": { "group": 8, "index": 22 },
+    "members": [
+      { "sample_id": "c20", "group_index": 7, "index": 20 },
+      { "sample_id": "c21", "group_index": 7, "index": 21 }
+    ],
+    "focus_sample_id": "c21",
+    "clone_probe": {
+      "mutation": "c21.metadata.difficulty = \"diagnostic\"",
+      "expected_after": {
+        "c20": "transfer",
+        "c21": "diagnostic"
+      }
+    }
+  },
+  "tokenizer": {
+    "kind": "teaching-only",
+    "notice": "教学 prompt IDs 只用于复算协议；不代表任何真实 checkpoint tokenizer 的输出。",
+    "prompt_ids": [41, 42, 43, 44, 45]
+  },
+  "request": {
+    "sample_id": "c21",
+    "method": "POST",
+    "endpoint": "/generate",
+    "payload": {
+      "input_ids": [41, 42, 43, 44],
+      "sampling_params": {
+        "temperature": 0,
+        "top_p": 1,
+        "top_k": -1,
+        "max_new_tokens": 2,
+        "stop": [],
+        "stop_token_ids": [],
+        "skip_special_tokens": true,
+        "no_stop_trim": true,
+        "spaces_between_special_tokens": false
+      },
+      "return_logprob": true
+    }
+  },
+  "response_receipt": {
+    "sample_id": "c21",
+    "raw_body": {
+      "text": "13",
+      "meta_info": {
+        "output_token_logprobs": [
+          [-0.223144, 31],
+          [-0.105361, 32]
+        ],
+        "finish_reason": { "type": "stop" },
+        "weight_version": "actor@3"
+      }
+    }
+  },
+  "writeback": {
+    "sample_id": "c21",
+    "before": {
+      "origin_id": "origin-c",
+      "group_index": 7,
+      "index": 21,
+      "prompt": "6 × 2 = ?",
+      "tokens": [41, 42, 43, 44, 45],
+      "multimodal_inputs": null,
+      "response": "",
+      "response_length": 0,
+      "label": "12",
+      "reward": null,
+      "loss_mask": null,
+      "weight_versions": [],
+      "rollout_log_probs": null,
+      "status": "pending",
+      "metadata": {
+        "source_name": "terminal_assessment",
+        "difficulty": "transfer"
+      },
+      "train_metadata": null
+    },
+    "after": {
+      "origin_id": "origin-c",
+      "group_index": 7,
+      "index": 21,
+      "prompt": "6 × 2 = ?",
+      "tokens": [41, 42, 43, 44, 45, 31, 32],
+      "multimodal_inputs": null,
+      "response": "13",
+      "response_length": 2,
+      "label": "12",
+      "reward": null,
+      "loss_mask": [1, 1],
+      "weight_versions": ["actor@3"],
+      "rollout_log_probs": [-0.223144, -0.105361],
+      "status": "completed",
+      "metadata": {
+        "source_name": "terminal_assessment",
+        "difficulty": "transfer"
+      },
+      "train_metadata": null
+    }
+  },
+  "expected_first_error": {
+    "station_id": "station-request-boundary",
+    "boundary": "request-payload",
+    "path": "request.payload.input_ids",
+    "expected": [41, 42, 43, 44, 45],
+    "actual": [41, 42, 43, 44],
+    "explanation": "Sample 已保存 5 个 prompt token，但请求只发送前 4 个；这是最早被破坏的边界。后续 response 与写回快照都是为诊断而保留的教学观测，不会把这个请求错误变成正确。"
+  }
+}

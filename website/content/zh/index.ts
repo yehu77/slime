@@ -8,12 +8,16 @@ export {
 } from "./lessons/sample-journey";
 export {
   sampleToGenerationChapters,
+  sampleToGenerationComprehensiveAssessment,
   sampleToGenerationCourse,
   sampleToGenerationFinalAssessment,
   sampleToGenerationSourceEvidence,
 } from "./lessons/sample-to-generation";
 export type {
   CourseManifest,
+  AssessmentCheckpoint,
+  AssessmentEvidenceStation,
+  ComprehensiveTraceAssessment,
   SampleToGenerationChapter,
   SampleToGenerationCourse,
   SampleToGenerationSourceEvidence,

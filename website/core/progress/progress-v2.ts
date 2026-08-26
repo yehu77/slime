@@ -510,6 +510,14 @@ export function applyLessonProgressEvent(
   const parsedLessonId = StableIdSchema.parse(lessonId);
   const manifest = ProgressCompletionManifestSchema.parse(manifestInput);
   const event = ProgressEventSchema.parse(eventInput);
+
+  if (
+    event.type === "exercise-submitted" &&
+    !manifest.completion.required_exercise_ids.includes(event.exercise_id)
+  ) {
+    return localProgressInput;
+  }
+
   const updatedAt = readNow(now);
   const stored = localProgress.lessons[parsedLessonId];
   const current =

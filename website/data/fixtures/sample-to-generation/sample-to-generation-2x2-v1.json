@@ -71,34 +71,50 @@
     "no_stop_trim": true,
     "spaces_between_special_tokens": false
   },
-  "response_projections": [
+  "response_receipts": [
     {
       "sample_id": "a0",
-      "text": "5",
-      "output_token_logprobs": [[-0.356675, 25]],
-      "finish_reason": "stop",
-      "weight_version": "actor@0"
+      "raw_body": {
+        "text": "5",
+        "meta_info": {
+          "output_token_logprobs": [[-0.356675, 25]],
+          "finish_reason": { "type": "stop" },
+          "weight_version": "actor@0"
+        }
+      }
     },
     {
       "sample_id": "a1",
-      "text": "6",
-      "output_token_logprobs": [[-1.609438, 26]],
-      "finish_reason": "stop",
-      "weight_version": "actor@0"
+      "raw_body": {
+        "text": "6",
+        "meta_info": {
+          "output_token_logprobs": [[-1.609438, 26]],
+          "finish_reason": { "type": "stop" },
+          "weight_version": "actor@0"
+        }
+      }
     },
     {
       "sample_id": "b0",
-      "text": "7",
-      "output_token_logprobs": [[-0.430783, 27]],
-      "finish_reason": "stop",
-      "weight_version": "actor@0"
+      "raw_body": {
+        "text": "7",
+        "meta_info": {
+          "output_token_logprobs": [[-0.430783, 27]],
+          "finish_reason": { "type": "stop" },
+          "weight_version": "actor@0"
+        }
+      }
     },
     {
       "sample_id": "b1",
-      "text": "8",
-      "output_token_logprobs": [[-1.386294, 28]],
-      "finish_reason": "stop",
-      "weight_version": "actor@0"
+      "raw_body": {
+        "text": "8",
+        "meta_info": {
+          "output_token_logprobs": [[-1.386294, 28]],
+          "finish_reason": { "type": "stop" },
+          "weight_version": "actor@0"
+        }
+      }
     }
   ],
   "observations": [
@@ -106,9 +122,9 @@
     { "id": "samples-constructed", "chapter": 1, "actor": "dataset", "source_ref_ids": ["dataset.construct-sample", "sample.dataclass"] },
     { "id": "groups-built", "chapter": 3, "actor": "data-source", "source_ref_ids": ["rollout.datasource-get-samples"] },
     { "id": "prompts-tokenized", "chapter": 4, "actor": "tokenizer", "source_ref_ids": ["rollout.prepare-prompt-ids"] },
-    { "id": "requests-prepared", "chapter": 4, "actor": "sglang-request", "source_ref_ids": ["rollout.generate-state-init", "rollout.generate"] },
+    { "id": "requests-prepared", "chapter": 4, "actor": "sglang-request", "source_ref_ids": ["rollout.generate-state-init", "rollout.generate-request-envelope", "rollout.generate-request-dispatch"] },
     { "id": "responses-received", "chapter": 5, "actor": "sglang", "source_ref_ids": ["rollout.generate"] },
-    { "id": "responses-written", "chapter": 6, "actor": "sample", "source_ref_ids": ["sample.append-response-tokens", "sample.apply-meta-info", "sample.validate-response-metadata-lengths"] }
+    { "id": "responses-written", "chapter": 6, "actor": "sample", "source_ref_ids": ["sample.append-preflight", "sample.append-core-coordinates", "sample.append-finalize", "sample.apply-terminal-info", "sample.validate-response-metadata-full"] }
   ],
   "expected": {
     "origins": 2,

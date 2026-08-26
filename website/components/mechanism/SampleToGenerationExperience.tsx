@@ -12,7 +12,6 @@ import {
   gradeFinalAssessment,
   sampleToGenerationFixture,
   seekSampleToGeneration,
-  type ExerciseGrade,
   type StructuredExerciseAnswer,
 } from "../../core/sample-to-generation";
 import {
@@ -30,8 +29,17 @@ import {
   ChapterOneTranslationDesk,
 } from "./ChapterOneTranslationDesk";
 import { ChapterTwoProvenanceRelay } from "./ChapterTwoProvenanceRelay";
+import { ChapterThreeGroupingLab } from "./ChapterThreeGroupingLab";
+import { ChapterFourRequestBoundary } from "./ChapterFourRequestBoundary";
+import { ChapterFiveResponseEvidence } from "./ChapterFiveResponseEvidence";
+import { ChapterSixWritebackCalibration } from "./ChapterSixWritebackCalibration";
+import { FinalTraceAssessmentReader } from "./FinalTraceAssessmentReader";
 import {
+  hasChapterFiveResponseEvidenceData,
+  hasChapterFourRequestBoundaryData,
   hasChapterOneTranslationData,
+  hasChapterSixWritebackData,
+  hasChapterThreeGroupingData,
   hasChapterTwoProvenanceData,
 } from "./chapter-reader-contracts";
 import { SampleStateDrawer } from "./SampleStateDrawer";
@@ -238,10 +246,26 @@ export function SampleToGenerationExperience({
   const [progressHydrated, setProgressHydrated] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [assessmentAnswers, setAssessmentAnswers] = useState<Record<string, StructuredExerciseAnswer>>({});
-  const [assessmentGrades, setAssessmentGrades] = useState<Record<string, ExerciseGrade>>({});
   const [assessmentResult, setAssessmentResult] = useState<ReturnType<typeof gradeFinalAssessment> | null>(null);
   const chapterHeadingRef = useRef<HTMLHeadingElement>(null);
   const drawerTriggerRef = useRef<HTMLButtonElement>(null);
+  const railListRef = useRef<HTMLOListElement>(null);
+
+  useEffect(() => {
+    if (!activeSlug || activeSlug === assessmentSlug) return;
+    const rail = railListRef.current;
+    const current = rail?.querySelector<HTMLElement>(
+      `[data-chapter-slug="${activeSlug}"]`,
+    );
+    if (!rail || !current) return;
+    const left = current.offsetLeft - (rail.clientWidth - current.clientWidth) / 2;
+    rail.scrollTo({
+      left: Math.max(0, left),
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ? "auto"
+        : "smooth",
+    });
+  }, [activeSlug]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -395,7 +419,12 @@ export function SampleToGenerationExperience({
   const drawerSampleId = activeIndex < 2 ? "origin-a" : "a0";
   const hasChapterOneReader = hasChapterOneTranslationData(chapter);
   const hasChapterTwoReader = hasChapterTwoProvenanceData(chapter);
-  const hasDedicatedReader = hasChapterOneReader || hasChapterTwoReader;
+  const hasChapterThreeReader = hasChapterThreeGroupingData(chapter);
+  const hasChapterFourReader = hasChapterFourRequestBoundaryData(chapter);
+  const hasChapterFiveReader = hasChapterFiveResponseEvidenceData(chapter);
+  const hasChapterSixReader = hasChapterSixWritebackData(chapter);
+  const hasAssessmentReader = activeSlug === assessmentSlug;
+  const hasDedicatedReader = hasChapterOneReader || hasChapterTwoReader || hasChapterThreeReader || hasChapterFourReader || hasChapterFiveReader || hasChapterSixReader || hasAssessmentReader;
 
   const state = chapter
     ? seekSampleToGeneration(
@@ -414,7 +443,10 @@ export function SampleToGenerationExperience({
     : undefined;
 
   const submitFinalAssessment = () => {
-    const result = gradeFinalAssessment(course.finalAssessment, assessmentAnswers, course.completion);
+    const exercises = course.finalAssessment.checkpoints.map(
+      (checkpoint) => checkpoint.exercise,
+    );
+    const result = gradeFinalAssessment(exercises, assessmentAnswers, course.completion);
     setAssessmentResult(result);
     record([{
       type: "assessment-submitted",
@@ -455,7 +487,7 @@ export function SampleToGenerationExperience({
         <a className="mechanism-rail-cover" href="/learn/sample-to-generation" onClick={(event) => { event.preventDefault(); openCover(); }}>
           <span>CORE / 01</span><strong>课程封面</strong>
         </a>
-        <ol>
+        <ol ref={railListRef}>
           {course.chapters.map((item) => {
             const passed = Boolean(lessonProgress?.exercise_attempts[item.exercise.id]?.passed);
             return (
@@ -520,6 +552,50 @@ export function SampleToGenerationExperience({
             onNext={() => openSection(course.chapters[2].slug)}
             onOpenDrawer={() => setDrawerOpen(true)}
             onPrevious={() => openSection(course.chapters[0].slug)}
+            passed={Boolean(chapterProgress?.passed)}
+          />
+        ) : chapter && hasChapterThreeReader ? (
+          <ChapterThreeGroupingLab
+            chapter={chapter}
+            exerciseSlot={chapterExercise}
+            headingRef={chapterHeadingRef}
+            triggerRef={drawerTriggerRef}
+            onNext={() => openSection(course.chapters[3].slug)}
+            onOpenDrawer={() => setDrawerOpen(true)}
+            onPrevious={() => openSection(course.chapters[1].slug)}
+            passed={Boolean(chapterProgress?.passed)}
+          />
+        ) : chapter && hasChapterFourReader ? (
+          <ChapterFourRequestBoundary
+            chapter={chapter}
+            exerciseSlot={chapterExercise}
+            headingRef={chapterHeadingRef}
+            triggerRef={drawerTriggerRef}
+            onNext={() => openSection(course.chapters[4].slug)}
+            onOpenDrawer={() => setDrawerOpen(true)}
+            onPrevious={() => openSection(course.chapters[2].slug)}
+            passed={Boolean(chapterProgress?.passed)}
+          />
+        ) : chapter && hasChapterFiveReader ? (
+          <ChapterFiveResponseEvidence
+            chapter={chapter}
+            exerciseSlot={chapterExercise}
+            headingRef={chapterHeadingRef}
+            triggerRef={drawerTriggerRef}
+            onNext={() => openSection(course.chapters[5].slug)}
+            onOpenDrawer={() => setDrawerOpen(true)}
+            onPrevious={() => openSection(course.chapters[3].slug)}
+            passed={Boolean(chapterProgress?.passed)}
+          />
+        ) : chapter && hasChapterSixReader ? (
+          <ChapterSixWritebackCalibration
+            chapter={chapter}
+            exerciseSlot={chapterExercise}
+            headingRef={chapterHeadingRef}
+            triggerRef={drawerTriggerRef}
+            onNext={() => openSection(assessmentSlug)}
+            onOpenDrawer={() => setDrawerOpen(true)}
+            onPrevious={() => openSection(course.chapters[4].slug)}
             passed={Boolean(chapterProgress?.passed)}
           />
         ) : chapter ? (
@@ -621,66 +697,19 @@ export function SampleToGenerationExperience({
             </nav>
           </article>
         ) : (
-          <article className="mechanism-assessment" aria-labelledby="mechanism-assessment-title">
-            <header>
-              <p>FINAL CHECK · 10 分钟 · 无限重试</p>
-              <h1 id="mechanism-assessment-title" ref={chapterHeadingRef} tabIndex={-1}>用一条新 trace 检查机制，而不是检查记忆</h1>
-              <p>八题至少答对七题，并正确回答第 2、4、6、8 题。较差的后续重试不会撤销已完成状态。</p>
-            </header>
-            <div className="mechanism-assessment-grid">
-              {course.finalAssessment.map((exercise, index) => (
-                <div key={exercise.id} className="mechanism-assessment-item">
-                  <span>QUESTION {String(index + 1).padStart(2, "0")}{course.completion.requiredQuestionIds.includes(exercise.id) ? " / REQUIRED" : ""}</span>
-                  <StructuredExerciseView
-                    compact
-                    exercise={exercise}
-                    initialAnswer={assessmentAnswers[exercise.id]}
-                    onAnswerChange={(answer) => {
-                      setAssessmentAnswers((current) => ({ ...current, [exercise.id]: answer }));
-                      setAssessmentGrades((current) => {
-                        const next = { ...current };
-                        delete next[exercise.id];
-                        return next;
-                      });
-                      setAssessmentResult(null);
-                    }}
-                    onGrade={(_, answer, grade) => {
-                      setAssessmentAnswers((current) => ({ ...current, [exercise.id]: answer }));
-                      setAssessmentGrades((current) => ({ ...current, [exercise.id]: grade }));
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-            <section className="mechanism-submit-assessment">
-              <div><span>SUBMISSION</span><p>已核对 {Object.keys(assessmentGrades).length} / {course.finalAssessment.length} 题</p></div>
-              <button className="mechanism-action" type="button" disabled={Object.keys(assessmentGrades).length !== course.finalAssessment.length} onClick={submitFinalAssessment}>提交终测</button>
-              {assessmentResult ? (
-                <div className={evaluation.status === "completed" || assessmentResult.passed ? "is-passed" : "is-retry"} role="status">
-                  <strong>
-                    {evaluation.status === "completed"
-                      ? assessmentResult.passed ? "机制课完成" : "课程仍已完成"
-                      : assessmentResult.passed ? "终测通过" : "还需要再校准一次"}
-                  </strong>
-                  <p>
-                    {assessmentResult.score} / {assessmentResult.total} 正确。
-                    {evaluation.status === "completed" && !assessmentResult.passed
-                      ? "本次重试未达到终测门槛，但同一版本先前的通过记录仍然有效。"
-                      : assessmentResult.missingRequiredCorrectIds.length
-                      ? `必答题待修正：${assessmentResult.missingRequiredCorrectIds.join("、")}`
-                      : evaluation.status === "completed"
-                        ? "六章访问、六次练习与四道必答均已完成。"
-                        : "四道必答题均正确；课程完成还需要访问六章并通过每章练习。"}
-                  </p>
-                  <a href="/learn">回到完整课程路线</a>
-                </div>
-              ) : null}
-            </section>
-            <nav className="mechanism-chapter-nav" aria-label="终测返回">
-              <button type="button" onClick={() => openSection(course.chapters.at(-1)?.slug ?? course.chapters[0].slug)}>← 返回第六章</button>
-              <span />
-            </nav>
-          </article>
+          <FinalTraceAssessmentReader
+            answers={assessmentAnswers}
+            assessment={course.finalAssessment}
+            bestScore={lessonProgress?.final_assessment?.best_score ?? 0}
+            headingRef={chapterHeadingRef}
+            historicallyCompleted={Boolean(lessonProgress?.final_assessment?.passed)}
+            onAnswerChange={(exerciseId, answer) => {
+              setAssessmentAnswers((current) => ({ ...current, [exerciseId]: answer }));
+            }}
+            onPrevious={() => openSection(course.chapters.at(-1)?.slug ?? course.chapters[0].slug)}
+            onSubmit={submitFinalAssessment}
+            result={assessmentResult}
+          />
         )}
       </div>
 

@@ -58,6 +58,22 @@
     },
     {
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 198,
+      "guided_excerpt": {
+        "code": "async def _post(client, url, payload, max_retries=60, headers=None):\n    retry_count = 0\n    while retry_count < max_retries:\n        response = None\n        try:\n            response = await client.post(url, json=payload or {}, headers=headers)\n            response.raise_for_status()\n            content = await response.aread()\n            try:\n                output = json.loads(content)\n            except json.JSONDecodeError:\n                output = content.decode() if isinstance(content, bytes) else content",
+        "end_line": 176,
+        "snippet_sha256": "436d8823282ebaa171cbdf49103202c13a9e53873fc1bd6de6e8beab9bc9d77c",
+        "start_line": 165
+      },
+      "id": "http.post-json-decode",
+      "path": "slime/utils/http_utils.py",
+      "snippet_sha256": "73dde623663745c7d7a6fa93743e79f62f8190912e9b374a4d14f6d8380e6851",
+      "start_line": 165,
+      "symbol": "_post",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/http_utils.py#L165-L198"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
       "end_line": 76,
       "id": "loop.async",
       "path": "train_async.py",
@@ -91,6 +107,22 @@
       "start_line": 712,
       "symbol": "RolloutManager._convert_samples_to_train_data",
       "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/ray/rollout.py#L712-L826"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 88,
+      "guided_excerpt": {
+        "code": "        self.args = args\n\n        self.epoch_id = 0\n        self.sample_group_index = 0\n        self.sample_index = 0\n        self.sample_offset = 0\n        # TODO remove this\n        self.metadata = {}",
+        "end_line": 59,
+        "snippet_sha256": "b64b372649cdbc158575b5c13059ff75979ea6ab9b01a84b8ce13b3055d2eb83",
+        "start_line": 52
+      },
+      "id": "rollout.datasource-counter-init",
+      "path": "slime/rollout/data_source.py",
+      "snippet_sha256": "b7832e6778b9a2a777801af205dd3d4924cba60c8ab142d8b0c7ba18188733ca",
+      "start_line": 51,
+      "symbol": "RolloutDataSource.__init__",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/rollout/data_source.py#L51-L88"
     },
     {
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
@@ -152,12 +184,76 @@
     },
     {
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 219,
+      "guided_excerpt": {
+        "code": "    prompt_ids = _prepare_prompt_ids(sample, state.tokenizer, state.processor)\n\n    assert (\n        sampling_params[\"max_new_tokens\"] >= 0\n    ), f\"max_new_tokens: {sampling_params['max_new_tokens']} should not be less than 0\"\n    if sampling_params[\"max_new_tokens\"] == 0:\n        sample.status = Sample.Status.TRUNCATED\n        return sample\n\n    # Prepare payload for sglang server\n    payload = {\n        \"sampling_params\": sampling_params,\n        \"return_logprob\": True,\n    }\n\n    if args.use_rollout_routing_replay:\n        payload[\"return_routed_experts\"] = True",
+        "end_line": 180,
+        "snippet_sha256": "a27f0d3aebbc45143d7ef09e137852d0be45bdf5309fced80d1e0309e1b17eed",
+        "start_line": 164
+      },
+      "id": "rollout.generate-request-budget",
+      "path": "slime/rollout/sglang_rollout.py",
+      "snippet_sha256": "3b52990cf03d8b743d26ac6ef53ab7047c30b6f5eae5afd8e47bed663cd11180",
+      "start_line": 152,
+      "symbol": "generate",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/rollout/sglang_rollout.py#L152-L219"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 219,
+      "guided_excerpt": {
+        "code": "    # Use session_id for consistent hashing routing (SGLang Model Gateway)\n    headers = None\n    if sample.session_id:\n        if getattr(args, \"router_policy\", None) == \"consistent_hashing\":\n            headers = {\"X-SMG-Routing-Key\": sample.session_id}\n\n    with trace_span(sample, \"sglang_generate\", attrs={\"max_new_tokens\": sampling_params[\"max_new_tokens\"]}) as span:\n        output = await post(url, payload, headers=headers)",
+        "end_line": 201,
+        "snippet_sha256": "23c769ddf80a2c165c0d755d096b526ad18ce56298087ae28bb72e48810e6bd0",
+        "start_line": 194
+      },
+      "id": "rollout.generate-request-dispatch",
+      "path": "slime/rollout/sglang_rollout.py",
+      "snippet_sha256": "3b52990cf03d8b743d26ac6ef53ab7047c30b6f5eae5afd8e47bed663cd11180",
+      "start_line": 152,
+      "symbol": "generate",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/rollout/sglang_rollout.py#L152-L219"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 219,
+      "guided_excerpt": {
+        "code": "    # Prepare payload for sglang server\n    payload = {\n        \"sampling_params\": sampling_params,\n        \"return_logprob\": True,\n    }\n\n    if args.use_rollout_routing_replay:\n        payload[\"return_routed_experts\"] = True\n\n    images = sample.multimodal_inputs.get(\"images\") if sample.multimodal_inputs else None\n    if images:\n        payload[\"image_data\"] = [encode_image_for_rollout_engine(image) for image in images]\n        # For single-turn multimodal requests, send text so SGLang expands the\n        # image placeholders with its own processor rules.\n        payload[\"text\"] = sample.prompt\n    else:\n        payload[\"input_ids\"] = prompt_ids\n\n    if not sample.tokens:\n        sample.tokens = prompt_ids",
+        "end_line": 192,
+        "snippet_sha256": "f392f973cf2498662104dfe4d634f5723fb4892ee8c8b6082f42318e4511db1c",
+        "start_line": 173
+      },
+      "id": "rollout.generate-request-envelope",
+      "path": "slime/rollout/sglang_rollout.py",
+      "snippet_sha256": "3b52990cf03d8b743d26ac6ef53ab7047c30b6f5eae5afd8e47bed663cd11180",
+      "start_line": 152,
+      "symbol": "generate",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/rollout/sglang_rollout.py#L152-L219"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 219,
+      "guided_excerpt": {
+        "code": "    with trace_span(sample, \"sglang_generate\", attrs={\"max_new_tokens\": sampling_params[\"max_new_tokens\"]}) as span:\n        output = await post(url, payload, headers=headers)\n        span.update(build_sglang_meta_trace_attrs(output[\"meta_info\"]))\n\n    if \"output_token_logprobs\" in output[\"meta_info\"]:\n        new_response_tokens = [item[1] for item in output[\"meta_info\"][\"output_token_logprobs\"]]\n        new_response_log_probs = [item[0] for item in output[\"meta_info\"][\"output_token_logprobs\"]]\n    else:\n        new_response_tokens, new_response_log_probs = [], []",
+        "end_line": 208,
+        "snippet_sha256": "95a1573bcb6e3e42f339e1d117f85fe3afc3131ebe4d0133451781043a1d0415",
+        "start_line": 200
+      },
+      "id": "rollout.generate-response-decode",
+      "path": "slime/rollout/sglang_rollout.py",
+      "snippet_sha256": "3b52990cf03d8b743d26ac6ef53ab7047c30b6f5eae5afd8e47bed663cd11180",
+      "start_line": 152,
+      "symbol": "generate",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/rollout/sglang_rollout.py#L152-L219"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
       "end_line": 117,
       "guided_excerpt": {
-        "code": "        self.semaphore = asyncio.Semaphore(args.sglang_server_concurrency * get_rollout_num_engines(args))\n        self.sampling_params: dict[str, Any] = dict(\n            temperature=args.rollout_temperature,\n            top_p=args.rollout_top_p,\n            top_k=args.rollout_top_k,\n            max_new_tokens=args.rollout_max_response_len,\n            stop=args.rollout_stop,\n            stop_token_ids=args.rollout_stop_token_ids,\n            skip_special_tokens=args.rollout_skip_special_tokens,\n            no_stop_trim=True,\n            spaces_between_special_tokens=False,\n        )\n        if args.rollout_top_p != 1.0:\n            self.sampling_params[\"custom_params\"] = {\"return_top_p_token_ids\": True}",
+        "code": "        self.args = args\n        self.tokenizer = load_tokenizer(args.hf_checkpoint, trust_remote_code=True)\n        self.processor = load_processor(args.hf_checkpoint, trust_remote_code=True)\n\n        self.semaphore = asyncio.Semaphore(args.sglang_server_concurrency * get_rollout_num_engines(args))\n        self.sampling_params: dict[str, Any] = dict(\n            temperature=args.rollout_temperature,\n            top_p=args.rollout_top_p,\n            top_k=args.rollout_top_k,\n            max_new_tokens=args.rollout_max_response_len,\n            stop=args.rollout_stop,\n            stop_token_ids=args.rollout_stop_token_ids,\n            skip_special_tokens=args.rollout_skip_special_tokens,\n            no_stop_trim=True,\n            spaces_between_special_tokens=False,\n        )\n        if args.rollout_top_p != 1.0:\n            self.sampling_params[\"custom_params\"] = {\"return_top_p_token_ids\": True}",
         "end_line": 107,
-        "snippet_sha256": "c3c829d868fad946ba601bc1d5894ea4a2c42433e254e39fd6625fe46835beb3",
-        "start_line": 94
+        "snippet_sha256": "70cf07d7975485ed0b009c1b70d46e2bf9571fe5c0c160dd8af51d2c64d7ff7e",
+        "start_line": 90
       },
       "id": "rollout.generate-state-init",
       "path": "slime/rollout/sglang_rollout.py",
@@ -165,6 +261,22 @@
       "start_line": 88,
       "symbol": "GenerateState.__init__",
       "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/rollout/sglang_rollout.py#L88-L117"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 219,
+      "guided_excerpt": {
+        "code": "    sample.append_response_tokens(\n        args,\n        tokens=new_response_tokens,\n        log_probs=new_response_log_probs,\n        trainable=True,\n        meta_info=output[\"meta_info\"],\n        text=output[\"text\"],\n    )\n\n    return sample",
+        "end_line": 219,
+        "snippet_sha256": "3977f72fc6cc4b70724b7269f3a600358c8eefe9ebd8585995abe72530bbcdf0",
+        "start_line": 210
+      },
+      "id": "rollout.generate-writeback-handoff",
+      "path": "slime/rollout/sglang_rollout.py",
+      "snippet_sha256": "3b52990cf03d8b743d26ac6ef53ab7047c30b6f5eae5afd8e47bed663cd11180",
+      "start_line": 152,
+      "symbol": "generate",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/rollout/sglang_rollout.py#L152-L219"
     },
     {
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
@@ -226,6 +338,54 @@
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
       "end_line": 314,
       "guided_excerpt": {
+        "code": "        if text is not None:\n            self.response += text\n\n        previous_response_length = self.response_length\n        if tokens:\n            self.tokens += tokens\n            self.response_length += len(tokens)\n            if self.loss_mask is None:\n                self.loss_mask = [1] * previous_response_length\n            self.loss_mask += [1 if trainable else 0] * len(tokens)\n\n        if log_probs is not None:\n            if self.rollout_log_probs is None:\n                if trainable and previous_response_length:\n                    raise ValueError(\n                        \"Cannot append trainable rollout log probabilities to a sample with existing response \"\n                        \"tokens but no existing rollout_log_probs.\"\n                    )\n                self.rollout_log_probs = [0.0] * previous_response_length\n            self.rollout_log_probs += log_probs",
+        "end_line": 302,
+        "snippet_sha256": "f2a668c9ab3dda889e3213e354bcf5188ca87e7a518dd45ba51c73aca9920b4a",
+        "start_line": 283
+      },
+      "id": "sample.append-core-coordinates",
+      "path": "slime/utils/types.py",
+      "snippet_sha256": "29a3540820a6cec27b146d0d490271be7a2851787e2dc6927fa978855f45677b",
+      "start_line": 253,
+      "symbol": "Sample.append_response_tokens",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L253-L314"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 314,
+      "guided_excerpt": {
+        "code": "        should_pad_top_p = bool(tokens and not trainable)\n        if meta_info is not None or should_pad_top_p:\n            self._apply_meta_info(\n                args,\n                meta_info or {},\n                new_token_count=len(tokens),\n                pad_missing_top_p=should_pad_top_p,\n                update_terminal_info=update_terminal_info,\n            )\n\n        self._validate_response_metadata_lengths()",
+        "end_line": 314,
+        "snippet_sha256": "8c21a9db1a1e7a9ea581457be369024f7b08a9acd9f9e1081af40fc20405ed27",
+        "start_line": 304
+      },
+      "id": "sample.append-finalize",
+      "path": "slime/utils/types.py",
+      "snippet_sha256": "29a3540820a6cec27b146d0d490271be7a2851787e2dc6927fa978855f45677b",
+      "start_line": 253,
+      "symbol": "Sample.append_response_tokens",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L253-L314"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 314,
+      "guided_excerpt": {
+        "code": "        tokens = _to_int_list(tokens)\n        log_probs = _to_float_list(log_probs)\n        if log_probs is not None and len(log_probs) != len(tokens):\n            raise ValueError(f\"log_probs length {len(log_probs)} != tokens length {len(tokens)}\")\n        if tokens and trainable and log_probs is None:\n            raise ValueError(\"trainable response tokens require rollout log probabilities.\")\n        if tokens and not trainable:\n            if log_probs is not None:\n                raise ValueError(\"non-trainable response tokens should not pass rollout log probabilities.\")\n            log_probs = [0.0] * len(tokens)",
+        "end_line": 281,
+        "snippet_sha256": "be0b6291652bf4d628de7eed47fd794249832813a9eaf959dd59d5f4846ae3ab",
+        "start_line": 272
+      },
+      "id": "sample.append-preflight",
+      "path": "slime/utils/types.py",
+      "snippet_sha256": "29a3540820a6cec27b146d0d490271be7a2851787e2dc6927fa978855f45677b",
+      "start_line": 253,
+      "symbol": "Sample.append_response_tokens",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L253-L314"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 314,
+      "guided_excerpt": {
         "code": "        tokens = _to_int_list(tokens)\n        log_probs = _to_float_list(log_probs)\n        if log_probs is not None and len(log_probs) != len(tokens):\n            raise ValueError(f\"log_probs length {len(log_probs)} != tokens length {len(tokens)}\")\n        if tokens and trainable and log_probs is None:\n            raise ValueError(\"trainable response tokens require rollout log probabilities.\")\n        if tokens and not trainable:\n            if log_probs is not None:\n                raise ValueError(\"non-trainable response tokens should not pass rollout log probabilities.\")\n            log_probs = [0.0] * len(tokens)\n\n        if text is not None:\n            self.response += text\n\n        previous_response_length = self.response_length\n        if tokens:\n            self.tokens += tokens\n            self.response_length += len(tokens)",
         "end_line": 289,
         "snippet_sha256": "08ddbf6c5f1b276865614a272d76c14ecb1b9377cd2ea0d632d4097e23806db3",
@@ -242,6 +402,22 @@
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
       "end_line": 416,
       "id": "sample.apply-meta-info",
+      "path": "slime/utils/types.py",
+      "snippet_sha256": "f2871cdbcb79132f8ad088845a4addb94c2703b341515957d1ab6b93ab72198f",
+      "start_line": 316,
+      "symbol": "Sample._apply_meta_info",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L316-L416"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 416,
+      "guided_excerpt": {
+        "code": "        if not update_terminal_info or \"finish_reason\" not in meta_info:\n            return\n\n        if getattr(args, \"sglang_speculative_algorithm\", False):\n            # cannot directly use spec info from sglang because of partial rollout.\n            self.spec_info.add(meta_info=meta_info)\n\n        # Collect prefix cache statistics\n        self.prefix_cache_info.add(meta_info=meta_info)\n\n        if \"weight_version\" in meta_info:\n            self.weight_versions.append(meta_info[\"weight_version\"])\n\n        match meta_info[\"finish_reason\"][\"type\"]:\n            case \"length\":\n                self.status = Sample.Status.TRUNCATED\n            case \"abort\":\n                self.status = Sample.Status.ABORTED\n            case \"stop\":\n                self.status = Sample.Status.COMPLETED",
+        "end_line": 416,
+        "snippet_sha256": "616bc506b2d7686cc8b6d247b9e904321997ee485acdf8ebe88a5faf496d26fb",
+        "start_line": 397
+      },
+      "id": "sample.apply-terminal-info",
       "path": "slime/utils/types.py",
       "snippet_sha256": "f2871cdbcb79132f8ad088845a4addb94c2703b341515957d1ab6b93ab72198f",
       "start_line": 316,
@@ -268,12 +444,76 @@
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
       "end_line": 443,
       "guided_excerpt": {
+        "code": "class Sample:\n    \"\"\"The sample generated\"\"\"\n\n    group_index: int | None = None\n    index: int | None = None\n    # Id of the rollout this sample came from. Defaults to ``None`` and the\n    # downstream pipeline falls back to ``index`` (so the default rollout\n    # path, where one execution = one training sample, sees rollout_id ==\n    # index). Compact / subagent paths that split one rollout execution into\n    # multiple training samples should set the same ``rollout_id`` on every\n    # sibling, so loss aggregation averages within the rollout instead of\n    # over-counting it.\n    rollout_id: int | None = None",
+        "end_line": 106,
+        "snippet_sha256": "f80d36fe202594615a3b49e1a6fe5b1586f1d671e783a079d2c13a6798688ad6",
+        "start_line": 94
+      },
+      "id": "sample.identity-defaults",
+      "path": "slime/utils/types.py",
+      "snippet_sha256": "464d0fb132d6487d2c4122c0bf4487e7636093ba8e4b55d4edae3285e1aeced1",
+      "start_line": 94,
+      "symbol": "Sample",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L94-L443"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 36,
+      "guided_excerpt": {
+        "code": "    token_ids = decode_int32_meta_array(meta_info, _TOP_P_TOKEN_ID_META_KEYS)\n    offsets = decode_int32_meta_array(meta_info, _TOP_P_TOKEN_OFFSET_META_KEYS)\n    if token_ids is None and offsets is None:\n        return None\n    if token_ids is None or offsets is None:\n        raise ValueError(\"SGLang top-p token replay must include both token ids and offsets.\")\n    if offsets.numel() == 0 or int(offsets[0]) != 0:\n        raise ValueError(f\"SGLang top-p token offsets must start with 0, got {offsets[:1].tolist()}.\")\n    if int(offsets[-1]) != token_ids.numel():\n        raise ValueError(\n            \"SGLang top-p token ids/offsets mismatch: \"\n            f\"offsets[-1]={int(offsets[-1])}, len(token_ids)={token_ids.numel()}.\"\n        )\n    if expected_num_tokens is not None and offsets.numel() != expected_num_tokens + 1:\n        raise ValueError(\n            \"SGLang top-p token offsets length must equal generated token count + 1: \"\n            f\"len(offsets)={offsets.numel()}, generated={expected_num_tokens}.\"\n        )\n    return token_ids, offsets",
+        "end_line": 36,
+        "snippet_sha256": "bf414f5f490e45e2d02dd6de3505f7b6fdaee064a2f8acd6a3ffb9740f0d8ad1",
+        "start_line": 18
+      },
+      "id": "sample.top-p-extract-contract",
+      "path": "slime/utils/types.py",
+      "snippet_sha256": "56d038e81b79bbcc7b63706208d65adc22bf70dbf5508c7f8258bda0801149b9",
+      "start_line": 13,
+      "symbol": "_extract_rollout_top_p_token_data",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L13-L36"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 443,
+      "guided_excerpt": {
+        "code": "    def _validate_response_metadata_lengths(self):\n        if self.loss_mask is not None and len(self.loss_mask) != self.response_length:\n            raise ValueError(f\"loss_mask length {len(self.loss_mask)} != response_length {self.response_length}\")\n\n        if self.rollout_log_probs is not None and len(self.rollout_log_probs) != self.response_length:\n            raise ValueError(\n                f\"rollout_log_probs length {len(self.rollout_log_probs)} != response_length {self.response_length}\"\n            )\n\n        if self.rollout_top_p_token_ids is None and self.rollout_top_p_token_offsets is None:\n            return\n        if self.rollout_top_p_token_ids is None or self.rollout_top_p_token_offsets is None:\n            raise ValueError(\"rollout top-p replay must include both token ids and offsets.\")\n\n        offsets = torch.as_tensor(self.rollout_top_p_token_offsets, dtype=torch.int32).reshape(-1)\n        if offsets.numel() != self.response_length + 1:\n            raise ValueError(\n                \"rollout_top_p_token_offsets length must equal response_length + 1: \"\n                f\"len(offsets)={offsets.numel()}, response_length={self.response_length}.\"\n            )",
+        "end_line": 437,
+        "snippet_sha256": "a45b62c04b5f7b64028f1423954a4ec97e0f6c5d61fa6de958ab283de6888181",
+        "start_line": 418
+      },
+      "id": "sample.validate-response-metadata-full",
+      "path": "slime/utils/types.py",
+      "snippet_sha256": "8e277456453457d67a74379f46a09a75c9cd48630140957fbc2a904bb6a4b17a",
+      "start_line": 418,
+      "symbol": "Sample._validate_response_metadata_lengths",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L418-L443"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 443,
+      "guided_excerpt": {
         "code": "    def _validate_response_metadata_lengths(self):\n        if self.loss_mask is not None and len(self.loss_mask) != self.response_length:\n            raise ValueError(f\"loss_mask length {len(self.loss_mask)} != response_length {self.response_length}\")\n\n        if self.rollout_log_probs is not None and len(self.rollout_log_probs) != self.response_length:\n            raise ValueError(\n                f\"rollout_log_probs length {len(self.rollout_log_probs)} != response_length {self.response_length}\"\n            )\n\n        if self.rollout_top_p_token_ids is None and self.rollout_top_p_token_offsets is None:\n            return\n        if self.rollout_top_p_token_ids is None or self.rollout_top_p_token_offsets is None:\n            raise ValueError(\"rollout top-p replay must include both token ids and offsets.\")",
         "end_line": 430,
         "snippet_sha256": "da729a72fdfa8a8aad0bd410fc9b9db70a88249ed72b55caa76484a5fb979e08",
         "start_line": 418
       },
       "id": "sample.validate-response-metadata-lengths",
+      "path": "slime/utils/types.py",
+      "snippet_sha256": "8e277456453457d67a74379f46a09a75c9cd48630140957fbc2a904bb6a4b17a",
+      "start_line": 418,
+      "symbol": "Sample._validate_response_metadata_lengths",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/utils/types.py#L418-L443"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 443,
+      "guided_excerpt": {
+        "code": "        offsets = torch.as_tensor(self.rollout_top_p_token_offsets, dtype=torch.int32).reshape(-1)\n        if offsets.numel() != self.response_length + 1:\n            raise ValueError(\n                \"rollout_top_p_token_offsets length must equal response_length + 1: \"\n                f\"len(offsets)={offsets.numel()}, response_length={self.response_length}.\"\n            )\n        token_id_count = _numel(self.rollout_top_p_token_ids)\n        if int(offsets[-1]) != token_id_count:\n            raise ValueError(\n                \"rollout top-p token ids/offsets mismatch: \"\n                f\"offsets[-1]={int(offsets[-1])}, len(token_ids)={token_id_count}.\"\n            )",
+        "end_line": 443,
+        "snippet_sha256": "8c04f37d4e23707c842198b6641536b258a74df1b157b6f24bd0bd0266d4369e",
+        "start_line": 432
+      },
+      "id": "sample.validate-top-p-tail",
       "path": "slime/utils/types.py",
       "snippet_sha256": "8e277456453457d67a74379f46a09a75c9cd48630140957fbc2a904bb6a4b17a",
       "start_line": 418,

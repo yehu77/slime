@@ -56,14 +56,49 @@ export const sourceRefLabels: Readonly<Record<string, SourceRefLabel>> = {
     symbol: "Sample.append_response_tokens",
     evidenceTypeLabel: "生产源码",
   },
+  "sample.append-preflight": {
+    title: "在原地写入前拒绝局部长度错误",
+    symbol: "Sample.append_response_tokens / preflight",
+    evidenceTypeLabel: "生产源码",
+  },
+  "sample.append-core-coordinates": {
+    title: "按固定顺序写入文本与两套 token 坐标",
+    symbol: "Sample.append_response_tokens / core",
+    evidenceTypeLabel: "生产源码",
+  },
+  "sample.append-finalize": {
+    title: "写入后应用终止信息并执行末尾校验",
+    symbol: "Sample.append_response_tokens / finalize",
+    evidenceTypeLabel: "生产源码",
+  },
+  "sample.top-p-extract-contract": {
+    title: "验证 top-p replay 的 ragged offsets",
+    symbol: "_extract_rollout_top_p_token_data",
+    evidenceTypeLabel: "生产源码",
+  },
   "sample.apply-meta-info": {
     title: "记录权重版本与终止状态",
     symbol: "Sample._apply_meta_info",
     evidenceTypeLabel: "生产源码",
   },
+  "sample.apply-terminal-info": {
+    title: "用 terminal gate 记录状态与权重版本",
+    symbol: "Sample._apply_meta_info / terminal gate",
+    evidenceTypeLabel: "生产源码",
+  },
   "sample.validate-response-metadata-lengths": {
     title: "拒绝错位的 response 元数据",
     symbol: "Sample._validate_response_metadata_lengths",
+    evidenceTypeLabel: "生产源码",
+  },
+  "sample.validate-response-metadata-full": {
+    title: "在写回末尾校验 response-space 元数据",
+    symbol: "Sample._validate_response_metadata_lengths",
+    evidenceTypeLabel: "生产源码",
+  },
+  "sample.validate-top-p-tail": {
+    title: "锁定 top-p replay 的末端边界",
+    symbol: "Sample._validate_response_metadata_lengths / top-p tail",
     evidenceTypeLabel: "生产源码",
   },
   "rollout.generate-and-rm": {

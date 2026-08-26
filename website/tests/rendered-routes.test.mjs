@@ -10,10 +10,10 @@ const routes = [
   ["/learn/sample-to-generation?chapter=row-to-sample", /一行数据怎样成为 Sample/],
   ["/learn/sample-to-generation?chapter=field-ownership", /字段生命周期接力台/],
   ["/learn/sample-to-generation?chapter=group-without-aliasing", /成组，但不粘连/],
-  ["/learn/sample-to-generation?chapter=sample-to-request", /Sample 怎样变成 SGLang 请求/],
-  ["/learn/sample-to-generation?chapter=response-projection", /HTTP 响应为什么还不是 Sample/],
-  ["/learn/sample-to-generation?chapter=writeback-contract", /写回怎样维持数据契约/],
-  ["/learn/sample-to-generation?chapter=assessment", /用一条新 trace 检查机制/],
+  ["/learn/sample-to-generation?chapter=sample-to-request", /请求装配与边境检查台/],
+  ["/learn/sample-to-generation?chapter=response-projection", /响应分轨场/],
+  ["/learn/sample-to-generation?chapter=writeback-contract", /写回双时钟/],
+  ["/learn/sample-to-generation?chapter=assessment", /综合终测：在陌生 trace 中找到第一处失真/],
   ["/learn/sample-to-generation?chapter=not-a-chapter", /没有名为“not-a-chapter”的章节/],
   ["/glossary", /术语/],
   ["/source", /源码/],
@@ -85,6 +85,85 @@ for (const [route, expected] of routes) {
         (renderedText.match(/打开 origin-a 状态账本/g) ?? []).length,
         1,
       );
+    }
+    if (route === "/learn/sample-to-generation?chapter=group-without-aliasing") {
+      assert.match(html, /class="[^"]*\bgrouping-reader\b/);
+      assert.match(renderedText, /分组实验台/);
+      assert.match(renderedText, /2 groups \/ 4 Samples/);
+      assert.match(renderedText, /a0 is a1/);
+      assert.match(renderedText, /a0\.metadata is a1\.metadata/);
+      assert.match(renderedText, /别名试纸/);
+      assert.match(renderedText, /deepcopy/);
+      assert.match(renderedText, /源码底片/);
+      assert.match(renderedText, /正在恢复本章练习记录/);
+      assert.doesNotMatch(html, /mechanism-rail-state/);
+      assert.equal(
+        (renderedText.match(/打开 a0 分组后账本/g) ?? []).length,
+        1,
+      );
+    }
+    if (route === "/learn/sample-to-generation?chapter=sample-to-request") {
+      assert.match(html, /class="[^"]*\brequest-reader\b/);
+      assert.match(renderedText, /请求装配线：源码中的五个检查点/);
+      assert.match(renderedText, /同一前缀，两处记录/);
+      assert.match(renderedText, /边境申报单：每个字段去哪里/);
+      assert.match(renderedText, /payload\.return_logprob/);
+      assert.match(renderedText, /sample_id/);
+      assert.match(renderedText, /只负责课程关联/);
+      assert.match(renderedText, /生产者尚未运行/);
+      assert.match(renderedText, /正在恢复本章练习记录/);
+      assert.doesNotMatch(html, /mechanism-rail-state/);
+      assert.equal(
+        (renderedText.match(/打开 a0 请求前后账本/g) ?? []).length,
+        1,
+      );
+    }
+    if (route === "/learn/sample-to-generation?chapter=response-projection") {
+      assert.match(html, /class="[^"]*\bresponse-reader\b/);
+      assert.match(renderedText, /一份返回，两层记录/);
+      assert.match(renderedText, /HTTP RESPONSE BODY/);
+      assert.match(renderedText, /sample_id/);
+      assert.match(renderedText, /不在 HTTP body 内/);
+      assert.match(renderedText, /一个 tuple，分到两条保持同序的轨道/);
+      assert.match(renderedText, /四种来源、八条证据轨/);
+      assert.match(renderedText, /Sample 仍未过闸/);
+      assert.match(renderedText, /Sample\.status/);
+      assert.match(renderedText, /pending/);
+      assert.match(renderedText, /正在恢复本章练习记录/);
+      assert.doesNotMatch(html, /mechanism-rail-state/);
+      assert.equal(
+        (renderedText.match(/打开 a0 响应前账本/g) ?? []).length,
+        1,
+      );
+    }
+    if (route === "/learn/sample-to-generation?chapter=writeback-contract") {
+      assert.match(html, /class="[^"]*\bwriteback-reader\b/);
+      assert.match(renderedText, /两套 token 坐标/);
+      assert.match(renderedText, /完整序列时钟/);
+      assert.match(renderedText, /回答时钟/);
+      assert.match(renderedText, /契约总账/);
+      assert.match(renderedText, /生产 Sample 写回是原地 mutation/);
+      assert.match(renderedText, /课程 reducer 的 copy-on-write/);
+      assert.match(renderedText, /stop 表示正常停止，不表示回答正确/);
+      assert.match(html, /<dt>reward<\/dt><dd>None/);
+      assert.match(renderedText, /正在恢复本章练习记录/);
+      assert.doesNotMatch(html, /mechanism-rail-state/);
+      assert.equal(
+        (renderedText.match(/打开 a0 写回账本/g) ?? []).length,
+        1,
+      );
+    }
+    if (route === "/learn/sample-to-generation?chapter=assessment") {
+      assert.match(html, /class="[^"]*\bfinal-trace-reader\b/);
+      assert.match(renderedText, /综合终测：在陌生 trace 中找到第一处失真/);
+      assert.match(renderedText, /新样片只允许一个首错/);
+      assert.match(renderedText, /assessment-orion-v1/);
+      assert.match(renderedText, /origin-c/);
+      assert.match(renderedText, /payload\.input_ids/);
+      assert.match(renderedText, /token 45/);
+      assert.match(renderedText, /八个观察共用上面的同一条 trace/);
+      assert.doesNotMatch(html, /class="[^"]*\bmechanism-assessment-grid\b/);
+      assert.doesNotMatch(html, /class="[^"]*\bmechanism-assessment-item\b/);
     }
   });
 }

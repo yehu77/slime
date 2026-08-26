@@ -27,6 +27,20 @@
       }
     },
     {
+      "id": "sample.identity-defaults",
+      "kind": "production-source",
+      "path": "slime/utils/types.py",
+      "symbol": "Sample",
+      "symbol_kind": "class",
+      "claim": "Sample 在构造时把 group_index 与 index 初始化为 None；DataSource 之后才赋予候选身份。",
+      "concept_ids": ["sample-object", "group-index", "sample-index"],
+      "lesson_uses": ["stg.chapter-3"],
+      "guided_excerpt": {
+        "start_contains": "class Sample:",
+        "end_contains": "rollout_id: int | None = None"
+      }
+    },
+    {
       "id": "dataset.read-file",
       "kind": "production-source",
       "path": "slime/utils/data.py",
@@ -66,6 +80,21 @@
       }
     },
     {
+      "id": "rollout.datasource-counter-init",
+      "kind": "production-source",
+      "path": "slime/rollout/data_source.py",
+      "symbol": "RolloutDataSource.__init__",
+      "symbol_kind": "method",
+      "claim": "新建 RolloutDataSource 时，group 与 sample 两个身份计数器都从 0 开始。",
+      "concept_ids": ["group-index", "sample-index"],
+      "lesson_uses": ["stg.chapter-3"],
+      "caveat": "本章精确编号使用 fresh DataSource；恢复状态或后续调用可以从非零计数器继续。",
+      "guided_excerpt": {
+        "start_contains": "self.args = args",
+        "end_contains": "self.metadata = {}"
+      }
+    },
+    {
       "id": "rollout.prepare-prompt-ids",
       "kind": "production-source",
       "path": "slime/rollout/sglang_rollout.py",
@@ -90,8 +119,96 @@
       "concept_ids": ["sample-object", "response-length"],
       "lesson_uses": ["stg.chapter-4"],
       "guided_excerpt": {
-        "start_contains": "self.semaphore =",
+        "start_contains": "self.args = args",
         "end_contains": "self.sampling_params[\"custom_params\"]"
+      }
+    },
+    {
+      "id": "rollout.generate-request-budget",
+      "kind": "production-source",
+      "path": "slime/rollout/sglang_rollout.py",
+      "symbol": "generate",
+      "symbol_kind": "async-function",
+      "claim": "generate 在准备 prompt_ids 后验证 max_new_tokens；零预算会在构造网络输入前标记 truncated 并返回。",
+      "concept_ids": ["sample-object", "terminal-status"],
+      "lesson_uses": ["stg.chapter-4"],
+      "guided_excerpt": {
+        "start_contains": "prompt_ids = _prepare_prompt_ids",
+        "end_contains": "payload[\"return_routed_experts\"] = True"
+      }
+    },
+    {
+      "id": "rollout.generate-request-envelope",
+      "kind": "production-source",
+      "path": "slime/rollout/sglang_rollout.py",
+      "symbol": "generate",
+      "symbol_kind": "async-function",
+      "claim": "generate 组织 sampling_params 与 return_logprob 的 payload；默认纯文本分支以 prompt_ids 作为 input_ids，并在 tokens 为空时持久化同一 prompt 前缀。",
+      "concept_ids": ["sample-object"],
+      "lesson_uses": ["stg.chapter-4", "stg.final-q3", "stg.final-q4"],
+      "guided_excerpt": {
+        "start_contains": "# Prepare payload for sglang server",
+        "end_contains": "sample.tokens = prompt_ids"
+      }
+    },
+    {
+      "id": "rollout.generate-request-dispatch",
+      "kind": "production-source",
+      "path": "slime/rollout/sglang_rollout.py",
+      "symbol": "generate",
+      "symbol_kind": "async-function",
+      "claim": "generate 在一致性哈希路由且 Sample 含 session_id 时设置 X-SMG-Routing-Key，然后携带该 header POST /generate。",
+      "concept_ids": ["sample-object"],
+      "lesson_uses": ["stg.chapter-4", "stg.final-q4"],
+      "guided_excerpt": {
+        "start_contains": "# Use session_id for consistent hashing routing",
+        "end_contains": "output = await post(url, payload, headers=headers)"
+      }
+    },
+    {
+      "id": "http.post-json-decode",
+      "kind": "production-source",
+      "path": "slime/utils/http_utils.py",
+      "symbol": "_post",
+      "symbol_kind": "async-function",
+      "claim": "HTTP helper 在成功响应上读取 body，并在内容是合法 JSON 时把它解析成 Python 值交还调用方。",
+      "concept_ids": ["sample-object"],
+      "lesson_uses": ["stg.chapter-5"],
+      "caveat": "这里只证明传输层的 JSON 解码；非 JSON body 会退回字符串，而 generate 随后要求可下标的 response 对象。",
+      "guided_excerpt": {
+        "start_contains": "async def _post(",
+        "end_contains": "output = content.decode() if isinstance(content, bytes) else content"
+      }
+    },
+    {
+      "id": "rollout.generate-response-decode",
+      "kind": "production-source",
+      "path": "slime/rollout/sglang_rollout.py",
+      "symbol": "generate",
+      "symbol_kind": "async-function",
+      "claim": "generate 从 meta_info.output_token_logprobs 逐项提取 item[1] 作为 response token ID、item[0] 作为 rollout log-prob；字段缺失时两列都退回空列表。",
+      "concept_ids": ["sample-object", "rollout-log-prob"],
+      "lesson_uses": ["stg.chapter-5", "stg.final-q5"],
+      "caveat": "源码只依赖每项的前两个位置，不能据此把真实 wire item 宣称为严格二元 tuple；output.text 与 token evidence 也未在这里做一致性校验。",
+      "guided_excerpt": {
+        "start_contains": "with trace_span(sample, \"sglang_generate\"",
+        "end_contains": "new_response_tokens, new_response_log_probs = [], []"
+      }
+    },
+    {
+      "id": "rollout.generate-writeback-handoff",
+      "kind": "production-source",
+      "path": "slime/rollout/sglang_rollout.py",
+      "symbol": "generate",
+      "symbol_kind": "async-function",
+      "claim": "generate 把投影出的 token IDs、log-probs、原始 text 与 meta_info 一并交给 Sample.append_response_tokens，然后返回同一个 Sample。",
+      "concept_ids": ["sample-object", "response-length", "rollout-log-prob"],
+      "lesson_uses": ["stg.chapter-5", "stg.chapter-6"],
+      "caveat": "这段代码证明交接次序；字段对齐、terminal metadata 与实际写回规则由 Sample.append_response_tokens 及其下游方法负责。",
+      "guided_excerpt": {
+        "start_contains": "sample.append_response_tokens(",
+        "end_contains": "text=output[\"text\"],",
+        "end_offset": 3
       }
     },
     {
@@ -102,7 +219,7 @@
       "symbol_kind": "async-function",
       "claim": "默认 generation 路径准备 prompt、调用 SGLang 并把 response 信息写回 Sample。",
       "concept_ids": ["sample-object", "response-length", "rollout-log-prob"],
-      "lesson_uses": ["act-3", "stg.chapter-2", "stg.chapter-4", "stg.chapter-5"],
+      "lesson_uses": ["act-3", "stg.chapter-2", "stg.chapter-5", "stg.final-q5"],
       "guided_excerpt": {
         "start_contains": "if \"output_token_logprobs\"",
         "end_contains": "text=output[\"text\"],",
@@ -124,6 +241,66 @@
       }
     },
     {
+      "id": "sample.append-preflight",
+      "kind": "production-source",
+      "path": "slime/utils/types.py",
+      "symbol": "Sample.append_response_tokens",
+      "symbol_kind": "method",
+      "claim": "append_response_tokens 在修改 Sample 前规范化输入，并拒绝 token/log-prob 长度不等、非空 trainable token 缺 log-prob，以及非空 non-trainable token 携带 log-prob。",
+      "concept_ids": ["response-length", "loss-mask", "rollout-log-prob"],
+      "lesson_uses": ["stg.chapter-6"],
+      "caveat": "这些是写回前的局部 preflight；后续连续性、top-p、routed experts 与最终长度校验仍可能在 Sample 已部分改变后失败。",
+      "guided_excerpt": {
+        "start_contains": "tokens = _to_int_list(tokens)",
+        "end_contains": "log_probs = [0.0] * len(tokens)"
+      }
+    },
+    {
+      "id": "sample.append-core-coordinates",
+      "kind": "production-source",
+      "path": "slime/utils/types.py",
+      "symbol": "Sample.append_response_tokens",
+      "symbol_kind": "method",
+      "claim": "append_response_tokens 先拼接 response 文本，再扩展完整 tokens、response_length、loss_mask 与 rollout_log_probs；旧 response 缺少 rollout_log_probs 的连续性错误发生在核心字段修改之后。",
+      "concept_ids": ["sample-object", "response-length", "loss-mask", "rollout-log-prob"],
+      "lesson_uses": ["stg.chapter-6"],
+      "caveat": "这段源码是 in-place 写回次序的证据，不提供失败回滚或 text/token 一致性校验。",
+      "guided_excerpt": {
+        "start_contains": "if text is not None:",
+        "end_contains": "self.rollout_log_probs += log_probs"
+      }
+    },
+    {
+      "id": "sample.append-finalize",
+      "kind": "production-source",
+      "path": "slime/utils/types.py",
+      "symbol": "Sample.append_response_tokens",
+      "symbol_kind": "method",
+      "claim": "核心 response 字段写入后，append_response_tokens 才应用 meta_info，并在方法末尾执行 response metadata 长度校验。",
+      "concept_ids": ["response-length", "loss-mask", "rollout-log-prob"],
+      "lesson_uses": ["stg.chapter-6"],
+      "caveat": "末尾校验是 late validation；抛错不撤销此前对 Sample 的原地修改。",
+      "guided_excerpt": {
+        "start_contains": "should_pad_top_p = bool(tokens and not trainable)",
+        "end_contains": "self._validate_response_metadata_lengths()"
+      }
+    },
+    {
+      "id": "sample.top-p-extract-contract",
+      "kind": "production-source",
+      "path": "slime/utils/types.py",
+      "symbol": "_extract_rollout_top_p_token_data",
+      "symbol_kind": "function",
+      "claim": "top-p replay chunk 必须同时提供 token IDs 与 offsets；offsets 从 0 开始、末项等于扁平 token ID 数量，并在给定期望 token 数时具有 token 数加一项。",
+      "concept_ids": ["response-length"],
+      "lesson_uses": ["stg.chapter-6"],
+      "caveat": "这是新 chunk 的提取校验；完整 Sample 写回后的累计长度关系由 _validate_response_metadata_lengths 再检查。",
+      "guided_excerpt": {
+        "start_contains": "token_ids = decode_int32_meta_array",
+        "end_contains": "return token_ids, offsets"
+      }
+    },
+    {
       "id": "sample.apply-meta-info",
       "kind": "production-source",
       "path": "slime/utils/types.py",
@@ -132,6 +309,21 @@
       "claim": "generation meta info 更新权重版本，并把 finish reason 映射为 Sample status。",
       "concept_ids": ["weight-version", "terminal-status"],
       "lesson_uses": ["act-3", "q6", "stg.chapter-2", "stg.chapter-6", "stg.final-q7"]
+    },
+    {
+      "id": "sample.apply-terminal-info",
+      "kind": "production-source",
+      "path": "slime/utils/types.py",
+      "symbol": "Sample._apply_meta_info",
+      "symbol_kind": "method",
+      "claim": "terminal bookkeeping 仅在允许更新且 meta_info 含 finish_reason 时运行；随后累计 speculative/cache 统计、按键追加 weight_version，并映射 length、abort、stop 三种已知状态。",
+      "concept_ids": ["weight-version", "terminal-status"],
+      "lesson_uses": ["stg.chapter-6", "stg.final-q7"],
+      "caveat": "match 没有 default；未知 finish_reason type 不改变 status，而缺少 finish_reason 或关闭 update_terminal_info 会连同统计和 weight_version 一起跳过。",
+      "guided_excerpt": {
+        "start_contains": "if not update_terminal_info or \"finish_reason\" not in meta_info:",
+        "end_contains": "self.status = Sample.Status.COMPLETED"
+      }
     },
     {
       "id": "sample.validate-response-metadata-lengths",
@@ -145,6 +337,38 @@
       "guided_excerpt": {
         "start_contains": "def _validate_response_metadata_lengths",
         "end_contains": "rollout top-p replay must include both token ids and offsets."
+      }
+    },
+    {
+      "id": "sample.validate-response-metadata-full",
+      "kind": "production-source",
+      "path": "slime/utils/types.py",
+      "symbol": "Sample._validate_response_metadata_lengths",
+      "symbol_kind": "method",
+      "claim": "写回末尾依次检查 loss_mask 与 rollout_log_probs 的 response-space 长度、top-p 两列的共同存在，以及 offsets 长度等于 response_length 加一。",
+      "concept_ids": ["response-length", "loss-mask", "rollout-log-prob"],
+      "lesson_uses": ["stg.chapter-6", "stg.final-q6"],
+      "caveat": "该 ref 的符号深链覆盖完整方法；短摘录聚焦前四项检查，top-p 末 offset 与扁平 ID 数量的最终检查由 companion ref 展示。",
+      "guided_excerpt": {
+        "start_contains": "def _validate_response_metadata_lengths",
+        "end_contains": "f\"len(offsets)={offsets.numel()}, response_length={self.response_length}.\"",
+        "end_offset": 1
+      }
+    },
+    {
+      "id": "sample.validate-top-p-tail",
+      "kind": "production-source",
+      "path": "slime/utils/types.py",
+      "symbol": "Sample._validate_response_metadata_lengths",
+      "symbol_kind": "method",
+      "claim": "累计 top-p offsets 除了具有 response_length 加一项，末 offset 还必须精确等于扁平 top-p token ID 的总数。",
+      "concept_ids": ["response-length"],
+      "lesson_uses": ["stg.chapter-6"],
+      "caveat": "此检查约束 ragged replay 的末端边界；源码在这里不额外证明已有 offsets 单调或每个 span 非空。",
+      "guided_excerpt": {
+        "start_contains": "offsets = torch.as_tensor(self.rollout_top_p_token_offsets",
+        "end_contains": "f\"offsets[-1]={int(offsets[-1])}, len(token_ids)={token_id_count}.\"",
+        "end_offset": 1
       }
     },
     {
