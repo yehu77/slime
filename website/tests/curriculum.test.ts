@@ -2,7 +2,12 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { CurriculumPlan, deriveCurriculumLearnerStatus } from "@/components/curriculum";
+import {
+  CurriculumActionPage,
+  CurriculumPlan,
+  deriveCurriculumLearnerStatus,
+  deriveCurriculumRecommendations,
+} from "@/components/curriculum";
 import { courseProgressManifests } from "@/content/zh";
 import { slimeCurriculum } from "@/content/zh/curriculum";
 import { sampleToGenerationCourse } from "@/content/zh/lessons/sample-to-generation";
@@ -121,5 +126,97 @@ describe("global curriculum contract", () => {
       "core.sample-to-generation": "in_progress",
       "core-mechanisms": "in_progress",
     });
+  });
+
+  it("derives an exact Now resume and keeps planned work unlinkable", () => {
+    let progress = applyLessonProgressEvent(
+      createEmptyLocalProgressV2(),
+      "core.sample-to-generation",
+      courseProgressManifests["core.sample-to-generation"],
+      { type: "section-visited", section_id: "stg.chapter-3" },
+      () => "2026-08-25T12:00:00.000Z",
+    );
+    progress = applyLessonProgressEvent(
+      progress,
+      "core.sample-to-generation",
+      courseProgressManifests["core.sample-to-generation"],
+      {
+        type: "resume-updated",
+        resume: {
+          kind: "chaptered",
+          chapter_id: "stg.chapter-3",
+          section_id: "model",
+        },
+      },
+      () => "2026-08-25T12:01:00.000Z",
+    );
+
+    const recommendations = deriveCurriculumRecommendations(progress);
+    expect(recommendations.now).toMatchObject({
+      id: "core.sample-to-generation",
+      position: expect.stringContaining("第 3 章"),
+      route:
+        "/learn/sample-to-generation?chapter=group-without-aliasing#model",
+    });
+    expect(recommendations.next.id).toBe("system-intro");
+    expect(recommendations.later.map((item) => item.id)).toEqual([
+      "core.generation-to-reward",
+      "core.reward-to-train-data",
+      "core.train-data-to-parameter-update",
+      "core.weight-sync-to-next-rollout",
+      "comprehensive-trace-check",
+      "minimal-experiments",
+      "modify-slime",
+      "async-correctness-performance",
+    ]);
+    expect(recommendations.later.every((item) => !("route" in item))).toBe(true);
+  });
+
+  it("chooses Now by latest activity but keeps Next in curriculum order", () => {
+    let progress = applyLessonProgressEvent(
+      createEmptyLocalProgressV2(),
+      "core.sample-journey",
+      courseProgressManifests["core.sample-journey"],
+      { type: "section-visited", section_id: "act-1" },
+      () => "2026-08-25T12:00:00.000Z",
+    );
+    progress = applyLessonProgressEvent(
+      progress,
+      "core.sample-to-generation",
+      courseProgressManifests["core.sample-to-generation"],
+      { type: "section-visited", section_id: "stg.chapter-1" },
+      () => "2026-08-25T12:05:00.000Z",
+    );
+
+    const recommendations = deriveCurriculumRecommendations(progress);
+    expect(recommendations.now?.id).toBe("core.sample-to-generation");
+    expect(recommendations.next.id).toBe("system-intro");
+  });
+
+  it("starts the action queue at the non-optional system introduction", () => {
+    const recommendations = deriveCurriculumRecommendations(
+      createEmptyLocalProgressV2(),
+    );
+    expect(recommendations.now).toBeNull();
+    expect(recommendations.next).toMatchObject({
+      id: "system-intro",
+      route: "/learn/sample-journey",
+    });
+
+    const html = renderToStaticMarkup(
+      createElement(CurriculumActionPage, {
+        curriculum: slimeCurriculum,
+        recommendations,
+        learnerStatusByUnit: {},
+      }),
+    );
+    expect(html).toContain("现在");
+    expect(html).toContain("下一步");
+    expect(html).toContain("展开完整七阶段路线");
+    expect(html).toContain('href="/learn/sample-journey"');
+    expect(html).toContain("从生成完成到评价与按组收回");
+    expect(html).toContain("计划中");
+    expect(html).not.toContain('href="/learn/reward');
+    expect(html).not.toContain('href="null"');
   });
 });

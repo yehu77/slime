@@ -9,21 +9,21 @@
 | 文档状态 | Draft / Living document |
 | 当前阶段 | M1：第一个纵向切片（已公网发布，进入内容深化与目标用户验收） |
 | 建立日期 | 2026-08-08 |
-| 最近更新 | 2026-08-25 |
+| 最近更新 | 2026-08-26 |
 | slime 调研基线 | `v0.3.1-1-g06ffdbe2` |
 | 产品工作名 | `slime Lab` |
 | 当前共同维护者 | 项目发起人 + Codex |
 | 公网网站 | [slime Lab](https://slime-lab.hunyu6792.workers.dev)（Cloudflare Workers） |
 | 公网源码 | [yehu77/slime](https://github.com/yehu77/slime)（个人 fork） |
-| 下一份产物 | 首门机制课整课发布验收，以及第二门机制课“Reward 与收集”的内容设计 |
+| 下一份产物 | 学习罗盘与第三章故障调查研讨课的预览验收；通过后再决定逐章推广方式 |
 
 ## 0. 当前焦点
 
-**现在：** M1 已完成公网纵向切片，并进入“先讲透机制，再运行实验”的内容深化阶段。首门 88 分钟机制课《Sample 如何得到回答》的六章与综合终测已经完成实现：第一章用“连续翻译台”解释 `external row → Dataset rule → initial Sample`，第二章用“字段生命周期接力台”区分 dataclass 声明、构造初始化、首次非默认生产和下游消费，第三章用“分组实验台”解释 `P × n_samples_per_prompt` 的嵌套形状、两个计数器和 `deepcopy` 的对象隔离契约，第四章用“请求装配与边境检查台”重建 `prompt_ids → payload → Sample.tokens → POST /generate` 的真实顺序，第五章用“响应分轨场”拆开 HTTP JSON、调用方关联、tuple 解码、候写证据与尚未发生的 Sample 写回，第六章用“写回双时钟校准台”解释完整 token 序列、response 坐标、terminal bookkeeping 与失败时机；终测则用一条独立的 `assessment-orion-v1` 异常 trace 检查学习者能否定位最早失真的 request 边界。
+**现在：** M1 已完成公网纵向切片，并进入“先讲透机制，再运行实验”的内容深化阶段。首门 114 分钟机制课《Sample 如何得到回答》的六章与综合终测已经完成实现。本轮不再批量扩写，而是先建立全站学习罗盘，并把第三章升级为约 40 分钟的故障调查研讨课：学习者先保存对假想事故的首判，再以 `P / N / G / I` 推演六步 trace、用固定提交源码裁判，最后在 `P=3、N=2、G₀=4、I₀=30` 的陌生案例中完成关系、身份、别名与计数时序四维结案。
 
 六章都固定到源码 commit `06ffdbe2`，共享同一套 2×2 教学 fixture，并把源码证据、诊断练习和按课程隔离的 v2 进度纳入自动验证。第二章明确说明 conversion 的主要产物是独立 TrainData 语义，而不是继续“填满 Sample”；第三章进一步区分“同组候选共享比较条件”和“每个候选拥有独立可变对象图”；第四章严格区分 caller-side Sample、课程 request sidecar 与真实 pure-text JSON body，并把多模态、routing replay 和 session header 标为条件分支；第五章进一步把 raw response receipt 与 course-local decoded evidence 分离，明确 `sample_id` 不属于 HTTP body，且 `responses-received` 时 Sample 仍未改变；第六章继续区分生产 `Sample` 的 in-place mutation 与本站 reducer 的 copy-on-write 观察保证，明确 late validation 发现错误并不意味着自动回滚。
 
-**接下来：** 完成首门机制课从封面到终测的连续浏览与发布验收；确认生产版本稳定后，进入第二门机制课“Reward 与收集”的内容设计。真实实验继续位于机制课与综合检查之后。
+**接下来：** 完成学习罗盘与第三章在 1440×900、390×844、键盘、深链、刷新和 Back/Forward 场景下的预览验收。第三章通过质量门槛后，再决定如何把同一教学原则逐章推广；不会机械复制其页面构图。真实实验继续位于机制课与综合检查之后。
 
 **暂时不做：** 大规模铺课程、账号系统、真实在线训练、全量英文内容和高级 recipe explorer。
 

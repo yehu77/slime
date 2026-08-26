@@ -81,6 +81,14 @@ export const ExerciseAttemptV2Schema = z
     message: "A passed exercise attempt must record passed_at",
   });
 
+export const LearningArtifactV2Schema = z
+  .object({
+    status: z.enum(["submitted", "skipped"]),
+    response: StructuredExerciseResponseSchema.nullable(),
+    submitted_at: TimestampSchema,
+  })
+  .strict();
+
 export const FinalAssessmentProgressV2Schema = z
   .object({
     assessment_version: z.number().int().positive(),
@@ -109,6 +117,9 @@ export const LessonProgressV2Schema = z
     visited_sections: z.array(StableIdSchema).refine(uniqueIds),
     exercise_attempts: z.record(StableIdSchema, ExerciseAttemptV2Schema),
     final_assessment: FinalAssessmentProgressV2Schema.nullable(),
+    learning_artifacts: z
+      .record(StableIdSchema, LearningArtifactV2Schema)
+      .optional(),
     resume: LessonResumeSchema.nullable(),
     updated_at: TimestampSchema,
   })
@@ -165,6 +176,11 @@ export const ProgressCompletionManifestSchema = z
 export const ProgressEventSchema = z.discriminatedUnion("type", [
   z
     .object({
+      type: z.literal("revision-started"),
+    })
+    .strict(),
+  z
+    .object({
       type: z.literal("section-visited"),
       section_id: StableIdSchema,
     })
@@ -191,6 +207,14 @@ export const ProgressEventSchema = z.discriminatedUnion("type", [
       resume: LessonResumeSchema,
     })
     .strict(),
+  z
+    .object({
+      type: z.literal("learning-artifact-recorded"),
+      artifact_id: StableIdSchema,
+      status: z.enum(["submitted", "skipped"]),
+      response: StructuredExerciseResponseSchema.nullable(),
+    })
+    .strict(),
 ]);
 
 export type StructuredExerciseResponse = z.infer<
@@ -201,6 +225,7 @@ export type ExerciseAttemptV2 = z.infer<typeof ExerciseAttemptV2Schema>;
 export type FinalAssessmentProgressV2 = z.infer<
   typeof FinalAssessmentProgressV2Schema
 >;
+export type LearningArtifactV2 = z.infer<typeof LearningArtifactV2Schema>;
 export type LessonProgressV2 = z.infer<typeof LessonProgressV2Schema>;
 export type LocalProgressV2 = z.infer<typeof LocalProgressV2Schema>;
 export type ProgressCompletionManifest = z.infer<
@@ -298,6 +323,7 @@ function createLessonProgressV2(
     visited_sections: [],
     exercise_attempts: {},
     final_assessment: null,
+    learning_artifacts: {},
     resume: null,
     updated_at: updatedAt,
   };
@@ -308,6 +334,7 @@ function hasActivity(progress: LessonProgressV2): boolean {
     progress.visited_sections.length > 0 ||
     Object.keys(progress.exercise_attempts).length > 0 ||
     progress.final_assessment !== null ||
+    Object.keys(progress.learning_artifacts ?? {}).length > 0 ||
     progress.resume !== null
   );
 }
@@ -344,6 +371,7 @@ function migrateSnakeProgress(
                   passed_at: lesson.completed ? updatedAt : null,
                 }
               : null,
+            learning_artifacts: {},
             resume: lesson.last_event_id
               ? {
                   kind: "sample-journey" as const,
@@ -426,6 +454,7 @@ function migrateCamelProgress(
               passed_at: legacy.status === "completed" ? updatedAt : null,
             }
           : null,
+        learning_artifacts: {},
         resume: {
           kind: "sample-journey" as const,
           event_id: legacy.lastEventId,
@@ -520,13 +549,24 @@ export function applyLessonProgressEvent(
 
   const updatedAt = readNow(now);
   const stored = localProgress.lessons[parsedLessonId];
+  const revisionMatches = stored?.lesson_revision === manifest.lesson_revision;
+
+  if (
+    stored &&
+    !revisionMatches &&
+    (event.type === "section-visited" || event.type === "resume-updated")
+  ) {
+    return localProgressInput;
+  }
   const current =
-    stored?.lesson_revision === manifest.lesson_revision
+    revisionMatches
       ? stored
       : createLessonProgressV2(manifest.lesson_revision, updatedAt);
   let next: LessonProgressV2;
 
-  if (event.type === "section-visited") {
+  if (event.type === "revision-started") {
+    next = current;
+  } else if (event.type === "section-visited") {
     next = {
       ...current,
       visited_sections: current.visited_sections.includes(event.section_id)
@@ -536,6 +576,24 @@ export function applyLessonProgressEvent(
     };
   } else if (event.type === "resume-updated") {
     next = { ...current, resume: event.resume, updated_at: updatedAt };
+  } else if (event.type === "learning-artifact-recorded") {
+    const previous = current.learning_artifacts?.[event.artifact_id];
+    if (previous?.status === "submitted") return localProgressInput;
+    if (previous?.status === "skipped" && event.status === "skipped") {
+      return localProgressInput;
+    }
+    next = {
+      ...current,
+      learning_artifacts: {
+        ...current.learning_artifacts,
+        [event.artifact_id]: {
+          status: event.status,
+          response: event.status === "submitted" ? event.response : null,
+          submitted_at: updatedAt,
+        },
+      },
+      updated_at: updatedAt,
+    };
   } else if (event.type === "exercise-submitted") {
     const previous = current.exercise_attempts[event.exercise_id];
     const passed = Boolean(previous?.passed || event.passed);
@@ -616,7 +674,16 @@ export function loadLocalProgressV2(
   if (serializedV2 !== null) {
     try {
       const parsed = LocalProgressV2Schema.safeParse(JSON.parse(serializedV2));
-      return parsed.success ? parsed.data : createEmptyLocalProgressV2();
+      if (!parsed.success) return createEmptyLocalProgressV2();
+      return LocalProgressV2Schema.parse({
+        ...parsed.data,
+        lessons: Object.fromEntries(
+          Object.entries(parsed.data.lessons).map(([lessonId, lesson]) => [
+            lessonId,
+            { ...lesson, learning_artifacts: lesson.learning_artifacts ?? {} },
+          ]),
+        ),
+      });
     } catch {
       return createEmptyLocalProgressV2();
     }

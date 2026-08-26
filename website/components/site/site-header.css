@@ -1,0 +1,277 @@
+.site-header-primary {
+  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr);
+  min-height: 58px;
+}
+
+.site-primary-nav { display: flex; justify-content: center; }
+.site-header-actions { align-items: center; display: flex; gap: 14px; justify-self: end; }
+.site-continue-learning {
+  align-items: center;
+  border-bottom: 1px solid #d94e55;
+  color: #132a43;
+  display: inline-flex;
+  font-size: 11px;
+  font-weight: 750;
+  min-height: 44px;
+}
+.site-menu-trigger,
+.site-mobile-route { display: none; }
+
+.learning-compass {
+  background: #091b2d;
+  color: #f2efe7;
+  display: grid;
+  grid-template-columns: minmax(148px, .7fr) minmax(260px, 1.35fr) minmax(150px, .8fr) minmax(140px, .7fr) minmax(180px, .9fr);
+  min-height: 54px;
+  padding-inline: max(22px, calc((100vw - 1240px) / 2));
+}
+
+.learning-compass > a,
+.learning-compass > button {
+  align-content: center;
+  background: transparent;
+  border: 0;
+  border-inline-end: 1px solid rgb(242 239 231 / 14%);
+  color: inherit;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 7px 14px;
+  text-align: start;
+}
+
+.learning-compass > :first-child { border-inline-start: 1px solid rgb(242 239 231 / 14%); }
+.learning-compass > button { cursor: pointer; }
+
+.learning-compass span,
+.learning-compass small {
+  color: #91a7b3;
+  font-family: "SFMono-Regular", "Cascadia Code", ui-monospace, monospace;
+  font-size: 8px;
+  letter-spacing: .08em;
+  line-height: 1.35;
+}
+
+.learning-compass strong {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.learning-compass-current {
+  background: #e8c84a !important;
+  color: #132a43 !important;
+  position: relative;
+}
+
+.learning-compass-current::after {
+  background: #d94e55;
+  bottom: 0;
+  content: "";
+  height: 3px;
+  inset-inline: 12px;
+  position: absolute;
+}
+
+.learning-compass-current span { color: #56604c; }
+.learning-compass-next strong::after { content: " →"; }
+.learning-compass-position { display: none; }
+.learning-compass-phase-line {
+  bottom: 0;
+  display: grid;
+  gap: 2px;
+  grid-template-columns: repeat(4, 1fr);
+  inset-inline: 10px;
+  position: absolute;
+}
+.learning-compass-phase-line b { background: rgb(19 42 67 / 22%); height: 3px; }
+.learning-compass-phase-line b.is-reached { background: #d94e55; }
+.learning-phase-anchor { display: block; height: 0; scroll-margin-top: 126px; width: 0; }
+:where(#orient, #model, #verify, #practice) { scroll-margin-top: 126px; }
+:where(.mechanism-course, .journey-experience) :is(h1, h2, h3)[id],
+.mechanism-course :is(.mechanism-exercise, #final-trace-evidence) { scroll-margin-top: 126px; }
+
+.learning-compass-backdrop {
+  background: rgb(5 18 31 / 64%);
+  inset: 0;
+  position: fixed;
+  z-index: 120;
+}
+
+.learning-compass-dismiss {
+  background: transparent;
+  border: 0;
+  inset: 0;
+  position: absolute;
+}
+
+.learning-compass-map {
+  background: #faf8f2 url("/art/layout-paper-texture-v1.webp") center / 512px;
+  box-shadow: -24px 0 64px rgb(5 18 31 / 28%);
+  color: #132a43;
+  height: 100%;
+  margin-inline-start: auto;
+  max-width: 760px;
+  overflow: auto;
+  padding: 28px;
+  position: relative;
+  width: min(92vw, 760px);
+  z-index: 1;
+}
+
+.learning-compass-map > header {
+  align-items: start;
+  border-bottom: 2px solid #132a43;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  padding-bottom: 20px;
+}
+
+.learning-compass-map h2,
+.learning-compass-map p { margin: 0; }
+.learning-compass-map h2 { font-size: clamp(23px, 4vw, 38px); letter-spacing: -.025em; line-height: 1.2; }
+.learning-compass-map p { color: #5c6f7b; font-size: 14px; margin-top: 8px; }
+.learning-compass-cover-link {
+  color: #315d98;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 750;
+  margin-top: 12px;
+  min-height: 44px;
+  padding-block: 10px;
+}
+
+.learning-compass-map > header button,
+.site-mobile-menu button {
+  background: #e8c84a;
+  border: 1px solid #132a43;
+  color: #132a43;
+  min-height: 44px;
+  padding: 8px 16px;
+}
+
+.learning-compass-map-list { list-style: none; margin: 0; padding: 0; }
+.learning-compass-map-list > li {
+  border-bottom: 1px solid rgb(19 42 67 / 25%);
+  display: grid;
+  gap: 18px;
+  grid-template-columns: minmax(180px, .8fr) minmax(0, 1.2fr);
+  padding: 18px 0;
+}
+.learning-compass-map-list > li.is-current { background: rgb(232 200 74 / 20%); }
+.learning-compass-map-list > li > div {
+  align-items: baseline;
+  display: grid;
+  gap: 6px 10px;
+  grid-template-columns: auto minmax(0, 1fr);
+  padding-inline: 12px;
+}
+.learning-compass-map-list > li > div span,
+.learning-compass-map-list > li > div small {
+  color: #5c6f7b;
+  font-family: "SFMono-Regular", "Cascadia Code", ui-monospace, monospace;
+  font-size: 9px;
+}
+.learning-compass-map-list > li > div small { grid-column: 2; }
+.learning-compass-map-list nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.learning-compass-map-list nav a {
+  align-items: center;
+  border: 1px solid rgb(19 42 67 / 24%);
+  color: #315d98;
+  display: flex;
+  font-size: 12px;
+  min-height: 44px;
+  padding: 7px 10px;
+}
+.learning-compass-map-list nav a[aria-current] { background: #132a43; color: #faf8f2; }
+
+.site-mobile-menu {
+  background: transparent;
+  border: 0;
+  height: 100dvh;
+  margin: 0 0 0 auto;
+  max-height: none;
+  max-width: 420px;
+  padding: 0;
+  width: min(90vw, 420px);
+}
+.site-mobile-menu::backdrop { background: rgb(5 18 31 / 64%); }
+.site-mobile-menu > div {
+  background: #faf8f2 url("/art/layout-paper-texture-v1.webp") center / 512px;
+  color: #132a43;
+  min-height: 100%;
+  padding: 24px;
+}
+.site-mobile-menu header {
+  align-items: center;
+  border-bottom: 2px solid #132a43;
+  display: flex;
+  justify-content: space-between;
+}
+.site-mobile-menu h2 { font-size: 28px; margin: 0; }
+.site-mobile-menu nav { display: grid !important; margin-block: 22px; }
+.site-mobile-menu nav a {
+  border-bottom: 1px solid rgb(19 42 67 / 24%);
+  color: #132a43;
+  font-size: 18px;
+  min-height: 54px;
+  padding: 13px 4px;
+}
+.site-mobile-menu > div > a {
+  align-items: center;
+  color: #315d98;
+  display: inline-flex;
+  min-height: 44px;
+}
+
+@media (max-width: 900px) {
+  .site-header-primary { gap: 6px; grid-template-columns: minmax(0, 1fr) auto auto; min-height: 56px; }
+  .site-header .site-primary-nav,
+  .site-header .source-link { display: none; }
+  .has-learning-compass .site-header-actions { display: none; }
+  .site-menu-trigger,
+  .site-mobile-route {
+    align-items: center;
+    background: transparent;
+    border: 0;
+    color: #132a43;
+    display: inline-flex;
+    font-size: 12px;
+    font-weight: 700;
+    min-height: 44px;
+    padding: 7px 8px;
+  }
+  .site-menu-trigger { cursor: pointer; }
+  .learning-compass {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, .72fr) minmax(0, .9fr);
+    min-height: 54px;
+    padding-inline: 14px;
+  }
+  .learning-compass-course,
+  .learning-compass-chapter { display: none !important; }
+  .learning-compass-route { display: grid !important; }
+  .learning-compass-stage-label { display: none; }
+  .learning-compass-position { display: block; }
+  .learning-compass > a,
+  .learning-compass > button { padding: 6px 10px; }
+}
+
+@media (max-width: 560px) {
+  .site-header-primary { min-height: 54px; }
+  .has-learning-compass .brand small { display: none; }
+  .learning-compass { min-height: 54px; padding-inline: 8px; }
+  .learning-compass strong { font-size: 10px; }
+  .learning-compass-map { padding: 20px 16px; width: 100vw; }
+  .learning-compass-map-list > li { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .learning-compass-map,
+  .site-mobile-menu { scroll-behavior: auto; }
+}

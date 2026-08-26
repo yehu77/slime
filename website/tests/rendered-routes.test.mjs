@@ -87,15 +87,15 @@ for (const [route, expected] of routes) {
       );
     }
     if (route === "/learn/sample-to-generation?chapter=group-without-aliasing") {
-      assert.match(html, /class="[^"]*\bgrouping-reader\b/);
-      assert.match(renderedText, /分组实验台/);
-      assert.match(renderedText, /2 groups \/ 4 Samples/);
-      assert.match(renderedText, /a0 is a1/);
-      assert.match(renderedText, /a0\.metadata is a1\.metadata/);
-      assert.match(renderedText, /别名试纸/);
+      assert.match(html, /class="[^"]*\bgrouping-investigation-reader\b/);
+      assert.match(renderedText, /教学假想故障/);
+      assert.match(renderedText, /定向：先给事故定性/);
+      assert.match(renderedText, /P \/ N \/ G \/ I/);
+      assert.match(renderedText, /六行追踪/);
       assert.match(renderedText, /deepcopy/);
-      assert.match(renderedText, /源码底片/);
-      assert.match(renderedText, /正在恢复本章练习记录/);
+      assert.match(renderedText, /提交初判/);
+      assert.doesNotMatch(renderedText, /实际 trace：逐行核对计数器读取与推进/);
+      assert.doesNotMatch(renderedText, /冷案：非零计数器与重复题面/);
       assert.doesNotMatch(html, /mechanism-rail-state/);
       assert.equal(
         (renderedText.match(/打开 a0 分组后账本/g) ?? []).length,

@@ -1,0 +1,11 @@
+{
+  "prompt": "No generative prompt. Deterministic derivative of the user's local image library.",
+  "sourceLibraryPath": "anime7000/04723_wallpaperscraft_girl_princess_mirror_225586_1600x900.jpg",
+  "rightsConfirmation": "On 2026-08-26, the user confirmed that this local source image may be used on the public website. No specific license name was provided.",
+  "focalCrop": { "source": { "x": 650, "y": 0, "width": 720, "height": 900 }, "strategy": "mirror subject centered" },
+  "processing": "EXIF orientation normalization; cwebp 1.6.0 decode; crop source rectangle x=650,y=0,w=720,h=900; resize to 800x1000; WebP quality=88, method=6, metadata stripped. No generative editing, text overlay, or color manipulation.",
+  "deterministicProcessing": true,
+  "generativeEditing": false,
+  "output": { "width": 800, "height": 1000, "format": "webp" },
+  "createdAt": "2026-08-26"
+}

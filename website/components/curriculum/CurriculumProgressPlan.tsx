@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
 import type { CurriculumLearnerStatusMap } from "../../content/zh";
-import { loadLocalProgressV2 } from "../../core/progress";
-import { CurriculumPlan, type CurriculumPlanProps } from "./CurriculumPlan";
-import { deriveCurriculumLearnerStatus } from "./curriculum-progress";
+import { useLearningProgress } from "../../core/progress";
+import { CurriculumActionPage } from "./CurriculumActionPage";
+import type { CurriculumPlanProps } from "./CurriculumPlan";
+import {
+  deriveCurriculumLearnerStatus,
+  deriveCurriculumRecommendations,
+} from "./curriculum-progress";
 
 type CurriculumProgressPlanProps = Omit<
   CurriculumPlanProps,
@@ -18,20 +20,16 @@ export function CurriculumProgressPlan({
   learnerStatusByUnit: suppliedStatus = {},
   ...props
 }: CurriculumProgressPlanProps) {
-  const [hydratedStatus, setHydratedStatus] = useState<CurriculumLearnerStatusMap>({});
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const progress = loadLocalProgressV2(window.localStorage);
-      setHydratedStatus(deriveCurriculumLearnerStatus(progress));
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, []);
+  const { progress } = useLearningProgress();
+  const hydratedStatus = deriveCurriculumLearnerStatus(progress);
+  const learnerStatusByUnit = { ...hydratedStatus, ...suppliedStatus };
+  const recommendations = deriveCurriculumRecommendations(progress, props.curriculum);
 
   return (
-    <CurriculumPlan
-      {...props}
-      learnerStatusByUnit={{ ...hydratedStatus, ...suppliedStatus }}
+    <CurriculumActionPage
+      curriculum={props.curriculum}
+      learnerStatusByUnit={learnerStatusByUnit}
+      recommendations={recommendations}
     />
   );
 }

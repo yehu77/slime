@@ -28,6 +28,32 @@ export type CurriculumLearnerStatusMap = Partial<
   Record<CurriculumProgressId, CurriculumLearnerStatus>
 >;
 
+export interface CurriculumRecommendation {
+  id: CurriculumProgressId;
+  stageId: CurriculumStageId;
+  courseId?: CurriculumCourseId;
+  title: string;
+  description: string;
+  position: string;
+  actionLabel: string;
+  route: string;
+  status: CurriculumLearnerStatus;
+}
+
+export interface CurriculumRecommendations {
+  now: CurriculumRecommendation | null;
+  next: CurriculumRecommendation;
+  later: readonly CurriculumLaterItem[];
+}
+
+export interface CurriculumLaterItem {
+  id: CurriculumProgressId;
+  orderLabel: string;
+  shortTitle: string;
+  question: string;
+  context: string;
+}
+
 export interface CurriculumCourse {
   id: CurriculumCourseId;
   order: number;

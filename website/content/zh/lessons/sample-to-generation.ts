@@ -1,6 +1,14 @@
 import {
+  buildGroupingExpectedValues,
+  buildGroupingInvestigationPrompt,
   comprehensiveAssessmentFixture,
+  simulateGroupingInvestigation,
   type ComprehensiveAssessmentFixture,
+  type GroupingFaultCard,
+  type GroupingFaultCardAnswer,
+  type GroupingInvestigationManifest,
+  type GroupingMisconceptionDimension,
+  type GroupingSeedOccurrence,
   type StructuredExercise,
 } from "@/core/sample-to-generation";
 
@@ -110,63 +118,6 @@ export type EarlyFieldDiagnosticCase = {
   scope: string;
   caveat: string;
   sourceRefIds: readonly string[];
-};
-
-export type GroupingLabCandidate = {
-  id: string;
-  index: number;
-};
-
-export type GroupingLabGroup = {
-  id: string;
-  originId: string;
-  prompt: string;
-  label: string;
-  metadata: Readonly<Record<string, string>>;
-  groupIndex: number;
-  candidates: readonly GroupingLabCandidate[];
-  identityChecks: readonly {
-    expression: string;
-    result: boolean;
-    meaning: string;
-  }[];
-};
-
-export type GroupingCounterFrame = {
-  id: string;
-  order: number;
-  operation: string;
-  groupCounterBefore: number;
-  sampleCounterBefore: number;
-  writes: readonly string[];
-  groupCounterAfter: number;
-  sampleCounterAfter: number;
-  explanation: string;
-};
-
-export type GroupingComparisonRule = {
-  id: string;
-  subject: string;
-  withinGroup: string;
-  objectContract: string;
-  reason: string;
-};
-
-export type GroupingAliasProbe = {
-  mutation: string;
-  fixtureValue: string;
-  mutatedValue: string;
-  actualAfter: readonly {
-    sampleId: string;
-    value: string;
-    explanation: string;
-  }[];
-  counterfactualAfter: readonly {
-    sampleId: string;
-    value: string;
-    explanation: string;
-  }[];
-  boundary: string;
 };
 
 export type RequestAssemblyStageId =
@@ -444,10 +395,7 @@ export type SampleToGenerationChapter = {
   producerRelayStages?: readonly ProducerRelayStage[];
   fieldLifecycleEntries?: readonly FieldLifecycleEntry[];
   earlyFieldDiagnosticCases?: readonly EarlyFieldDiagnosticCase[];
-  groupingLabGroups?: readonly GroupingLabGroup[];
-  groupingCounterFrames?: readonly GroupingCounterFrame[];
-  groupingComparisonRules?: readonly GroupingComparisonRule[];
-  groupingAliasProbe?: GroupingAliasProbe;
+  groupingInvestigation?: GroupingInvestigationManifest;
   requestAssemblyStages?: readonly RequestAssemblyStage[];
   requestManifestEntries?: readonly RequestManifestEntry[];
   requestSamplingParameters?: readonly RequestSamplingParameter[];
@@ -1123,163 +1071,289 @@ const chapterTwoExercise = {
   },
 } as const satisfies StructuredExercise;
 
-export const groupingLabGroups: readonly GroupingLabGroup[] = [
+export const groupingMisconceptionDimensions: readonly GroupingMisconceptionDimension[] = [
   {
-    id: "group-a",
-    originId: "origin-a",
-    prompt: "3 + 2 = ?",
-    label: "5",
-    metadata: { source_name: "mechanism_course", difficulty: "warmup" },
-    groupIndex: 0,
-    candidates: [
-      { id: "a0", index: 0 },
-      { id: "a1", index: 1 },
-    ],
-    identityChecks: [
-      { expression: "a0 is a1", result: false, meaning: "两个候选不是同一个 Sample 对象" },
-      { expression: "a0.metadata is a1.metadata", result: false, meaning: "两个可变 metadata 容器没有别名" },
-    ],
+    id: "relationship",
+    label: "关系错误",
+    diagnosticQuestion: "同一 seed occurrence 的候选是否共享组号，不同 occurrence 是否仍保持分组边界？",
+    correctPrinciple: "group_index 表达候选之间的比较关系；prompt 文本相同也不能把两个 seed occurrence 合并。",
   },
   {
-    id: "group-b",
-    originId: "origin-b",
-    prompt: "4 + 3 = ?",
-    label: "7",
-    metadata: { source_name: "mechanism_course", difficulty: "warmup" },
-    groupIndex: 1,
-    candidates: [
-      { id: "b0", index: 2 },
-      { id: "b1", index: 3 },
-    ],
-    identityChecks: [
-      { expression: "b0 is b1", result: false, meaning: "两个候选不是同一个 Sample 对象" },
-      { expression: "b0.metadata is b1.metadata", result: false, meaning: "两个可变 metadata 容器没有别名" },
-    ],
+    id: "identity",
+    label: "身份错误",
+    diagnosticQuestion: "每个物理候选是否都拿到唯一 index？",
+    correctPrinciple: "index 在每次 deepcopy 后立即递增，因此 P×N 条候选必须拥有 P×N 个唯一 index。",
+  },
+  {
+    id: "aliasing",
+    label: "别名错误",
+    diagnosticQuestion: "修改一个候选的嵌套可变状态，是否会污染 sibling 或 seed？",
+    correctPrinciple: "deepcopy 必须隔离 Sample、metadata 的嵌套容器、tokens 与 weight_versions。",
+  },
+  {
+    id: "counterTiming",
+    label: "计数时序错误",
+    diagnosticQuestion: "I 与 G 分别在什么时候递增？",
+    correctPrinciple: "I 在每个副本后递增；G 只在一个 seed 的 N 个副本全部完成后递增。",
   },
 ] as const;
 
-export const groupingCounterFrames: readonly GroupingCounterFrame[] = [
+const groupingFaultBoundaryOptions = [
+  { id: "seed-occurrence-group-assignment", label: "seed occurrence 取得 group_index" },
+  { id: "candidate-clone", label: "候选对象图被复制" },
+  { id: "candidate-identity-assignment", label: "候选写入物理 index" },
+  { id: "group-counter-read", label: "候选读取当前 group counter" },
+] as const;
+
+const groupingFaultConsequenceOptions = [
+  { id: "comparison-set-corrupted", label: "比较集合跨 seed occurrence 污染" },
+  { id: "writeback-collision", label: "两个物理候选可能碰撞到同一身份账本" },
+  { id: "mutation-propagates", label: "本地 mutation 传播到 sibling 与 seed" },
+  { id: "all-group-indices-shifted", label: "后续所有 group_index 相对调用起点偏移" },
+] as const;
+
+export const groupingInvestigationFaultCards: readonly GroupingFaultCard[] = [
   {
-    id: "copy-a0",
-    order: 1,
-    operation: "deepcopy(origin-a) → a0",
-    groupCounterBefore: 0,
-    sampleCounterBefore: 0,
-    writes: ["a0.group_index = 0", "a0.index = 0"],
-    groupCounterAfter: 0,
-    sampleCounterAfter: 1,
-    explanation: "还在处理 origin-a，所以组计数器不动；每产出一个物理副本，sample_index 立即加一。",
+    id: "merge-equal-prompt-text",
+    title: "把 prompt 文本当作 group key",
+    counterfactualRule: "两个 seed occurrence 的 prompt 字符串相等时复用同一个 group_index。",
+    symptom: { id: "equal-text-occurrences-merged", label: "两次独立读取被错误地塞进同一比较组" },
+    boundaryOptions: groupingFaultBoundaryOptions,
+    consequenceOptions: groupingFaultConsequenceOptions,
   },
   {
-    id: "copy-a1",
-    order: 2,
-    operation: "deepcopy(origin-a) → a1",
-    groupCounterBefore: 0,
-    sampleCounterBefore: 1,
-    writes: ["a1.group_index = 0", "a1.index = 1"],
-    groupCounterAfter: 1,
-    sampleCounterAfter: 2,
-    explanation: "内层循环完成 N=2 次后，origin-a 的 group 才封口；随后 sample_group_index 加一。",
+    id: "increment-index-per-group",
+    title: "每组只推进一次 sample index",
+    counterfactualRule: "N 个候选共享一个 index，等整组完成后才让 I 加一。",
+    symptom: { id: "candidate-index-reused", label: "同组第二条候选复用了第一条候选的物理身份" },
+    boundaryOptions: groupingFaultBoundaryOptions,
+    consequenceOptions: groupingFaultConsequenceOptions,
   },
   {
-    id: "copy-b0",
-    order: 3,
-    operation: "deepcopy(origin-b) → b0",
-    groupCounterBefore: 1,
-    sampleCounterBefore: 2,
-    writes: ["b0.group_index = 1", "b0.index = 2"],
-    groupCounterAfter: 1,
-    sampleCounterAfter: 3,
-    explanation: "新的 prompt group 使用新的 group_index；sample_index 沿本批候选继续递增，不在组边界归零。",
+    id: "shallow-copy-nested-state",
+    title: "只复制 Sample 外壳",
+    counterfactualRule: "metadata、tokens 与 weight_versions 沿用 seed 的嵌套引用。",
+    symptom: { id: "mutation-blast-radius", label: "一个候选的本地突变传播到 sibling 和 seed" },
+    boundaryOptions: groupingFaultBoundaryOptions,
+    consequenceOptions: groupingFaultConsequenceOptions,
   },
   {
-    id: "copy-b1",
-    order: 4,
-    operation: "deepcopy(origin-b) → b1",
-    groupCounterBefore: 1,
-    sampleCounterBefore: 3,
-    writes: ["b1.group_index = 1", "b1.index = 3"],
-    groupCounterAfter: 2,
-    sampleCounterAfter: 4,
-    explanation: "第二个 group 封口后，本次教学调用累计得到 2 个 group、4 个物理 Sample。",
+    id: "advance-group-before-copy",
+    title: "复制前先推进 group counter",
+    counterfactualRule: "处理 seed 前先执行 G += 1，再把 G 写入该组候选。",
+    symptom: { id: "group-index-shifted", label: "整张矩阵的 group_index 相对调用前计数器偏移一位" },
+    boundaryOptions: groupingFaultBoundaryOptions,
+    consequenceOptions: groupingFaultConsequenceOptions,
   },
 ] as const;
 
-export const groupingComparisonRules: readonly GroupingComparisonRule[] = [
-  {
-    id: "prompt-label",
-    subject: "prompt / label",
-    withinGroup: "值相同",
-    objectContract: "只要求语义值一致；字符串对象身份不是本课契约",
-    reason: "候选必须在同一道题、同一个参考答案条件下开始，后续差异才可归因于生成。",
+const groupingInvestigationFaultAnswers: Readonly<
+  Record<string, GroupingFaultCardAnswer>
+> = {
+  "merge-equal-prompt-text": {
+    dimension: "relationship",
+    firstErrorBoundary: "seed-occurrence-group-assignment",
+    downstreamConsequenceId: "comparison-set-corrupted",
   },
-  {
-    id: "metadata",
-    subject: "metadata",
-    withinGroup: "初始内容相同",
-    objectContract: "容器对象必须独立",
-    reason: "后续 hook 修改 a0.metadata 时，不得通过别名污染 a1。",
+  "increment-index-per-group": {
+    dimension: "identity",
+    firstErrorBoundary: "candidate-identity-assignment",
+    downstreamConsequenceId: "writeback-collision",
   },
-  {
-    id: "group-index",
-    subject: "group_index",
-    withinGroup: "相同",
-    objectContract: "表示比较关系，不表示对象身份",
-    reason: "a0 与 a1 必须被识别为同一 prompt 的候选；b0 与 b1 属于另一个比较组。",
+  "shallow-copy-nested-state": {
+    dimension: "aliasing",
+    firstErrorBoundary: "candidate-clone",
+    downstreamConsequenceId: "mutation-propagates",
   },
-  {
-    id: "sample-index",
-    subject: "index",
-    withinGroup: "不同",
-    objectContract: "每个物理 Sample 唯一",
-    reason: "四次生成必须能够独立记录、定位和写回，不能只凭 group_index 区分。",
+  "advance-group-before-copy": {
+    dimension: "counterTiming",
+    firstErrorBoundary: "group-counter-read",
+    downstreamConsequenceId: "all-group-indices-shifted",
   },
-  {
-    id: "future-fields",
-    subject: "response / log-prob / status / reward",
-    withinGroup: "此刻仍是默认值或空值",
-    objectContract: "未来必须能够各自变化",
-    reason: "DataSource 只建立候选集合；生成与评价尚未运行，不能提前填入结果。",
-  },
-] as const;
+};
 
-export const groupingAliasProbe: GroupingAliasProbe = {
-  mutation: 'a0.metadata.difficulty = "audited"',
-  fixtureValue: "warmup",
-  mutatedValue: "audited",
-  actualAfter: [
-    { sampleId: "a0", value: "audited", explanation: "目标副本接收本地修改。" },
-    { sampleId: "a1", value: "warmup", explanation: "独立 metadata 容器保持原值。" },
-    { sampleId: "origin-a seed", value: "warmup", explanation: "原始 seed 也未被副本修改。" },
+const groupingModelSeeds: readonly GroupingSeedOccurrence[] = [
+  {
+    occurrenceId: "a",
+    prompt: "model-a",
+    label: null,
+    metadata: { audit: { notes: [] } },
+    tokens: [],
+    weight_versions: [],
+  },
+  {
+    occurrenceId: "b",
+    prompt: "model-b",
+    label: null,
+    metadata: { audit: { notes: [] } },
+    tokens: [],
+    weight_versions: [],
+  },
+];
+
+const groupingModelSimulation = simulateGroupingInvestigation({
+  seedOccurrences: groupingModelSeeds,
+  nSamplesPerPrompt: 2,
+  groupIndexStart: 0,
+  sampleIndexStart: 0,
+});
+
+export const groupingColdCaseSeeds: readonly GroupingSeedOccurrence[] = [
+  {
+    occurrenceId: "x",
+    prompt: "同文题面",
+    label: null,
+    metadata: { audit: { notes: [] }, source: { batch: "cold-case" } },
+    tokens: [701],
+    weight_versions: ["actor@seed"],
+  },
+  {
+    occurrenceId: "y",
+    prompt: "同文题面",
+    label: null,
+    metadata: { audit: { notes: [] }, source: { batch: "cold-case" } },
+    tokens: [702],
+    weight_versions: ["actor@seed"],
+  },
+  {
+    occurrenceId: "z",
+    prompt: "另一题面",
+    label: null,
+    metadata: { audit: { notes: [] }, source: { batch: "cold-case" } },
+    tokens: [703],
+    weight_versions: ["actor@seed"],
+  },
+];
+
+export const groupingColdCaseSimulation = simulateGroupingInvestigation({
+  seedOccurrences: groupingColdCaseSeeds,
+  nSamplesPerPrompt: 2,
+  groupIndexStart: 4,
+  sampleIndexStart: 30,
+});
+
+const groupingColdCasePrompt = buildGroupingInvestigationPrompt(
+  groupingColdCaseSimulation,
+  "y",
+);
+const groupingColdCaseExpected = buildGroupingExpectedValues(
+  groupingColdCaseSimulation,
+  groupingInvestigationFaultCards,
+  groupingInvestigationFaultAnswers,
+);
+
+export const groupingInvestigationManifest: GroupingInvestigationManifest = {
+  id: "stg.chapter-3-grouping-investigation-v3",
+  phases: [
+    {
+      id: "orient",
+      title: "定向：先给事故定性",
+      incident: {
+        id: "incident-equal-prompt-collapse",
+        title: "教学假想故障：矩阵看似自洽，结果却无法继续信任",
+        report: [
+          "[[a0(g=0,i=0),a1(g=1,i=1)],[b0(g=2,i=0),b1(g=3,i=1)]]",
+          "执行 a0.metadata.difficulty = audited 后，a0、a1 与 origin-a 的 difficulty 都变成 audited。",
+        ],
+      },
+      judgement: {
+        id: "stg.chapter-3-first-judgement-v1",
+        prompt: "先不查看正确矩阵：逐项给事故症状分类，再圈出这次 mutation 正确应影响的对象。",
+        symptoms: [
+          { id: "split-group-members", report: "a0 与 a1 来自同一 seed，却得到不同 g" },
+          { id: "reused-physical-index", report: "a0 与 b0、a1 与 b1 分别复用 i" },
+          { id: "shared-mutable-state", report: "mutation 同时改变 a0、a1 与 origin-a" },
+          { id: "advanced-group-per-copy", report: "g 看起来在每个副本后都推进" },
+        ],
+        categoryOptions: groupingMisconceptionDimensions.map((dimension) => ({
+          id: dimension.id,
+          label: dimension.label,
+        })),
+        blastRadius: {
+          prompt: "在正确 deepcopy 语义下，修改 a0.metadata.difficulty 应改变谁？",
+          candidateOptions: ["a0", "a1", "origin-a"],
+        },
+      },
+    },
+    {
+      id: "model",
+      title: "建模：用 P / N / G / I 逐副本追踪",
+      notation: [
+        { symbol: "P", meaning: "本次输入的 seed occurrence 数" },
+        { symbol: "N", meaning: "每个 seed 复制的候选数 n_samples_per_prompt" },
+        { symbol: "G", meaning: "下一组将读取的 sample_group_index" },
+        { symbol: "I", meaning: "下一条物理候选将读取的 sample_index" },
+      ],
+      rules: [
+        "每个 seed occurrence 各自形成一组；每组恰有 N 个候选，因此 P 个 occurrence 一共产生 P×N 条物理 Sample。",
+        "同一组的 N 条候选读取相同的 group_index；关系来自 occurrence，而不是 prompt 文本是否相同。",
+        "每条物理 Sample 都读取唯一的 index；I 在每个候选完成写入后推进一次。",
+        "deepcopy 隔离候选与 seed 的可变对象图；G 只在整组 N 条候选全部封口后推进。",
+      ],
+      workedTrace: groupingModelSimulation.trace,
+      dimensions: groupingMisconceptionDimensions,
+    },
+    {
+      id: "verify",
+      title: "核源：把推导钉回固定提交",
+      claims: [
+        { id: "identity-defaults", label: "DataSource 之前 group_index / index 仍为空" },
+        { id: "counter-initialization", label: "fresh DataSource 的 G / I 起点" },
+        { id: "fanout-and-deepcopy", label: "P×N fan-out、deepcopy 与递增顺序" },
+      ],
+      sourceCards: [
+        { sourceRefId: "sample.identity-defaults", label: "Sample identity defaults" },
+        { sourceRefId: "rollout.datasource-counter-init", label: "RolloutDataSource counter initialization" },
+        { sourceRefId: "rollout.datasource-get-samples", label: "RolloutDataSource.get_samples" },
+      ],
+      faultCards: groupingInvestigationFaultCards,
+    },
+    {
+      id: "practice",
+      title: "冷案：非零计数器与重复题面",
+      caseId: "cold-case-x-y-z",
+      parameters: groupingColdCaseSimulation.parameters,
+      seedOccurrences: groupingColdCaseSeeds,
+      prompt: groupingColdCasePrompt,
+    },
   ],
-  counterfactualAfter: [
-    { sampleId: "a0", value: "audited", explanation: "目标对象被修改。" },
-    { sampleId: "a1", value: "audited", explanation: "若共享引用，a1 会被静默污染。" },
-    { sampleId: "origin-a seed", value: "audited", explanation: "浅复制还会把修改反向泄漏到 seed。" },
-  ],
-  boundary: "audited 是页面内的反事实探针值，不属于固定 fixture。它只演示对象别名后果；生产源码是否使用 deepcopy 由固定 commit 摘录证明。",
+  expectedValues: groupingColdCaseExpected,
 };
 
 const chapterThreeExercise = {
-  id: "stg.chapter-3-identity-matrix-v2",
+  id: "stg.chapter-3-grouping-investigation-v3",
   kind: "field-entry",
-  title: "2×2 身份矩阵",
-  prompt: "固定 P=2、N=2，且调用前 sample_group_index=0、sample_index=0。补全四个候选的身份字段。",
-  instruction: "每格输入一个十进制整数；fixture ID 只用于课程关联，不是 upstream Sample 字段。",
+  title: "冷案：3×2 身份矩阵",
+  prompt: "P=3、N=2、G₀=4、I₀=30；seed occurrence 为 x / y / z，其中 x 与 y 的 prompt 文本相同。补全六条候选与调用后的计数器。",
+  instruction: "每格输入一个十进制整数；seed occurrence 按输入位置建组，不按 prompt 文本去重。",
   fields: [
-    { id: "a0-group", label: "a0.group_index", acceptedAnswers: ["0"] },
-    { id: "a0-index", label: "a0.index", acceptedAnswers: ["0"] },
-    { id: "a1-group", label: "a1.group_index", acceptedAnswers: ["0"] },
-    { id: "a1-index", label: "a1.index", acceptedAnswers: ["1"] },
-    { id: "b0-group", label: "b0.group_index", acceptedAnswers: ["1"] },
-    { id: "b0-index", label: "b0.index", acceptedAnswers: ["2"] },
-    { id: "b1-group", label: "b1.group_index", acceptedAnswers: ["1"] },
-    { id: "b1-index", label: "b1.index", acceptedAnswers: ["3"] },
+    ...groupingColdCaseExpected.matrix.flatMap((entry) => [
+      {
+        id: `${entry.candidateId}-group`,
+        label: `${entry.candidateId}.group_index`,
+        acceptedAnswers: [String(entry.groupIndex)],
+      },
+      {
+        id: `${entry.candidateId}-index`,
+        label: `${entry.candidateId}.index`,
+        acceptedAnswers: [String(entry.sampleIndex)],
+      },
+    ]),
+    {
+      id: "group-counter-after",
+      label: "调用后的 G",
+      acceptedAnswers: [String(groupingColdCaseExpected.countersAfter.groupIndex)],
+    },
+    {
+      id: "sample-counter-after",
+      label: "调用后的 I",
+      acceptedAnswers: [String(groupingColdCaseExpected.countersAfter.sampleIndex)],
+    },
   ],
-  sourceRefIds: ["rollout.datasource-get-samples"],
+  sourceRefIds: ["sample.identity-defaults", "rollout.datasource-counter-init", "rollout.datasource-get-samples"],
   feedback: {
-    correct: "矩阵正确。同一 seed 的候选共享组号，四个物理候选 Sample 拥有独立 index；metadata 隔离还要由上方别名探针和源码共同证明。",
-    incorrect: "沿 DataSource 的两个计数器检查：sample counter 每个副本加一，group counter 只在整组完成后加一。",
+    correct: "冷案复算正确：重复题面没有合并 seed occurrence，六条物理候选身份唯一，两个计数器也在正确边界结束。",
+    incorrect: "从 G=4、I=30 开始逐副本追踪：I 每个副本加一，G 只在每组 N=2 个副本完成后加一。",
   },
 } as const satisfies StructuredExercise;
 
@@ -2451,17 +2525,17 @@ export const sampleToGenerationChapters: readonly SampleToGenerationChapter[] = 
     number: 3,
     slug: "group-without-aliasing",
     title: "成组，但不粘连",
-    shortTitle: "分组",
-    durationMinutes: 14,
-    drivingQuestion: "同一道题的两个候选为什么既要相同，又必须是两个独立对象？",
+    shortTitle: "成组但不粘连",
+    durationMinutes: 40,
+    drivingQuestion: "一张看似自洽的分组矩阵，最早可能在哪条契约边界失真？",
     imageSrc: "/art/library-act-03-v1.webp",
     imageAlt: "动画制作工作台上并列的屏幕与透明操作面板，暗示同一底稿被复制为可独立修改的候选。",
-    scopeLabel: "固定 commit 06ffdbe2 · fresh DataSource counters · 2 seeds × 2 candidates · 停在 groups-built",
-    objective: "给定 seed 数 P、n_samples_per_prompt=N 与调用前两个计数器，推导嵌套输出形状和每个候选的 group_index/index，并用 metadata 突变判断候选之间是否存在对象别名。",
-    conclusion: "相同的是 seed 内容与组归属；不同的是 Sample 身份、唯一 index，以及每条候选各自拥有的可变状态。",
+    scopeLabel: "固定 commit 06ffdbe2 · 四阶段 fault investigation · 任意 P/N/G₀/I₀ · 停在 groups-built",
+    objective: "先对伪事故作出不揭答案的首判，再用 P/N/G/I 模型逐步复算，映射固定源码证据，最后调查 P=3、N=2、G₀=4、I₀=30 的陌生冷案。",
+    conclusion: "正确矩阵必须同时保住四条契约：seed occurrence 的组关系、每条候选的唯一身份、deepcopy 的状态隔离，以及 G/I 的递增时序。",
     boundary: {
-      input: ["samples-constructed 的 origin-a / origin-b 两个 seed Sample", "n_samples_per_prompt=2", "fresh counters：sample_group_index=0、sample_index=0"],
-      output: ["嵌套形状 [[a0, a1], [b0, b1]]", "2×2 身份矩阵", "四个独立 Sample 与 metadata 容器"],
+      input: ["P 个按读取位置区分的 seed occurrence", "任意正整数 N", "调用前非负计数器 G₀ / I₀"],
+      output: ["P×N 的可复算 trace 与身份矩阵", "调用后的 G / I", "关系、身份、别名与计数时序的 fault 分类"],
       excluded: ["tokenizer / SGLang / response 写回", "reward 与 TrainData", "rollout_id 与 partial rollout"],
     },
     stateTransition: {
@@ -2483,10 +2557,7 @@ export const sampleToGenerationChapters: readonly SampleToGenerationChapter[] = 
         body: "deepcopy 为 Sample 及其普通可变容器建立独立对象图。a0.metadata 与 a1.metadata 初始值相等，但不是同一个容器；修改 a0 不会污染 a1。不可变字符串等叶子无需承诺不同的 Python identity，本章验证的是可变状态隔离。",
       },
     ],
-    groupingLabGroups,
-    groupingCounterFrames,
-    groupingComparisonRules,
-    groupingAliasProbe,
+    groupingInvestigation: groupingInvestigationManifest,
     observationIds: ["groups-built"],
     sourceRefIds: ["sample.identity-defaults", "rollout.datasource-counter-init", "rollout.datasource-get-samples"],
     evidenceId: "evidence-deepcopy-groups",
@@ -2496,7 +2567,7 @@ export const sampleToGenerationChapters: readonly SampleToGenerationChapter[] = 
       belief: "同组候选的 prompt 与 metadata 值一样，因此 a0 和 a1 可以共享同一个 Sample 或 metadata 对象。",
       correction: "它们共享比较条件与 group_index，不共享可变对象。index 标识各自的物理候选；未来的 response、log-prob、status 与 reward 也必须能够独立变化。",
     },
-    takeaway: "group_index 表示关系；index 表示身份；deepcopy 保证状态隔离。",
+    takeaway: "group_index 表示关系；index 表示身份；deepcopy 保证状态隔离；G/I 的写入与递增边界决定第一处错误出现在哪里。",
     transition: "四条 Sample 已经各自就位。下一章检查它们如何被翻译成四个 SGLang 请求。",
   },
   {
@@ -3023,16 +3094,28 @@ export const sampleToGenerationFinalAssessment: readonly StructuredExercise[] =
     (checkpoint) => checkpoint.exercise,
   );
 
+const assessmentDurationMinutes = 10;
+const chaptersDurationMinutes = sampleToGenerationChapters.reduce(
+  (total, chapter) => total + chapter.durationMinutes,
+  0,
+);
+
+export const sampleToGenerationDurationMinutes = {
+  chapters: chaptersDurationMinutes,
+  assessment: assessmentDurationMinutes,
+  total: chaptersDurationMinutes + assessmentDurationMinutes,
+} as const;
+
 export const sampleToGenerationCourse: SampleToGenerationCourse = {
   metadata: {
     id: "core.sample-to-generation",
     route: "/learn/sample-to-generation",
     locale: "zh-CN",
     title: "Sample 如何得到回答——从一行输入到 SGLang 写回",
-    summary: "沿固定 2×2 trace 逐边界验证 Dataset、Sample、DataSource 与 SGLang generation 的数据契约。",
-    lessonRevision: 8,
+    summary: "沿固定源码证据与可复算 trace 逐边界验证 Dataset、Sample、DataSource 与 SGLang generation 的数据契约。",
+    lessonRevision: 9,
     assessmentVersion: 2,
-    durationMinutes: { chapters: 78, assessment: 10, total: 88 },
+    durationMinutes: sampleToGenerationDurationMinutes,
     requiresGpu: false,
     sourceBaseline: {
       nearestTag: "v0.3.1",

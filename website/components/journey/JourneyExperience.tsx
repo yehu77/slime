@@ -25,12 +25,20 @@ import {
   clearLessonProgressV2,
   evaluateLessonProgressV2,
   loadLocalProgressV2,
+  replaceLearningProgress,
   saveLocalProgressV2,
+  useLearningProgress,
   type LessonProgressStatus,
   type LessonProgressV2,
   type LocalProgressV2,
   type StructuredExerciseResponse,
 } from "../../core/progress";
+import {
+  LEARNING_COMPASS_PHASES,
+  useLearningCompassRegistration,
+  type LearningCompassPhaseId,
+  type LearningCompassTarget,
+} from "../site/learning-compass-store";
 import {
   glossaryTerms,
   sampleJourneyLesson,
@@ -240,6 +248,7 @@ function sameJourneyResume(
 }
 
 export function JourneyExperience() {
+  const learningProgress = useLearningProgress();
   const [journeyState, setJourneyState] = useState<JourneyState>(() =>
     createInitialJourneyState(runtimeFixture),
   );
@@ -266,6 +275,10 @@ export function JourneyExperience() {
   const localProgressRef = useRef<LocalProgressV2 | null>(null);
   const skipNextPersistenceRef = useRef(false);
   const reviewPendingRef = useRef(false);
+  const hydrationCompleteRef = useRef(false);
+  const [activeCompassPhase, setActiveCompassPhase] = useState<LearningCompassPhaseId>("orient");
+  const activeCompassPhaseRef = useRef<LearningCompassPhaseId>("orient");
+  const journeyCompassTimerRef = useRef<number | null>(null);
 
   const events = runtimeFixture.events;
   const currentAct = sampleJourneyLesson.acts[journeyState.act - 1];
@@ -315,7 +328,6 @@ export function JourneyExperience() {
   const performAction = useCallback(
     (action: JourneyAction) => {
       try {
-        reviewPendingRef.current = false;
         const next = reduceJourney(journeyState, action, runtimeFixture);
         const failures = checkJourneyInvariants(next).filter(
           (item) => item.status === "fail",
@@ -360,7 +372,6 @@ export function JourneyExperience() {
   );
 
   const recoverOfficialFixture = () => {
-    reviewPendingRef.current = false;
     setJourneyState(createInitialJourneyState(runtimeFixture, "a0"));
     setPlayback("idle");
     setLayer("raw");
@@ -369,9 +380,11 @@ export function JourneyExperience() {
   };
 
   useEffect(() => {
+    if (!learningProgress.hydrated || hydrationCompleteRef.current) return;
+    hydrationCompleteRef.current = true;
     const hydrationTimer = window.setTimeout(() => {
       try {
-        const localProgress = loadLocalProgressV2(window.localStorage);
+        const localProgress = learningProgress.progress;
         localProgressRef.current = localProgress;
         setCurriculumLearnerStatus(deriveCurriculumLearnerStatus(localProgress));
         const stored =
@@ -383,6 +396,17 @@ export function JourneyExperience() {
             ? stored.resume
             : null;
         const params = new URLSearchParams(window.location.search);
+        const requestedPhase = window.location.hash.slice(1);
+        const restoredPhase = LEARNING_COMPASS_PHASES.some((phase) => phase.id === requestedPhase)
+          ? requestedPhase as LearningCompassPhaseId
+          : "orient";
+        activeCompassPhaseRef.current = restoredPhase;
+        setActiveCompassPhase(restoredPhase);
+        if (requestedPhase && requestedPhase !== restoredPhase) {
+          const normalizedUrl = new URL(window.location.href);
+          normalizedUrl.hash = "";
+          window.history.replaceState(window.history.state, "", normalizedUrl);
+        }
 
         let selectedSampleId = storedResume?.selected_sample_id ?? "a0";
         const querySample = params.get("sample");
@@ -427,7 +451,7 @@ export function JourneyExperience() {
       }
     }, 0);
     return () => window.clearTimeout(hydrationTimer);
-  }, [events]);
+  }, [events, learningProgress.hydrated, learningProgress.progress]);
 
   useEffect(() => {
     if (!storageReady || storageUnavailable) return;
@@ -484,6 +508,7 @@ export function JourneyExperience() {
       }
       if (changed) saveLocalProgressV2(window.localStorage, progress);
       localProgressRef.current = progress;
+      replaceLearningProgress(progress);
       setCurriculumLearnerStatus(deriveCurriculumLearnerStatus(progress));
       setProgressStatus(
         evaluateLessonProgressV2(
@@ -505,12 +530,120 @@ export function JourneyExperience() {
 
   useEffect(() => {
     if (!storageReady) return;
+    localProgressRef.current = learningProgress.progress;
+    const learnerStatus = deriveCurriculumLearnerStatus(learningProgress.progress);
+    const stored = learningProgress.progress.lessons[sampleJourneyLesson.metadata.id];
+    const nextProgressStatus = stored
+      ? evaluateLessonProgressV2(stored, progressManifest).status
+      : "not_started";
+    let cancelled = false;
+    window.queueMicrotask(() => {
+      if (cancelled) return;
+      setCurriculumLearnerStatus(learnerStatus);
+      setProgressStatus(nextProgressStatus);
+      if (learningProgress.persistenceUnavailable) setStorageUnavailable(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [learningProgress.persistenceUnavailable, learningProgress.progress, storageReady]);
+
+  const beginRevisedProgress = useCallback(() => {
+    reviewPendingRef.current = false;
+    if (!storageReady || storageUnavailable) {
+      setProgressStatus("in_progress");
+      return;
+    }
+    try {
+      let progress = localProgressRef.current ?? loadLocalProgressV2(window.localStorage);
+      progress = applyLessonProgressEvent(
+        progress,
+        sampleJourneyLesson.metadata.id,
+        progressManifest,
+        { type: "revision-started" },
+      );
+      for (const act of [...visitedActs].sort((left, right) => left - right)) {
+        progress = applyLessonProgressEvent(
+          progress,
+          sampleJourneyLesson.metadata.id,
+          progressManifest,
+          { type: "section-visited", section_id: `act-${act}` },
+        );
+      }
+      progress = applyLessonProgressEvent(
+        progress,
+        sampleJourneyLesson.metadata.id,
+        progressManifest,
+        {
+          type: "resume-updated",
+          resume: {
+            kind: "sample-journey",
+            event_id: journeyState.event_id,
+            selected_sample_id: journeyState.selected_sample_id,
+            timeline_mode: timelineMode,
+            fixture_id: runtimeFixture.fixture_id,
+          },
+        },
+      );
+      saveLocalProgressV2(window.localStorage, progress);
+      localProgressRef.current = progress;
+      replaceLearningProgress(progress);
+      setCurriculumLearnerStatus(deriveCurriculumLearnerStatus(progress));
+      setProgressStatus("in_progress");
+    } catch {
+      setStorageUnavailable(true);
+    }
+  }, [
+    journeyState.event_id,
+    journeyState.selected_sample_id,
+    storageReady,
+    storageUnavailable,
+    timelineMode,
+    visitedActs,
+  ]);
+
+  useEffect(() => {
+    if (!storageReady) return;
     const url = new URL(window.location.href);
     url.searchParams.set("event", journeyState.event_id);
     url.searchParams.set("sample", journeyState.selected_sample_id);
     url.searchParams.set("timeline", timelineMode);
     window.history.replaceState(window.history.state, "", url);
   }, [journeyState.event_id, journeyState.selected_sample_id, storageReady, timelineMode]);
+
+  useEffect(() => {
+    const restoreLocation = () => {
+      const url = new URL(window.location.href);
+      const eventId = url.searchParams.get("event");
+      const sampleId = url.searchParams.get("sample");
+      const phaseId = url.hash.slice(1);
+      const validEvent = eventId && events.some((event) => event.id === eventId)
+        ? eventId
+        : events[0].id;
+      const validSample = sampleId && runtimeFixture.initial_samples[sampleId]
+        ? sampleId
+        : "a0";
+      const validPhase = LEARNING_COMPASS_PHASES.some((phase) => phase.id === phaseId)
+        ? phaseId as LearningCompassPhaseId
+        : "orient";
+      if (phaseId && phaseId !== validPhase) {
+        url.hash = "";
+        window.history.replaceState(window.history.state, "", url);
+      }
+      setPlayback("paused");
+      setJourneyState(seekJourney(runtimeFixture, validEvent, validSample));
+      setTimelineMode(url.searchParams.get("timeline") === "async" ? "async" : "sync");
+      activeCompassPhaseRef.current = validPhase;
+      setActiveCompassPhase(validPhase);
+      window.setTimeout(() => {
+        const target = document.getElementById(validPhase) ?? stageRef.current;
+        target?.scrollIntoView({ behavior: "auto", block: "start" });
+        target?.focus({ preventScroll: true });
+      }, 0);
+    };
+    window.addEventListener("popstate", restoreLocation);
+    return () => window.removeEventListener("popstate", restoreLocation);
+  }, [events]);
 
   useEffect(() => {
     if (playback !== "playing") return;
@@ -667,6 +800,12 @@ export function JourneyExperience() {
     try {
       let progress =
         localProgressRef.current ?? loadLocalProgressV2(window.localStorage);
+      progress = applyLessonProgressEvent(
+        progress,
+        sampleJourneyLesson.metadata.id,
+        progressManifest,
+        { type: "revision-started" },
+      );
       const stored = progress.lessons[sampleJourneyLesson.metadata.id];
       const storedSections = new Set(
         stored?.lesson_revision === progressManifest.lesson_revision
@@ -712,6 +851,7 @@ export function JourneyExperience() {
       );
       saveLocalProgressV2(window.localStorage, progress);
       localProgressRef.current = progress;
+      replaceLearningProgress(progress);
       setCurriculumLearnerStatus(deriveCurriculumLearnerStatus(progress));
       setProgressStatus(
         evaluateLessonProgressV2(
@@ -734,6 +874,7 @@ export function JourneyExperience() {
         sampleJourneyLesson.metadata.id,
       );
       localProgressRef.current = clearedProgress;
+      replaceLearningProgress(clearedProgress);
       setCurriculumLearnerStatus(deriveCurriculumLearnerStatus(clearedProgress));
       skipNextPersistenceRef.current = true;
     } catch {
@@ -748,6 +889,111 @@ export function JourneyExperience() {
   };
 
   const phaseValueText = `第 ${journeyState.event_index + 1} 个事件：${journeyState.title}`;
+
+  const journeyCompassChapters = useMemo(() => sampleJourneyLesson.acts.map((act) => ({
+    id: act.id,
+    label: `第 ${act.number} 幕 · ${act.title}`,
+    shortLabel: `${String(act.number).padStart(2, "0")} · ${act.shortTitle}`,
+    durationMinutes: act.durationMinutes,
+    href: `/learn/sample-journey?event=${encodeURIComponent(events.find((event) => event.act === act.number)?.id ?? events[0].id)}`,
+    phases: LEARNING_COMPASS_PHASES,
+    position: act.number,
+  })), [events]);
+
+  const navigateJourneyCompass = useCallback((target: LearningCompassTarget) => {
+    const act = sampleJourneyLesson.acts.find((item) => item.id === target.chapterId);
+    if (!act) return;
+    const targetEvent = events.find((event) => event.act === act.number);
+    seekAct(act.number, false);
+    activeCompassPhaseRef.current = target.phaseId;
+    setActiveCompassPhase(target.phaseId);
+    const url = new URL(window.location.href);
+    if (targetEvent) url.searchParams.set("event", targetEvent.id);
+    url.hash = target.phaseId;
+    window.history.pushState(window.history.state, "", url);
+    window.setTimeout(() => {
+      const targetElement = document.getElementById(target.phaseId);
+      targetElement?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        block: "start",
+      });
+      targetElement?.focus({ preventScroll: true });
+    }, 0);
+  }, [events, seekAct]);
+
+  const journeyChapterIndex = Math.max(0, journeyCompassChapters.findIndex(
+    (chapter) => chapter.id === currentAct.id,
+  ));
+  const journeyNextChapter = journeyCompassChapters[journeyChapterIndex + 1];
+  const journeyCompassRegistration = useMemo(() => ({
+    stage: { label: "系统总览", href: "/learn#stage-system-overview", position: 2 },
+    course: {
+      label: sampleJourneyLesson.metadata.title,
+      href: "/learn/sample-journey",
+      durationMinutes: sampleJourneyLesson.metadata.duration.maxMinutes,
+      position: 1,
+    },
+    chapters: journeyCompassChapters,
+    chapterCount: sampleJourneyLesson.acts.length,
+    chapterNoun: "幕" as const,
+    activeChapterId: currentAct.id,
+    activePhaseId: activeCompassPhase,
+    next: journeyNextChapter
+      ? { label: journeyNextChapter.shortLabel, href: `${journeyNextChapter.href}#orient` }
+      : null,
+    navigate: navigateJourneyCompass,
+  }), [
+    activeCompassPhase,
+    currentAct.id,
+    journeyCompassChapters,
+    journeyNextChapter,
+    navigateJourneyCompass,
+  ]);
+  useLearningCompassRegistration(journeyCompassRegistration);
+
+  useEffect(() => {
+    const targets: Array<[LearningCompassPhaseId, string]> = [
+      ["orient", "#journey-stage-title"],
+      ["model", `#${currentAct.id}-prediction-title`],
+      ["verify", ".journey-deep-evidence"],
+      ["practice", ".journey-act-pager"],
+    ];
+    const created = targets.flatMap(([phaseId, selector]) => {
+      const target = document.querySelector<HTMLElement>(selector);
+      if (!target || document.getElementById(phaseId)) return [];
+      const anchor = document.createElement("span");
+      anchor.id = phaseId;
+      anchor.className = "learning-phase-anchor";
+      anchor.tabIndex = -1;
+      anchor.setAttribute("aria-label", LEARNING_COMPASS_PHASES.find((phase) => phase.id === phaseId)?.label ?? phaseId);
+      target.before(anchor);
+      return [anchor];
+    });
+    const onScroll = () => {
+      let visible: LearningCompassPhaseId = "orient";
+      for (const phase of LEARNING_COMPASS_PHASES) {
+        const target = document.getElementById(phase.id);
+        if (target && target.getBoundingClientRect().top <= 150) visible = phase.id;
+      }
+      if (visible === activeCompassPhaseRef.current) return;
+      activeCompassPhaseRef.current = visible;
+      setActiveCompassPhase(visible);
+      if (journeyCompassTimerRef.current !== null) {
+        window.clearTimeout(journeyCompassTimerRef.current);
+      }
+      journeyCompassTimerRef.current = window.setTimeout(() => {
+        const url = new URL(window.location.href);
+        url.hash = visible;
+        window.history.replaceState(window.history.state, "", url);
+      }, 400);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      created.forEach((anchor) => anchor.remove());
+      if (journeyCompassTimerRef.current !== null) window.clearTimeout(journeyCompassTimerRef.current);
+    };
+  }, [currentAct.id]);
 
   return (
     <div
@@ -847,6 +1093,16 @@ export function JourneyExperience() {
         <p className="journey-storage-warning" role="status">
           当前浏览器无法保存本地进度；课程仍可完整操作，本次关闭页面后记录可能丢失。
         </p>
+      ) : null}
+
+      {progressStatus === "review_required" ? (
+        <aside className="journey-review-notice" role="status">
+          <div>
+            <strong>这门导论已经修订</strong>
+            <p>旧记录会继续保留。浏览幕次、播放事件和切换时间线都不会建立新版记录；明确开始复习或提交预测、终测时才会开始。</p>
+          </div>
+          <button type="button" onClick={beginRevisedProgress}>按新版学习</button>
+        </aside>
       ) : null}
 
       <div className={`journey-workbench ${currentAct.number === 1 ? "is-first-act" : ""}`}>
@@ -955,12 +1211,13 @@ export function JourneyExperience() {
                     className={`journey-prediction-option ${selected ? "is-selected" : ""}`}
                     type="button"
                     aria-pressed={selected}
-                    onClick={() =>
+                    onClick={() => {
+                      if (reviewPendingRef.current) beginRevisedProgress();
                       setPredictionAnswers((current) => ({
                         ...current,
                         [currentAct.id]: option.id,
-                      }))
-                    }
+                      }));
+                    }}
                     key={option.id}
                   >
                     <span aria-hidden="true" />
@@ -1431,7 +1688,6 @@ export function JourneyExperience() {
             actorVersion={journeyState.system.actor_version}
             rolloutVersion={journeyState.system.rollout_version}
             onModeChange={(mode) => {
-              reviewPendingRef.current = false;
               setTimelineMode(mode);
             }}
             onSeek={(eventId) => performAction({ type: "seek", event_id: eventId })}

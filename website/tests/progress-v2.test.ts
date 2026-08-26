@@ -160,6 +160,58 @@ describe("progress v2 schemas", () => {
     );
     expect(LocalProgressV2Schema.parse(progress)).toEqual(progress);
   });
+
+  it("keeps the first submitted learning artifact immutable and lets a skip become one submission", () => {
+    const skipped = applyLessonProgressEvent(
+      createEmptyLocalProgressV2(),
+      "core.sample-to-generation",
+      manifest,
+      {
+        type: "learning-artifact-recorded",
+        artifact_id: "chapter-1-transfer",
+        status: "skipped",
+        response: null,
+      },
+      now,
+    );
+    expect(skipped.lessons["core.sample-to-generation"]?.learning_artifacts).toEqual({
+      "chapter-1-transfer": {
+        status: "skipped",
+        response: null,
+        submitted_at: NOW,
+      },
+    });
+
+    const submitted = applyLessonProgressEvent(
+      skipped,
+      "core.sample-to-generation",
+      manifest,
+      {
+        type: "learning-artifact-recorded",
+        artifact_id: "chapter-1-transfer",
+        status: "submitted",
+        response: { type: "choice", selected_option_ids: ["option-a"] },
+      },
+      () => LATER,
+    );
+    const retried = applyLessonProgressEvent(
+      submitted,
+      "core.sample-to-generation",
+      manifest,
+      {
+        type: "learning-artifact-recorded",
+        artifact_id: "chapter-1-transfer",
+        status: "submitted",
+        response: { type: "choice", selected_option_ids: ["option-b"] },
+      },
+      () => LATEST,
+    );
+    expect(retried.lessons["core.sample-to-generation"]?.learning_artifacts?.["chapter-1-transfer"]).toEqual({
+      status: "submitted",
+      response: { type: "choice", selected_option_ids: ["option-a"] },
+      submitted_at: LATER,
+    });
+  });
 });
 
 describe("progress v2 completion", () => {
@@ -210,6 +262,33 @@ describe("progress v2 completion", () => {
         },
       ).status,
     ).toBe("review_required");
+  });
+
+  it("preserves review-required records during passive navigation until revision starts explicitly", () => {
+    const completed = completeCourse();
+    const nextManifest = { ...manifest, lesson_revision: manifest.lesson_revision + 1 };
+    const passive = applyLessonProgressEvent(
+      completed,
+      "core.sample-to-generation",
+      nextManifest,
+      { type: "section-visited", section_id: "chapter-1" },
+      () => LATER,
+    );
+    expect(passive).toEqual(completed);
+
+    const started = applyLessonProgressEvent(
+      passive,
+      "core.sample-to-generation",
+      nextManifest,
+      { type: "revision-started" },
+      () => LATER,
+    );
+    expect(started.lessons["core.sample-to-generation"]).toMatchObject({
+      lesson_revision: nextManifest.lesson_revision,
+      visited_sections: [],
+      exercise_attempts: {},
+      learning_artifacts: {},
+    });
   });
 
   it("keeps a pass sticky for later attempts in the same version", () => {
@@ -480,6 +559,10 @@ describe("progress v2 completion", () => {
   });
 
   it("marks revision-four chapter-three progress for review and starts the current exercise cleanly", () => {
+    const currentChapterThreeExerciseId = sampleToGenerationProgressManifest.completion.required_exercise_ids.find(
+      (exerciseId) => exerciseId.startsWith("stg.chapter-3-"),
+    );
+    expect(currentChapterThreeExerciseId).toBeDefined();
     const revisionFourManifest = {
       ...sampleToGenerationProgressManifest,
       lesson_revision: 4,
@@ -488,7 +571,7 @@ describe("progress v2 completion", () => {
         required_exercise_ids:
           sampleToGenerationProgressManifest.completion.required_exercise_ids.map(
             (exerciseId) =>
-              exerciseId === "stg.chapter-3-identity-matrix-v2"
+              exerciseId === currentChapterThreeExerciseId
                 ? "stg.chapter-3-gate"
                 : exerciseId,
           ),
@@ -544,7 +627,7 @@ describe("progress v2 completion", () => {
       sampleToGenerationProgressManifest,
       {
         type: "exercise-submitted",
-        exercise_id: "stg.chapter-3-identity-matrix-v2",
+        exercise_id: currentChapterThreeExerciseId!,
         response: { type: "field-entry", values: answer },
         passed: true,
       },
@@ -554,7 +637,7 @@ describe("progress v2 completion", () => {
       lesson_revision: sampleToGenerationProgressManifest.lesson_revision,
       final_assessment: null,
       exercise_attempts: {
-        "stg.chapter-3-identity-matrix-v2": {
+        [currentChapterThreeExerciseId!]: {
           attempt_count: 1,
           passed: true,
           last_response: { type: "field-entry", values: answer },
@@ -1087,7 +1170,7 @@ describe("progress v2 completion", () => {
 
     const legacyLesson = legacyProgress.lessons["core.sample-to-generation"];
     expect(legacyLesson).toMatchObject({
-      lesson_revision: 8,
+      lesson_revision: sampleToGenerationProgressManifest.lesson_revision,
       visited_sections: [...sampleToGenerationProgressManifest.completion.required_section_ids],
       final_assessment: {
         assessment_version: 1,
@@ -1129,7 +1212,7 @@ describe("progress v2 completion", () => {
     );
     const v2Lesson = submittedV2.lessons["core.sample-to-generation"];
     expect(v2Lesson).toMatchObject({
-      lesson_revision: 8,
+      lesson_revision: sampleToGenerationProgressManifest.lesson_revision,
       visited_sections: [...sampleToGenerationProgressManifest.completion.required_section_ids],
       final_assessment: {
         assessment_version: 2,
@@ -1179,6 +1262,68 @@ describe("progress v2 completion", () => {
 });
 
 describe("progress v2 storage and migration", () => {
+  it("restores a skipped-then-submitted artifact after a storage round trip", () => {
+    const { storage } = createStorage();
+    let progress = applyLessonProgressEvent(
+      createEmptyLocalProgressV2(),
+      "core.sample-to-generation",
+      manifest,
+      {
+        type: "learning-artifact-recorded",
+        artifact_id: "chapter-3-first-judgement",
+        status: "skipped",
+        response: null,
+      },
+      now,
+    );
+    progress = applyLessonProgressEvent(
+      progress,
+      "core.sample-to-generation",
+      manifest,
+      {
+        type: "learning-artifact-recorded",
+        artifact_id: "chapter-3-first-judgement",
+        status: "submitted",
+        response: {
+          type: "mapping",
+          assignments: { split_group_members: "relationship" },
+        },
+      },
+      () => LATER,
+    );
+    saveLocalProgressV2(storage, progress);
+
+    expect(
+      loadLocalProgressV2(storage, () => LATEST).lessons[
+        "core.sample-to-generation"
+      ]?.learning_artifacts?.["chapter-3-first-judgement"],
+    ).toEqual({
+      status: "submitted",
+      response: {
+        type: "mapping",
+        assignments: { split_group_members: "relationship" },
+      },
+      submitted_at: LATER,
+    });
+  });
+
+  it("normalizes a valid pre-artifact v2 lesson with an empty artifact record", () => {
+    const current = completeCourse();
+    const lesson = current.lessons["core.sample-to-generation"]!;
+    const preArtifactLesson = { ...lesson };
+    delete preArtifactLesson.learning_artifacts;
+    const { storage } = createStorage({
+      [LOCAL_PROGRESS_V2_STORAGE_KEY]: JSON.stringify({
+        ...current,
+        lessons: { "core.sample-to-generation": preArtifactLesson },
+      }),
+    });
+    expect(
+      loadLocalProgressV2(storage, now).lessons["core.sample-to-generation"]
+        ?.learning_artifacts,
+    ).toEqual({});
+  });
+
   it("prefers valid v2 and never reads or removes the legacy value", () => {
     const v2 = completeCourse();
     const legacy = JSON.stringify({ schema_version: 0 });
@@ -1224,6 +1369,7 @@ describe("progress v2 storage and migration", () => {
     const migrated = loadLocalProgressV2(storage, now);
     expect(migrated.lessons["core.sample-journey"]).toMatchObject({
       lesson_revision: 7,
+      learning_artifacts: {},
       visited_sections: ["act-1", "act-2", "act-3"],
       updated_at: NOW,
       resume: {
@@ -1259,6 +1405,7 @@ describe("progress v2 storage and migration", () => {
     const migrated = loadLocalProgressV2(storage, now);
     expect(migrated.lessons["core.sample-journey"]).toMatchObject({
       lesson_revision: 7,
+      learning_artifacts: {},
       visited_sections: [
         "act-1",
         "act-2",

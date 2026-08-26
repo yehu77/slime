@@ -12,24 +12,29 @@ import {
   gradeFinalAssessment,
   sampleToGenerationFixture,
   seekSampleToGeneration,
+  type GroupingInitialJudgementSubmission,
+  type GroupingInvestigationSubmission,
   type StructuredExerciseAnswer,
 } from "../../core/sample-to-generation";
 import {
-  applyLessonProgressEvent,
-  createEmptyLocalProgressV2,
   evaluateLessonProgressV2,
-  loadLocalProgressV2,
-  saveLocalProgressV2,
-  type LocalProgressV2,
+  recordLearningProgress,
+  useLearningProgress,
   type ProgressEvent,
   type StructuredExerciseResponse,
 } from "../../core/progress";
+import {
+  LEARNING_COMPASS_PHASES,
+  useLearningCompassRegistration,
+  type LearningCompassPhaseId,
+  type LearningCompassTarget,
+} from "../site/learning-compass-store";
 import { GuidedSourceExcerpt } from "./GuidedSourceExcerpt";
 import {
   ChapterOneTranslationDesk,
 } from "./ChapterOneTranslationDesk";
 import { ChapterTwoProvenanceRelay } from "./ChapterTwoProvenanceRelay";
-import { ChapterThreeGroupingLab } from "./ChapterThreeGroupingLab";
+import { ChapterThreeGroupingInvestigation } from "./ChapterThreeGroupingInvestigation";
 import { ChapterFourRequestBoundary } from "./ChapterFourRequestBoundary";
 import { ChapterFiveResponseEvidence } from "./ChapterFiveResponseEvidence";
 import { ChapterSixWritebackCalibration } from "./ChapterSixWritebackCalibration";
@@ -44,6 +49,10 @@ import {
 } from "./chapter-reader-contracts";
 import { SampleStateDrawer } from "./SampleStateDrawer";
 import { StructuredExercise as StructuredExerciseView } from "./StructuredExercise";
+import {
+  SAMPLE_TO_GENERATION_PHASE_SELECTORS,
+  sampleToGenerationPhasesFor,
+} from "./sample-to-generation-compass";
 import "./mechanism-course.css";
 
 type SampleToGenerationExperienceProps = {
@@ -86,6 +95,7 @@ const observationLabels: Readonly<Record<string, string>> = {
 };
 
 const progressManifest = sampleToGenerationProgressManifest;
+const compassPhaseIds = new Set<string>(LEARNING_COMPASS_PHASES.map((phase) => phase.id));
 
 function toStoredResponse(answer: StructuredExerciseAnswer): StructuredExerciseResponse {
   switch (answer.kind) {
@@ -116,6 +126,57 @@ function fromStoredResponse(
   }
 }
 
+const groupingSubmissionField = "grouping_investigation_v3";
+const groupingInitialJudgementField = "grouping_initial_judgement_v1";
+
+function parseStoredJson<T>(value: string | undefined): T | undefined {
+  if (!value) return undefined;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed as T
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function toStoredGroupingSubmission(
+  submission: GroupingInvestigationSubmission,
+): StructuredExerciseResponse {
+  return {
+    type: "field-entry",
+    values: { [groupingSubmissionField]: JSON.stringify(submission) },
+  };
+}
+
+function fromStoredGroupingSubmission(
+  response: StructuredExerciseResponse | undefined,
+): GroupingInvestigationSubmission | undefined {
+  if (response?.type !== "field-entry") return undefined;
+  return parseStoredJson<GroupingInvestigationSubmission>(
+    response.values[groupingSubmissionField],
+  );
+}
+
+function toStoredGroupingInitialJudgement(
+  response: GroupingInitialJudgementSubmission,
+): StructuredExerciseResponse {
+  return {
+    type: "field-entry",
+    values: { [groupingInitialJudgementField]: JSON.stringify(response) },
+  };
+}
+
+function fromStoredGroupingInitialJudgement(
+  response: StructuredExerciseResponse | null | undefined,
+): GroupingInitialJudgementSubmission | undefined {
+  if (response?.type !== "field-entry") return undefined;
+  return parseStoredJson<GroupingInitialJudgementSubmission>(
+    response.values[groupingInitialJudgementField],
+  );
+}
+
 function statusLabel(status: ReturnType<typeof evaluateLessonProgressV2>["status"]) {
   switch (status) {
     case "not_started": return "尚未开始";
@@ -125,8 +186,9 @@ function statusLabel(status: ReturnType<typeof evaluateLessonProgressV2>["status
   }
 }
 
-function sectionUrl(slug: string | null) {
-  return slug ? `/learn/sample-to-generation?chapter=${encodeURIComponent(slug)}` : "/learn/sample-to-generation";
+function sectionUrl(slug: string | null, phaseId?: LearningCompassPhaseId | null) {
+  const route = slug ? `/learn/sample-to-generation?chapter=${encodeURIComponent(slug)}` : "/learn/sample-to-generation";
+  return phaseId ? `${route}#${phaseId}` : route;
 }
 
 function CourseCover({
@@ -149,7 +211,7 @@ function CourseCover({
           <i /><i /><i /><i />
         </div>
         <div className="mechanism-cover-copy">
-          <p className="mechanism-kicker">88 分钟机制课 · 无需 GPU · 固定 commit 06ffdbe2</p>
+          <p className="mechanism-kicker">{course.metadata.durationMinutes.total} 分钟机制课 · 无需 GPU · 固定 commit 06ffdbe2</p>
           <h1 id="mechanism-cover-title" tabIndex={-1}>{course.metadata.title}</h1>
           <p className="mechanism-cover-summary">{course.metadata.summary}</p>
           <blockquote>
@@ -174,8 +236,8 @@ function CourseCover({
         </div>
         <dl className="mechanism-cover-facts">
           <div><dt>学习状态</dt><dd>{statusLabel(status)}</dd></div>
-          <div><dt>章节</dt><dd>6 章 · 共 78 min</dd></div>
-          <div><dt>终测</dt><dd>8 题 · 10 min</dd></div>
+          <div><dt>章节</dt><dd>{course.chapters.length} 章 · 共 {course.metadata.durationMinutes.chapters} min</dd></div>
+          <div><dt>终测</dt><dd>{course.finalAssessment.checkpoints.length} 题 · {course.metadata.durationMinutes.assessment} min</dd></div>
           <div><dt>完成条件</dt><dd>六章访问与练习通过；终测 7/8 + 四道必答</dd></div>
         </dl>
       </section>
@@ -242,126 +304,121 @@ export function SampleToGenerationExperience({
       ? initialChapterSlug
       : null,
   );
-  const [progress, setProgress] = useState<LocalProgressV2>(() => createEmptyLocalProgressV2());
-  const [progressHydrated, setProgressHydrated] = useState(false);
+  const { progress, hydrated: progressHydrated, persistenceUnavailable } = useLearningProgress();
+  const initialHash = typeof window === "undefined" ? "" : window.location.hash.slice(1);
+  const [activePhaseId, setActivePhaseId] = useState<LearningCompassPhaseId>(() =>
+    compassPhaseIds.has(initialHash) ? initialHash as LearningCompassPhaseId : "orient",
+  );
+  const activePhaseRef = useRef<LearningCompassPhaseId>(
+    compassPhaseIds.has(initialHash) ? initialHash as LearningCompassPhaseId : "orient",
+  );
+  const [invalidHash, setInvalidHash] = useState(() => Boolean(initialHash) && !compassPhaseIds.has(initialHash));
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [assessmentAnswers, setAssessmentAnswers] = useState<Record<string, StructuredExerciseAnswer>>({});
   const [assessmentResult, setAssessmentResult] = useState<ReturnType<typeof gradeFinalAssessment> | null>(null);
   const chapterHeadingRef = useRef<HTMLHeadingElement>(null);
   const drawerTriggerRef = useRef<HTMLButtonElement>(null);
-  const railListRef = useRef<HTMLOListElement>(null);
+  const passiveHistoryTimerRef = useRef<number | null>(null);
+  const passiveReleaseTimerRef = useRef<number | null>(null);
+  const phaseScrollFrameRef = useRef<number | null>(null);
+  const initialHydrationRecordedRef = useRef(false);
+  const suppressPassiveProgressRef = useRef(false);
 
   useEffect(() => {
-    if (!activeSlug || activeSlug === assessmentSlug) return;
-    const rail = railListRef.current;
-    const current = rail?.querySelector<HTMLElement>(
-      `[data-chapter-slug="${activeSlug}"]`,
-    );
-    if (!rail || !current) return;
-    const left = current.offsetLeft - (rail.clientWidth - current.clientWidth) / 2;
-    rail.scrollTo({
-      left: Math.max(0, left),
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        ? "auto"
-        : "smooth",
-    });
-  }, [activeSlug]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      let loaded = loadLocalProgressV2(window.localStorage);
-      const loadedEvaluation = evaluateLessonProgressV2(
-        loaded.lessons[course.metadata.id],
-        progressManifest,
-      );
-      const directChapter = initialChapterSlug
-        ? chapterBySlug.get(initialChapterSlug)
-        : undefined;
-      if (directChapter && loadedEvaluation.status !== "review_required") {
-        loaded = applyLessonProgressEvent(
-          loaded,
-          course.metadata.id,
-          progressManifest,
-          { type: "section-visited", section_id: directChapter.id },
-        );
-        loaded = applyLessonProgressEvent(
-          loaded,
-          course.metadata.id,
-          progressManifest,
-          {
-            type: "resume-updated",
-            resume: {
-              kind: "chaptered",
-              chapter_id: directChapter.id,
-              section_id: window.location.hash.slice(1) || null,
-            },
-          },
-        );
-        try {
-          saveLocalProgressV2(window.localStorage, loaded);
-        } catch {
-          // Reading and exercises remain available without persistence.
-        }
-      }
-      setProgress(loaded);
-      setProgressHydrated(true);
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [initialChapterSlug]);
+    if (!progressHydrated || initialHydrationRecordedRef.current) return;
+    initialHydrationRecordedRef.current = true;
+    if (invalidHash) return;
+    const directChapter = initialChapterSlug
+      ? chapterBySlug.get(initialChapterSlug)
+      : undefined;
+    if (!directChapter) return;
+    recordLearningProgress(course.metadata.id, progressManifest, [
+      { type: "section-visited", section_id: directChapter.id },
+      {
+        type: "resume-updated",
+        resume: {
+          kind: "chaptered",
+          chapter_id: directChapter.id,
+          section_id: activePhaseId,
+        },
+      },
+    ]);
+  }, [activePhaseId, initialChapterSlug, invalidHash, progressHydrated]);
 
   const record = useCallback((events: readonly ProgressEvent[]) => {
-    setProgress((current) => {
-      let next = current;
-      for (const event of events) {
-        next = applyLessonProgressEvent(next, course.metadata.id, progressManifest, event);
-      }
-      try {
-        saveLocalProgressV2(window.localStorage, next);
-      } catch {
-        // The course remains usable when local persistence is unavailable.
-      }
-      return next;
-    });
+    recordLearningProgress(course.metadata.id, progressManifest, events);
   }, []);
 
-  const openSection = useCallback((slug: string, historyMode: "push" | "replace" = "push") => {
+  const recordExplicit = useCallback((events: readonly ProgressEvent[]) => {
+    recordLearningProgress(course.metadata.id, progressManifest, [
+      { type: "revision-started" },
+      ...events,
+    ]);
+  }, []);
+
+  const scrollToPhase = useCallback((slug: string, phaseId: LearningCompassPhaseId, focusTitle = false) => {
+    suppressPassiveProgressRef.current = true;
+    if (passiveReleaseTimerRef.current !== null) {
+      window.clearTimeout(passiveReleaseTimerRef.current);
+    }
+    passiveReleaseTimerRef.current = window.setTimeout(() => {
+      suppressPassiveProgressRef.current = false;
+      passiveReleaseTimerRef.current = null;
+    }, 1000);
+    window.setTimeout(() => {
+      const selector = SAMPLE_TO_GENERATION_PHASE_SELECTORS[slug]?.[phaseId];
+      const target = selector ? document.querySelector<HTMLElement>(selector) : null;
+      const anchor = document.getElementById(phaseId);
+      if (focusTitle) {
+        const focusTarget = target ?? chapterHeadingRef.current;
+        if (focusTarget) {
+          const previousTabIndex = focusTarget.getAttribute("tabindex");
+          focusTarget.setAttribute("tabindex", "-1");
+          focusTarget.focus({ preventScroll: true });
+          if (previousTabIndex !== null) {
+            focusTarget.setAttribute("tabindex", previousTabIndex);
+          }
+        }
+      }
+      (target ?? anchor ?? chapterHeadingRef.current)?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        block: "start",
+      });
+    }, 0);
+  }, []);
+
+  const openSection = useCallback((
+    slug: string,
+    phaseId: LearningCompassPhaseId = "orient",
+    historyMode: "push" | "replace" = "push",
+    recordVisit = true,
+  ) => {
     const chapter = chapterBySlug.get(slug);
     const valid = Boolean(chapter) || slug === assessmentSlug;
     setInvalidChapter(valid ? null : slug);
     setActiveSlug(valid ? slug : null);
-    const nextUrl = sectionUrl(valid ? slug : null);
+    setActivePhaseId(phaseId);
+    activePhaseRef.current = phaseId;
+    setInvalidHash(false);
+    const nextUrl = sectionUrl(valid ? slug : null, valid ? phaseId : null);
     window.history[historyMode === "push" ? "pushState" : "replaceState"]({}, "", nextUrl);
-    if (chapter) {
+    if (chapter && recordVisit) {
       record([
         { type: "section-visited", section_id: chapter.id },
-        { type: "resume-updated", resume: { kind: "chaptered", chapter_id: chapter.id, section_id: null } },
+        { type: "resume-updated", resume: { kind: "chaptered", chapter_id: chapter.id, section_id: phaseId } },
       ]);
     }
-    window.setTimeout(() => {
-      chapterHeadingRef.current?.focus({ preventScroll: true });
-      window.scrollTo({
-        top: 0,
-        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
-      });
-    }, 0);
-  }, [record]);
-
-  const openCover = useCallback((historyMode: "push" | "replace" = "push") => {
-    setActiveSlug(null);
-    setInvalidChapter(null);
-    window.history[historyMode === "push" ? "pushState" : "replaceState"]({}, "", sectionUrl(null));
-    window.setTimeout(() => {
-      document.getElementById("mechanism-cover-title")?.focus({ preventScroll: true });
-      window.scrollTo({
-        top: 0,
-        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
-      });
-    }, 0);
-  }, []);
+    if (valid) scrollToPhase(slug, phaseId, true);
+    else window.scrollTo({ top: 0, behavior: "auto" });
+  }, [record, scrollToPhase]);
 
   useEffect(() => {
     const syncFromLocation = () => {
-      const requested = new URL(window.location.href).searchParams.get("chapter");
+      const location = new URL(window.location.href);
+      const requested = location.searchParams.get("chapter");
+      const requestedHash = location.hash.slice(1);
+      const validPhase = compassPhaseIds.has(requestedHash);
+      suppressPassiveProgressRef.current = Boolean(requestedHash) && !validPhase;
       if (!requested) {
         setActiveSlug(null);
         setInvalidChapter(null);
@@ -372,27 +429,24 @@ export function SampleToGenerationExperience({
         setActiveSlug(null);
         setInvalidChapter(requested);
       }
+      setInvalidHash(Boolean(requestedHash) && !validPhase);
+      setActivePhaseId(validPhase ? requestedHash as LearningCompassPhaseId : "orient");
+      activePhaseRef.current = validPhase ? requestedHash as LearningCompassPhaseId : "orient";
       window.setTimeout(() => {
         const heading = requested && (chapterBySlug.has(requested) || requested === assessmentSlug)
           ? chapterHeadingRef.current
           : document.getElementById("mechanism-cover-title");
         heading?.focus({ preventScroll: true });
-        window.scrollTo({ top: 0, behavior: "auto" });
+        if (requested && (chapterBySlug.has(requested) || requested === assessmentSlug) && validPhase) {
+          scrollToPhase(requested, requestedHash as LearningCompassPhaseId, true);
+        } else {
+          window.scrollTo({ top: 0, behavior: "auto" });
+        }
       }, 0);
     };
     window.addEventListener("popstate", syncFromLocation);
     return () => window.removeEventListener("popstate", syncFromLocation);
-  }, []);
-
-  useEffect(() => {
-    if (!activeSlug || activeSlug === assessmentSlug) return;
-    const railItem = document.querySelector<HTMLElement>(`[data-chapter-slug="${activeSlug}"]`);
-    railItem?.scrollIntoView({
-      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
-      block: "nearest",
-      inline: "center",
-    });
-  }, [activeSlug]);
+  }, [scrollToPhase]);
 
   const lessonProgress = progress.lessons[course.metadata.id];
   const evaluation = evaluateLessonProgressV2(lessonProgress, progressManifest);
@@ -401,6 +455,171 @@ export function SampleToGenerationExperience({
     if (resume?.kind !== "chaptered") return undefined;
     return course.chapters.find((chapter) => chapter.id === resume.chapter_id);
   }, [lessonProgress]);
+
+  const compassChapters = useMemo(() => [
+    ...course.chapters.map((chapter) => ({
+      id: chapter.id,
+      label: `第 ${chapter.number} 章 · ${chapter.title}`,
+      shortLabel: `${String(chapter.number).padStart(2, "0")} · ${chapter.shortTitle}`,
+      durationMinutes: chapter.durationMinutes,
+      href: sectionUrl(chapter.slug),
+      phases: sampleToGenerationPhasesFor(chapter.slug),
+      position: chapter.number,
+    })),
+    {
+      id: assessmentSlug,
+      label: "综合终测 · 找到第一处失真",
+      shortLabel: "FINAL · 综合终测",
+      durationMinutes: course.metadata.durationMinutes.assessment,
+      href: sectionUrl(assessmentSlug),
+      phases: sampleToGenerationPhasesFor(assessmentSlug),
+      position: "final" as const,
+    },
+  ], []);
+
+  const navigateFromCompass = useCallback((target: LearningCompassTarget) => {
+    const slug = target.chapterId === assessmentSlug
+      ? assessmentSlug
+      : course.chapters.find((chapter) => chapter.id === target.chapterId)?.slug;
+    if (slug) openSection(slug, target.phaseId, "push", true);
+  }, [openSection]);
+
+  const activeCompassChapterId = activeSlug === assessmentSlug
+    ? assessmentSlug
+    : chapterBySlug.get(activeSlug ?? "")?.id ?? course.chapters[0].id;
+  const activeCompassIndex = compassChapters.findIndex(
+    (chapter) => chapter.id === activeCompassChapterId,
+  );
+  const activePhaseIndex = LEARNING_COMPASS_PHASES.findIndex(
+    (phase) => phase.id === activePhaseId,
+  );
+  const compassNext = useMemo(() => {
+    const nextPhase = compassChapters[activeCompassIndex]?.phases[activePhaseIndex + 1];
+    const nextCompassChapter = compassChapters[activeCompassIndex + 1];
+    return nextPhase
+      ? {
+          label: nextPhase.label,
+          href: `${compassChapters[activeCompassIndex]?.href ?? sectionUrl(course.chapters[0].slug)}#${nextPhase.id}`,
+        }
+      : nextCompassChapter
+        ? { label: nextCompassChapter.shortLabel, href: `${nextCompassChapter.href}#orient` }
+        : null;
+  }, [activeCompassIndex, activePhaseIndex, compassChapters]);
+  const compassRegistration = useMemo(() => ({
+    stage: { label: "核心机制", href: "/learn#stage-core-mechanisms", position: 3 },
+    course: {
+      label: course.metadata.title,
+      href: sectionUrl(null),
+      durationMinutes: course.metadata.durationMinutes.total,
+      position: 1,
+    },
+    chapters: compassChapters,
+    chapterCount: course.chapters.length,
+    activeChapterId: activeCompassChapterId,
+    activePhaseId,
+    next: compassNext,
+    navigate: navigateFromCompass,
+  }), [
+    activeCompassChapterId,
+    activePhaseId,
+    compassChapters,
+    compassNext,
+    navigateFromCompass,
+  ]);
+  useLearningCompassRegistration(compassRegistration);
+
+  useEffect(() => {
+    if (!activeSlug) return;
+    const selectors = SAMPLE_TO_GENERATION_PHASE_SELECTORS[activeSlug];
+    if (!selectors) return;
+    const anchors = LEARNING_COMPASS_PHASES.flatMap((phase) => {
+      if (document.getElementById(phase.id)) return [];
+      const target = document.querySelector<HTMLElement>(selectors[phase.id]);
+      if (!target) return [];
+      const anchor = document.createElement("span");
+      anchor.id = phase.id;
+      anchor.className = "learning-phase-anchor";
+      anchor.tabIndex = -1;
+      anchor.setAttribute("aria-label", sampleToGenerationPhasesFor(activeSlug)[LEARNING_COMPASS_PHASES.indexOf(phase)]?.label ?? phase.label);
+      target.before(anchor);
+      return [anchor];
+    });
+    return () => anchors.forEach((anchor) => anchor.remove());
+  }, [activeSlug]);
+
+  useEffect(() => {
+    if (!activeSlug || !progressHydrated) return;
+    if (invalidHash) {
+      suppressPassiveProgressRef.current = true;
+      window.history.replaceState(window.history.state, "", sectionUrl(activeSlug));
+      window.scrollTo({ top: 0, behavior: "auto" });
+      window.setTimeout(() => {
+        chapterHeadingRef.current?.focus({ preventScroll: true });
+        setInvalidHash(false);
+      }, 0);
+      return;
+    }
+    const locationPhase = window.location.hash.slice(1);
+    if (compassPhaseIds.has(locationPhase)) {
+      scrollToPhase(activeSlug, locationPhase as LearningCompassPhaseId, true);
+    }
+  }, [activeSlug, invalidHash, progressHydrated, scrollToPhase]);
+
+  useEffect(() => {
+    if (!activeSlug || invalidHash) return;
+    const selectors = SAMPLE_TO_GENERATION_PHASE_SELECTORS[activeSlug];
+    if (!selectors) return;
+    const findVisiblePhase = () => {
+      phaseScrollFrameRef.current = null;
+      let visible: LearningCompassPhaseId = "orient";
+      for (const phase of LEARNING_COMPASS_PHASES) {
+        const target = document.getElementById(phase.id);
+        if (target && target.getBoundingClientRect().top <= 150) visible = phase.id;
+      }
+      if (visible === activePhaseRef.current) return;
+      activePhaseRef.current = visible;
+      setActivePhaseId(visible);
+      if (passiveHistoryTimerRef.current !== null) {
+        window.clearTimeout(passiveHistoryTimerRef.current);
+      }
+      passiveHistoryTimerRef.current = window.setTimeout(() => {
+        if (suppressPassiveProgressRef.current) return;
+        window.history.replaceState(window.history.state, "", sectionUrl(activeSlug, visible));
+        const chapterId = activeSlug === assessmentSlug
+          ? assessmentSlug
+          : chapterBySlug.get(activeSlug)?.id;
+        if (chapterId) {
+          const events: ProgressEvent[] = [];
+          if (chapterId !== assessmentSlug) {
+            events.push({ type: "section-visited", section_id: chapterId });
+          }
+          events.push({
+            type: "resume-updated",
+            resume: { kind: "chaptered", chapter_id: chapterId, section_id: visible },
+          });
+          record(events);
+        }
+      }, 400);
+    };
+    const onScroll = () => {
+      if (phaseScrollFrameRef.current === null) {
+        phaseScrollFrameRef.current = window.requestAnimationFrame(findVisiblePhase);
+      }
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (phaseScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(phaseScrollFrameRef.current);
+      }
+      if (passiveHistoryTimerRef.current !== null) {
+        window.clearTimeout(passiveHistoryTimerRef.current);
+      }
+      if (passiveReleaseTimerRef.current !== null) {
+        window.clearTimeout(passiveReleaseTimerRef.current);
+      }
+    };
+  }, [activeSlug, invalidHash, record]);
 
   if (!activeSlug) {
     return (
@@ -423,9 +642,26 @@ export function SampleToGenerationExperience({
   const hasChapterFourReader = hasChapterFourRequestBoundaryData(chapter);
   const hasChapterFiveReader = hasChapterFiveResponseEvidenceData(chapter);
   const hasChapterSixReader = hasChapterSixWritebackData(chapter);
-  const hasAssessmentReader = activeSlug === assessmentSlug;
-  const hasDedicatedReader = hasChapterOneReader || hasChapterTwoReader || hasChapterThreeReader || hasChapterFourReader || hasChapterFiveReader || hasChapterSixReader || hasAssessmentReader;
-
+  const chapterThreeManifest = chapter && hasChapterThreeReader
+    ? chapter.groupingInvestigation
+    : null;
+  const groupingInitialArtifact = chapterThreeManifest
+    ? lessonProgress?.learning_artifacts?.[chapterThreeManifest.phases[0].judgement.id]
+    : undefined;
+  const storedGroupingExercise = chapterThreeManifest
+    ? fromStoredGroupingSubmission(chapterProgress?.last_response)
+    : undefined;
+  const storedGroupingInitialJudgement = fromStoredGroupingInitialJudgement(
+    groupingInitialArtifact?.response,
+  );
+  const storedGroupingSubmission = storedGroupingExercise || storedGroupingInitialJudgement
+    ? {
+        ...storedGroupingExercise,
+        ...(storedGroupingInitialJudgement
+          ? { initialJudgement: storedGroupingInitialJudgement }
+          : {}),
+      }
+    : undefined;
   const state = chapter
     ? seekSampleToGeneration(
         sampleToGenerationFixture,
@@ -448,7 +684,7 @@ export function SampleToGenerationExperience({
     );
     const result = gradeFinalAssessment(exercises, assessmentAnswers, course.completion);
     setAssessmentResult(result);
-    record([{
+    recordExplicit([{
       type: "assessment-submitted",
       correct_question_ids: result.grades.filter((grade) => grade.correct).map((grade) => grade.exerciseId),
     }]);
@@ -460,7 +696,7 @@ export function SampleToGenerationExperience({
           exercise={chapter.exercise}
           initialAnswer={fromStoredResponse(chapterProgress?.last_response)}
           key={chapter.exercise.id}
-          onGrade={(exercise, answer, grade) => record([
+          onGrade={(exercise, answer, grade) => recordExplicit([
             { type: "section-visited", section_id: chapter.id },
             {
               type: "resume-updated",
@@ -483,54 +719,31 @@ export function SampleToGenerationExperience({
 
   return (
     <div className="mechanism-course">
-      <nav className={`mechanism-rail${hasDedicatedReader ? " mechanism-rail--reader" : ""}`} aria-label="课程六章与状态账本">
-        <a className="mechanism-rail-cover" href="/learn/sample-to-generation" onClick={(event) => { event.preventDefault(); openCover(); }}>
-          <span>CORE / 01</span><strong>课程封面</strong>
-        </a>
-        <ol ref={railListRef}>
-          {course.chapters.map((item) => {
-            const passed = Boolean(lessonProgress?.exercise_attempts[item.exercise.id]?.passed);
-            return (
-              <li key={item.id} data-chapter-slug={item.slug}>
-                <button
-                  type="button"
-                  className={item.slug === activeSlug ? "is-current" : ""}
-                  aria-current={item.slug === activeSlug ? "step" : undefined}
-                  onClick={() => openSection(item.slug)}
-                >
-                  <b>{String(item.number).padStart(2, "0")}</b>
-                  <span><strong>{item.shortTitle}</strong><small>{passed ? "练习已通过" : `${item.durationMinutes} min`}</small></span>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-        <button
-          aria-current={activeSlug === assessmentSlug ? "step" : undefined}
-          className={`mechanism-rail-final${activeSlug === assessmentSlug ? " is-current" : ""}`}
-          type="button"
-          onClick={() => openSection(assessmentSlug)}
-        >
-          <span>FINAL</span><strong>终测</strong>
-        </button>
-        {!hasDedicatedReader ? (
-          <button
-            aria-label={chapter ? `打开 ${drawerSampleId} 状态账本` : "终测没有单章状态账本"}
-            className="mechanism-rail-state"
-            disabled={!chapter}
-            ref={drawerTriggerRef}
-            type="button"
-            onClick={() => setDrawerOpen(true)}
-          >
-            <span>STATE</span><strong>{chapter ? `${drawerSampleId} 账本` : "无单章状态"}</strong>
-          </button>
-        ) : null}
-      </nav>
-
       <div className="mechanism-course-content">
         {evaluation.status === "review_required" ? (
-          <p className="mechanism-review-notice" role="status">
-            这门课已经更新。旧完成记录仍被保留；你可以先阅读新版内容，直到明确切换章节或提交练习时才开始记录新版进度。
+          <div className="mechanism-review-notice" role="status">
+            <p>这门课已经更新。旧完成记录仍被保留；浏览章节不会覆盖它。提交练习会直接记录新版进度。</p>
+            <button
+              type="button"
+              onClick={() => {
+                const chapterId = chapter?.id ?? assessmentSlug;
+                record([
+                  { type: "revision-started" },
+                  ...(chapter ? [{ type: "section-visited", section_id: chapter.id } as const] : []),
+                  {
+                    type: "resume-updated",
+                    resume: { kind: "chaptered", chapter_id: chapterId, section_id: activePhaseId },
+                  },
+                ]);
+              }}
+            >
+              按新版学习
+            </button>
+          </div>
+        ) : null}
+        {persistenceUnavailable ? (
+          <p className="mechanism-query-notice" role="status">
+            当前浏览器无法保存本地进度；课程仍可完整阅读与练习。
           </p>
         ) : null}
         {chapter && hasChapterOneReader ? (
@@ -555,15 +768,55 @@ export function SampleToGenerationExperience({
             passed={Boolean(chapterProgress?.passed)}
           />
         ) : chapter && hasChapterThreeReader ? (
-          <ChapterThreeGroupingLab
-            chapter={chapter}
-            exerciseSlot={chapterExercise}
-            headingRef={chapterHeadingRef}
-            triggerRef={drawerTriggerRef}
-            onNext={() => openSection(course.chapters[3].slug)}
-            onOpenDrawer={() => setDrawerOpen(true)}
-            onPrevious={() => openSection(course.chapters[1].slug)}
-            passed={Boolean(chapterProgress?.passed)}
+          <ChapterThreeGroupingInvestigation
+              chapter={chapter}
+              headingRef={chapterHeadingRef}
+              initialArtifact={groupingInitialArtifact}
+              storedSubmission={storedGroupingSubmission}
+              triggerRef={drawerTriggerRef}
+              onNext={() => openSection(course.chapters[3].slug)}
+              onOpenDrawer={() => setDrawerOpen(true)}
+              onPrevious={() => openSection(course.chapters[1].slug)}
+              onRecordInitialJudgement={(response, skipped) => {
+                const artifactId = chapter.groupingInvestigation.phases[0].judgement.id;
+                recordExplicit([
+                  { type: "section-visited", section_id: chapter.id },
+                  {
+                    type: "resume-updated",
+                    resume: {
+                      kind: "chaptered",
+                      chapter_id: chapter.id,
+                      section_id: "orient",
+                    },
+                  },
+                  {
+                    type: "learning-artifact-recorded",
+                    artifact_id: artifactId,
+                    status: skipped ? "skipped" : "submitted",
+                    response: response
+                      ? toStoredGroupingInitialJudgement(response)
+                      : null,
+                  },
+                ]);
+              }}
+              onSubmitInvestigation={(submission, grade) => recordExplicit([
+                { type: "section-visited", section_id: chapter.id },
+                {
+                  type: "resume-updated",
+                  resume: {
+                    kind: "chaptered",
+                    chapter_id: chapter.id,
+                    section_id: "practice",
+                  },
+                },
+                {
+                  type: "exercise-submitted",
+                  exercise_id: chapter.exercise.id,
+                  response: toStoredGroupingSubmission(submission),
+                  passed: grade.correct,
+                },
+              ])}
+              passed={Boolean(chapterProgress?.passed)}
           />
         ) : chapter && hasChapterFourReader ? (
           <ChapterFourRequestBoundary
