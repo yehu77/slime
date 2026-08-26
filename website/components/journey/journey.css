@@ -2442,6 +2442,57 @@ button.journey-time-block {
   padding: 0.6rem;
 }
 
+.journey-review-notice {
+  align-items: center;
+  background: #fff9e7;
+  border: 1px solid rgb(115 91 28 / 30%);
+  border-radius: 18px;
+  color: #3f4c43;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+  margin: 0 auto 24px;
+  max-width: 1180px;
+  padding: 18px 22px;
+}
+
+.journey-review-notice strong {
+  color: #173f32;
+  font-size: 16px;
+}
+
+.journey-review-notice p {
+  font-size: 15px;
+  line-height: 1.65;
+  margin: 5px 0 0;
+  max-width: 72ch;
+}
+
+.journey-review-notice button {
+  background: #173f32;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  cursor: pointer;
+  flex: none;
+  font: inherit;
+  font-weight: 760;
+  min-height: 44px;
+  padding: 0 20px;
+}
+
+@media (max-width: 640px) {
+  .journey-review-notice {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .journey-review-notice button {
+    width: 100%;
+  }
+}
+
 .journey-live-region {
   height: 1px;
   margin: -1px;

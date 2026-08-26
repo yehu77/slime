@@ -35,6 +35,9 @@ export type {
   CurriculumCourseId,
   CurriculumLearnerStatus,
   CurriculumLearnerStatusMap,
+  CurriculumLaterItem,
+  CurriculumRecommendation,
+  CurriculumRecommendations,
   CurriculumStage,
   CurriculumStageId,
 } from "./curriculum";
