@@ -9,6 +9,7 @@ import {
   type CurriculumRecommendations,
 } from "../../content/zh";
 import {
+  discardOutdatedLessonProgressV2,
   evaluateLessonProgressV2,
   type LocalProgressV2,
 } from "../../core/progress";
@@ -16,12 +17,16 @@ import {
 export function deriveCurriculumLearnerStatus(
   progress: LocalProgressV2,
 ): CurriculumLearnerStatusMap {
+  const currentProgress = discardOutdatedLessonProgressV2(
+    progress,
+    courseProgressManifests,
+  );
   const introStatus = evaluateLessonProgressV2(
-    progress.lessons["core.sample-journey"],
+    currentProgress.lessons["core.sample-journey"],
     courseProgressManifests["core.sample-journey"],
   ).status;
   const generationStatus = evaluateLessonProgressV2(
-    progress.lessons["core.sample-to-generation"],
+    currentProgress.lessons["core.sample-to-generation"],
     courseProgressManifests["core.sample-to-generation"],
   ).status;
 
@@ -45,7 +50,9 @@ function introRecommendation(
   progress: LocalProgressV2,
   status: CurriculumRecommendation["status"],
 ): CurriculumRecommendation {
-  const lesson = progress.lessons["core.sample-journey"];
+  const lesson = status === "not_started"
+    ? undefined
+    : progress.lessons["core.sample-journey"];
   const resume = lesson?.resume?.kind === "sample-journey" ? lesson.resume : null;
   const route = resume
     ? appendQueryAndHash("/learn/sample-journey", {
@@ -63,7 +70,7 @@ function introRecommendation(
     title: "系统导论：一条 Sample 的七幕旅程",
     description: "先建立完整闭环地图，知道生成、评价、训练与权重发布各自接住什么。",
     position: eventTitle ? `上次停在：${eventTitle}` : "从第一幕建立全局坐标",
-    actionLabel: status === "review_required" ? "查看新版系统导论" : status === "in_progress" ? "继续系统导论" : "进入系统导论",
+    actionLabel: status === "in_progress" ? "继续系统导论" : "进入系统导论",
     route,
     status,
   };
@@ -73,7 +80,9 @@ function generationRecommendation(
   progress: LocalProgressV2,
   status: CurriculumRecommendation["status"],
 ): CurriculumRecommendation {
-  const lesson = progress.lessons["core.sample-to-generation"];
+  const lesson = status === "not_started"
+    ? undefined
+    : progress.lessons["core.sample-to-generation"];
   const resume = lesson?.resume?.kind === "chaptered" ? lesson.resume : null;
   const chapter = resume
     ? sampleToGenerationCourse.chapters.find((item) => item.id === resume.chapter_id)
@@ -101,7 +110,7 @@ function generationRecommendation(
     title: sampleToGenerationCourse.metadata.title,
     description: "沿 Dataset、DataSource 与 SGLang 的真实边界，重建一条 Sample 得到回答的机制。",
     position,
-    actionLabel: status === "review_required" ? "查看新版课程" : status === "in_progress" ? "继续上次位置" : "开始首门机制课",
+    actionLabel: status === "in_progress" ? "继续上次位置" : "开始首门机制课",
     route,
     status,
   };
@@ -113,22 +122,25 @@ function activityTime(progress: LocalProgressV2, lessonId: string) {
 }
 
 /**
- * Derive three deliberately separate queues:
+ * Derive two deliberately separate queues:
  * - continue: the most recently active current-version lesson;
  * - next: the first not-started open lesson after `continue`, or the first one when idle;
- * - reviews: revised lessons whose older progress remains preserved.
  *
- * A review item never sends the learner backwards by masquerading as "next".
+ * Outdated lesson records are discarded before recommendations are derived.
  * Optional preflight remains available elsewhere but never outranks core study.
  */
 export function deriveCurriculumRecommendations(
   progress: LocalProgressV2,
   curriculum: Curriculum = slimeCurriculum,
 ): CurriculumRecommendations {
-  const status = deriveCurriculumLearnerStatus(progress);
-  const intro = introRecommendation(progress, status["system-intro"] ?? "not_started");
-  const generation = generationRecommendation(
+  const currentProgress = discardOutdatedLessonProgressV2(
     progress,
+    courseProgressManifests,
+  );
+  const status = deriveCurriculumLearnerStatus(currentProgress);
+  const intro = introRecommendation(currentProgress, status["system-intro"] ?? "not_started");
+  const generation = generationRecommendation(
+    currentProgress,
     status["core.sample-to-generation"] ?? "not_started",
   );
   const ordered = [intro, generation];
@@ -138,7 +150,7 @@ export function deriveCurriculumRecommendations(
       const leftLesson = left.courseId ?? "core.sample-journey";
       const rightLesson = right.courseId ?? "core.sample-journey";
       return (
-        activityTime(progress, rightLesson) - activityTime(progress, leftLesson) ||
+        activityTime(currentProgress, rightLesson) - activityTime(currentProgress, leftLesson) ||
         ordered.findIndex((item) => item.id === right.id) -
           ordered.findIndex((item) => item.id === left.id)
       );
@@ -156,7 +168,6 @@ export function deriveCurriculumRecommendations(
   const next = nextCandidates.find(
     (item) => item.status === "not_started",
   ) ?? null;
-  const reviews = ordered.filter((item) => item.status === "review_required");
   const later = curriculum.stages.flatMap((stage) => [
     ...(stage.courses ?? [])
       .filter((course) => course.availability === "planned")
@@ -181,7 +192,6 @@ export function deriveCurriculumRecommendations(
   return {
     continue: continueRecommendation,
     next,
-    reviews,
     later,
   };
 }

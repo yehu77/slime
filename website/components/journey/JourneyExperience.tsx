@@ -24,6 +24,7 @@ import {
   applyLessonProgressEvent,
   clearLessonProgressV2,
   evaluateLessonProgressV2,
+  isLessonProgressCurrentV2,
   loadLocalProgressV2,
   replaceLearningProgress,
   saveLocalProgressV2,
@@ -145,7 +146,7 @@ const statusLabels: Record<LessonProgressStatus, string> = {
   not_started: "尚未开始",
   in_progress: "学习中",
   completed: "已完成",
-  review_required: "需要复习",
+  review_required: "尚未开始",
 };
 
 const glossaryTermsById = new Map(
@@ -274,7 +275,6 @@ export function JourneyExperience() {
   const lighttableRef = useRef<HTMLDivElement>(null);
   const localProgressRef = useRef<LocalProgressV2 | null>(null);
   const skipNextPersistenceRef = useRef(false);
-  const reviewPendingRef = useRef(false);
   const hydrationCompleteRef = useRef(false);
   const [activeCompassPhase, setActiveCompassPhase] = useState<LearningCompassPhaseId>("orient");
   const activeCompassPhaseRef = useRef<LearningCompassPhaseId>("orient");
@@ -387,8 +387,14 @@ export function JourneyExperience() {
         const localProgress = learningProgress.progress;
         localProgressRef.current = localProgress;
         setCurriculumLearnerStatus(deriveCurriculumLearnerStatus(localProgress));
-        const stored =
+        const storedCandidate =
           localProgress.lessons[sampleJourneyLesson.metadata.id];
+        const stored = isLessonProgressCurrentV2(
+          storedCandidate,
+          progressManifest,
+        )
+          ? storedCandidate
+          : undefined;
         const storedResume =
           stored?.resume?.kind === "sample-journey" &&
           (stored.resume.fixture_id === null ||
@@ -434,13 +440,9 @@ export function JourneyExperience() {
         if (stored) {
           setAnswers(answersFromProgress(stored));
           setBestScore(stored.final_assessment?.best_score ?? 0);
-          const evaluation = evaluateLessonProgressV2(
-            stored,
-            progressManifest,
+          setProgressStatus(
+            evaluateLessonProgressV2(stored, progressManifest).status,
           );
-          reviewPendingRef.current =
-            evaluation.status === "review_required";
-          setProgressStatus(evaluation.status);
         } else {
           setProgressStatus("not_started");
         }
@@ -459,7 +461,6 @@ export function JourneyExperience() {
       skipNextPersistenceRef.current = false;
       return;
     }
-    if (reviewPendingRef.current) return;
     try {
       let progress =
         localProgressRef.current ?? loadLocalProgressV2(window.localStorage);
@@ -547,60 +548,6 @@ export function JourneyExperience() {
       cancelled = true;
     };
   }, [learningProgress.persistenceUnavailable, learningProgress.progress, storageReady]);
-
-  const beginRevisedProgress = useCallback(() => {
-    reviewPendingRef.current = false;
-    if (!storageReady || storageUnavailable) {
-      setProgressStatus("in_progress");
-      return;
-    }
-    try {
-      let progress = localProgressRef.current ?? loadLocalProgressV2(window.localStorage);
-      progress = applyLessonProgressEvent(
-        progress,
-        sampleJourneyLesson.metadata.id,
-        progressManifest,
-        { type: "revision-started" },
-      );
-      for (const act of [...visitedActs].sort((left, right) => left - right)) {
-        progress = applyLessonProgressEvent(
-          progress,
-          sampleJourneyLesson.metadata.id,
-          progressManifest,
-          { type: "section-visited", section_id: `act-${act}` },
-        );
-      }
-      progress = applyLessonProgressEvent(
-        progress,
-        sampleJourneyLesson.metadata.id,
-        progressManifest,
-        {
-          type: "resume-updated",
-          resume: {
-            kind: "sample-journey",
-            event_id: journeyState.event_id,
-            selected_sample_id: journeyState.selected_sample_id,
-            timeline_mode: timelineMode,
-            fixture_id: runtimeFixture.fixture_id,
-          },
-        },
-      );
-      saveLocalProgressV2(window.localStorage, progress);
-      localProgressRef.current = progress;
-      replaceLearningProgress(progress);
-      setCurriculumLearnerStatus(deriveCurriculumLearnerStatus(progress));
-      setProgressStatus("in_progress");
-    } catch {
-      setStorageUnavailable(true);
-    }
-  }, [
-    journeyState.event_id,
-    journeyState.selected_sample_id,
-    storageReady,
-    storageUnavailable,
-    timelineMode,
-    visitedActs,
-  ]);
 
   useEffect(() => {
     if (!storageReady) return;
@@ -789,7 +736,6 @@ export function JourneyExperience() {
     nextAnswers: AnswerMap,
     result: AssessmentResult,
   ) => {
-    reviewPendingRef.current = false;
     setAnswers(nextAnswers);
     setBestScore((current) => Math.max(current, result.score));
     if (!storageReady || storageUnavailable) {
@@ -800,12 +746,6 @@ export function JourneyExperience() {
     try {
       let progress =
         localProgressRef.current ?? loadLocalProgressV2(window.localStorage);
-      progress = applyLessonProgressEvent(
-        progress,
-        sampleJourneyLesson.metadata.id,
-        progressManifest,
-        { type: "revision-started" },
-      );
       const stored = progress.lessons[sampleJourneyLesson.metadata.id];
       const storedSections = new Set(
         stored?.lesson_revision === progressManifest.lesson_revision
@@ -868,7 +808,6 @@ export function JourneyExperience() {
   const clearProgress = () => {
     if (!window.confirm("清除本课在此设备上的播放位置、答题记录和完成状态？")) return;
     try {
-      reviewPendingRef.current = false;
       const clearedProgress = clearLessonProgressV2(
         window.localStorage,
         sampleJourneyLesson.metadata.id,
@@ -1095,16 +1034,6 @@ export function JourneyExperience() {
         </p>
       ) : null}
 
-      {progressStatus === "review_required" ? (
-        <aside className="journey-review-notice" role="status">
-          <div>
-            <strong>这门导论已经修订</strong>
-            <p>旧记录会继续保留。浏览幕次、播放事件和切换时间线都不会建立新版记录；明确开始复习或提交预测、终测时才会开始。</p>
-          </div>
-          <button type="button" onClick={beginRevisedProgress}>按新版学习</button>
-        </aside>
-      ) : null}
-
       <div className={`journey-workbench ${currentAct.number === 1 ? "is-first-act" : ""}`}>
         <aside className="journey-act-rail" aria-label="课程幕次导航">
           <header className="journey-act-rail-heading">
@@ -1212,7 +1141,6 @@ export function JourneyExperience() {
                     type="button"
                     aria-pressed={selected}
                     onClick={() => {
-                      if (reviewPendingRef.current) beginRevisedProgress();
                       setPredictionAnswers((current) => ({
                         ...current,
                         [currentAct.id]: option.id,

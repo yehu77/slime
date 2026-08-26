@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { sampleToGenerationProgressManifest } from "@/content/zh/course-progress-manifests";
 
@@ -10,8 +10,11 @@ import {
   applyLessonProgressEvent,
   clearLessonProgressV2,
   createEmptyLocalProgressV2,
+  discardOutdatedLessonProgressV2,
   evaluateLessonProgressV2,
+  isLessonProgressCurrentV2,
   loadLocalProgressV2,
+  reconcileStoredProgressV2,
   saveLocalProgressV2,
   type ProgressCompletionManifest,
   type ProgressStorage,
@@ -215,7 +218,7 @@ describe("progress v2 schemas", () => {
 });
 
 describe("progress v2 completion", () => {
-  it("derives not-started, in-progress, completed, and review-required", () => {
+  it("treats records from another revision as not started", () => {
     expect(evaluateLessonProgressV2(undefined, manifest).status).toBe(
       "not_started",
     );
@@ -246,7 +249,7 @@ describe("progress v2 completion", () => {
         completed.lessons["core.sample-to-generation"],
         { ...manifest, lesson_revision: 4 },
       ).status,
-    ).toBe("review_required");
+    ).toBe("not_started");
     expect(
       evaluateLessonProgressV2(
         completed.lessons["core.sample-to-generation"],
@@ -261,10 +264,10 @@ describe("progress v2 completion", () => {
           },
         },
       ).status,
-    ).toBe("review_required");
+    ).toBe("not_started");
   });
 
-  it("preserves review-required records during passive navigation until revision starts explicitly", () => {
+  it("starts the current revision fresh on the first passive navigation event", () => {
     const completed = completeCourse();
     const nextManifest = { ...manifest, lesson_revision: manifest.lesson_revision + 1 };
     const passive = applyLessonProgressEvent(
@@ -274,21 +277,286 @@ describe("progress v2 completion", () => {
       { type: "section-visited", section_id: "chapter-1" },
       () => LATER,
     );
-    expect(passive).toEqual(completed);
-
-    const started = applyLessonProgressEvent(
-      passive,
-      "core.sample-to-generation",
-      nextManifest,
-      { type: "revision-started" },
-      () => LATER,
-    );
-    expect(started.lessons["core.sample-to-generation"]).toMatchObject({
+    expect(passive.lessons["core.sample-to-generation"]).toMatchObject({
       lesson_revision: nextManifest.lesson_revision,
-      visited_sections: [],
+      visited_sections: ["chapter-1"],
       exercise_attempts: {},
       learning_artifacts: {},
+      final_assessment: null,
+      resume: null,
+      updated_at: LATER,
     });
+  });
+
+  it("deletes only the outdated lesson and leaves another current lesson intact", () => {
+    const generation = completeCourse();
+    const mixed = applyLessonProgressEvent(
+      generation,
+      "core.sample-journey",
+      manifest,
+      { type: "section-visited", section_id: "chapter-1" },
+      now,
+    );
+    const registry = {
+      "core.sample-to-generation": {
+        ...manifest,
+        lesson_revision: manifest.lesson_revision + 1,
+      },
+      "core.sample-journey": manifest,
+    };
+
+    const cleaned = discardOutdatedLessonProgressV2(mixed, registry);
+    expect(cleaned.lessons["core.sample-to-generation"]).toBeUndefined();
+    expect(cleaned.lessons["core.sample-journey"]).toMatchObject({
+      lesson_revision: manifest.lesson_revision,
+      visited_sections: ["chapter-1"],
+    });
+    expect(discardOutdatedLessonProgressV2(cleaned, registry)).toBe(cleaned);
+  });
+
+  it("persists obsolete cleanup once and does not echo a cross-tab storage event", () => {
+    const generation = completeCourse();
+    const mixed = applyLessonProgressEvent(
+      generation,
+      "core.sample-journey",
+      manifest,
+      { type: "section-visited", section_id: "chapter-1" },
+      now,
+    );
+    const registry = {
+      "core.sample-to-generation": {
+        ...manifest,
+        lesson_revision: manifest.lesson_revision + 1,
+      },
+      "core.sample-journey": manifest,
+    };
+    const { storage } = createStorage({
+      [LOCAL_PROGRESS_V2_STORAGE_KEY]: JSON.stringify(mixed),
+    });
+    const setItem = vi.spyOn(storage, "setItem");
+
+    const firstHydration = reconcileStoredProgressV2(storage, registry, now);
+    expect(firstHydration).toMatchObject({
+      changed: true,
+      persistence_unavailable: false,
+    });
+    expect(
+      firstHydration.progress.lessons["core.sample-to-generation"],
+    ).toBeUndefined();
+    expect(firstHydration.progress.lessons["core.sample-journey"]).toBeDefined();
+    expect(setItem).toHaveBeenCalledTimes(1);
+
+    const storageEventHydration = reconcileStoredProgressV2(
+      storage,
+      registry,
+      now,
+    );
+    expect(storageEventHydration).toMatchObject({
+      changed: false,
+      persistence_unavailable: false,
+    });
+    expect(setItem).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps future progress without rewriting it during a rollback", () => {
+    const completed = completeCourse();
+    const stored = completed.lessons["core.sample-to-generation"]!;
+    const futureProgress = {
+      ...completed,
+      lessons: {
+        ...completed.lessons,
+        "core.sample-to-generation": {
+          ...stored,
+          lesson_revision: manifest.lesson_revision + 2,
+        },
+      },
+    };
+    const { storage } = createStorage({
+      [LOCAL_PROGRESS_V2_STORAGE_KEY]: JSON.stringify(futureProgress),
+    });
+    const setItem = vi.spyOn(storage, "setItem");
+
+    const reconciliation = reconcileStoredProgressV2(
+      storage,
+      {
+        "core.sample-to-generation": {
+          ...manifest,
+          lesson_revision: manifest.lesson_revision + 1,
+        },
+      },
+      now,
+    );
+    const retained =
+      reconciliation.progress.lessons["core.sample-to-generation"];
+    expect(reconciliation.changed).toBe(false);
+    expect(retained?.lesson_revision).toBe(manifest.lesson_revision + 2);
+    expect(
+      isLessonProgressCurrentV2(retained, {
+        ...manifest,
+        lesson_revision: manifest.lesson_revision + 1,
+      }),
+    ).toBe(false);
+    expect(setItem).not.toHaveBeenCalled();
+  });
+
+  it("uses the cleaned in-memory state when persistence is unavailable", () => {
+    const completed = completeCourse();
+    const storage: ProgressStorage = {
+      getItem: (key) =>
+        key === LOCAL_PROGRESS_V2_STORAGE_KEY
+          ? JSON.stringify(completed)
+          : null,
+      setItem: () => {
+        throw new Error("quota exceeded");
+      },
+      removeItem: () => undefined,
+    };
+    const reconciliation = reconcileStoredProgressV2(
+      storage,
+      {
+        "core.sample-to-generation": {
+          ...manifest,
+          lesson_revision: manifest.lesson_revision + 1,
+        },
+      },
+      now,
+    );
+
+    expect(reconciliation).toMatchObject({
+      changed: true,
+      persistence_unavailable: true,
+    });
+    expect(
+      reconciliation.progress.lessons["core.sample-to-generation"],
+    ).toBeUndefined();
+  });
+
+  it("reports a storage read failure instead of presenting an empty record as persisted", () => {
+    const storage: ProgressStorage = {
+      getItem: () => {
+        throw new Error("storage access denied");
+      },
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+    };
+
+    const reconciliation = reconcileStoredProgressV2(
+      storage,
+      { "core.sample-to-generation": manifest },
+      now,
+    );
+    expect(reconciliation).toEqual({
+      progress: createEmptyLocalProgressV2(),
+      changed: false,
+      persistence_unavailable: true,
+    });
+    expect(storage.setItem).not.toHaveBeenCalled();
+  });
+
+  it("keeps a migrated v1 record in memory and reports its failed v2 write", () => {
+    const legacy = JSON.stringify({
+      schema_version: 1,
+      lessons: {
+        "core.sample-journey": {
+          lesson_revision: 7,
+          visited_acts: [1, 2],
+          assessment_version: null,
+          correct_question_ids: [],
+          last_event_id: "group-built",
+          completed: false,
+          review_required: false,
+        },
+      },
+    });
+    const storage: ProgressStorage = {
+      getItem: (key) =>
+        key === LOCAL_PROGRESS_V1_STORAGE_KEY ? legacy : null,
+      setItem: () => {
+        throw new Error("quota exceeded");
+      },
+      removeItem: vi.fn(),
+    };
+
+    const reconciliation = reconcileStoredProgressV2(
+      storage,
+      {
+        "core.sample-journey": {
+          ...manifest,
+          lesson_revision: 7,
+        },
+      },
+      now,
+    );
+    expect(reconciliation).toMatchObject({
+      changed: false,
+      persistence_unavailable: true,
+    });
+    expect(reconciliation.progress.lessons["core.sample-journey"]).toMatchObject({
+      lesson_revision: 7,
+      visited_sections: ["act-1", "act-2"],
+    });
+  });
+
+  it("deletes an outdated assessment but preserves progress from a future deployment", () => {
+    const completed = completeCourse();
+    const assessmentUpdatedManifest = {
+      ...manifest,
+      completion: {
+        ...manifest.completion,
+        final_assessment: {
+          ...manifest.completion.final_assessment,
+          assessment_version:
+            manifest.completion.final_assessment.assessment_version + 1,
+        },
+      },
+    };
+    expect(
+      discardOutdatedLessonProgressV2(completed, {
+        "core.sample-to-generation": assessmentUpdatedManifest,
+      }).lessons["core.sample-to-generation"],
+    ).toBeUndefined();
+
+    const stored = completed.lessons["core.sample-to-generation"]!;
+    const futureProgress = {
+      ...completed,
+      lessons: {
+        ...completed.lessons,
+        "core.sample-to-generation": {
+          ...stored,
+          lesson_revision: manifest.lesson_revision + 2,
+        },
+      },
+    };
+    const rollbackManifest = {
+      ...manifest,
+      lesson_revision: manifest.lesson_revision + 1,
+    };
+    expect(
+      discardOutdatedLessonProgressV2(futureProgress, {
+        "core.sample-to-generation": rollbackManifest,
+      }),
+    ).toBe(futureProgress);
+    expect(
+      isLessonProgressCurrentV2(
+        futureProgress.lessons["core.sample-to-generation"],
+        rollbackManifest,
+      ),
+    ).toBe(false);
+    expect(
+      applyLessonProgressEvent(
+        futureProgress,
+        "core.sample-to-generation",
+        rollbackManifest,
+        { type: "section-visited", section_id: "chapter-1" },
+        () => LATER,
+      ),
+    ).toBe(futureProgress);
+    expect(
+      evaluateLessonProgressV2(
+        futureProgress.lessons["core.sample-to-generation"],
+        rollbackManifest,
+      ).status,
+    ).toBe("not_started");
   });
 
   it("keeps a pass sticky for later attempts in the same version", () => {
@@ -348,7 +616,7 @@ describe("progress v2 completion", () => {
     ).toThrow("Unknown assessment question: q9");
   });
 
-  it("moves chapter-two progress from revision 3 to review-required current revision", () => {
+  it("treats chapter-two progress from revision 3 as obsolete", () => {
     const revisionThreeManifest = {
       ...sampleToGenerationProgressManifest,
       lesson_revision: 3,
@@ -420,7 +688,7 @@ describe("progress v2 completion", () => {
     expect(evaluateLessonProgressV2(
       oldProgress.lessons["core.sample-to-generation"],
       sampleToGenerationProgressManifest,
-    ).status).toBe("review_required");
+    ).status).toBe("not_started");
   });
 
   it("starts the current revision fresh on the first chapter-two event and keeps a retried mapping pass sticky across refresh", () => {
@@ -558,7 +826,7 @@ describe("progress v2 completion", () => {
     });
   });
 
-  it("marks revision-four chapter-three progress for review and starts the current exercise cleanly", () => {
+  it("drops revision-four chapter-three semantics and starts the current exercise cleanly", () => {
     const currentChapterThreeExerciseId = sampleToGenerationProgressManifest.completion.required_exercise_ids.find(
       (exerciseId) => exerciseId.startsWith("stg.chapter-3-"),
     );
@@ -609,7 +877,7 @@ describe("progress v2 completion", () => {
     expect(evaluateLessonProgressV2(
       oldLesson,
       sampleToGenerationProgressManifest,
-    ).status).toBe("review_required");
+    ).status).toBe("not_started");
 
     const answer = {
       "a0-group": "0",
@@ -655,7 +923,7 @@ describe("progress v2 completion", () => {
     expect(loadLocalProgressV2(storage, () => LATEST)).toEqual(current);
   });
 
-  it("marks revision-five chapter-four progress for review and restores the v6 boundary exercise", () => {
+  it("drops revision-five chapter-four semantics and restores the v6 boundary exercise", () => {
     const revisionFiveManifest = {
       ...sampleToGenerationProgressManifest,
       lesson_revision: 5,
@@ -702,7 +970,7 @@ describe("progress v2 completion", () => {
     expect(evaluateLessonProgressV2(
       oldLesson,
       sampleToGenerationProgressManifest,
-    ).status).toBe("review_required");
+    ).status).toBe("not_started");
 
     const correctMapping = {
       "prompt-ids": "payload-input",
@@ -769,7 +1037,7 @@ describe("progress v2 completion", () => {
     ).toMatchObject({ attempt_count: 2, passed: true, passed_at: LATER });
   });
 
-  it("moves revision-six chapter-five progress to review and restores the v7 decoder exercise", () => {
+  it("drops revision-six chapter-five semantics and restores the v7 decoder exercise", () => {
     const revisionSixManifest = {
       ...sampleToGenerationProgressManifest,
       lesson_revision: 6,
@@ -823,7 +1091,7 @@ describe("progress v2 completion", () => {
     expect(evaluateLessonProgressV2(
       oldProgress.lessons["core.sample-to-generation"],
       sampleToGenerationProgressManifest,
-    ).status).toBe("review_required");
+    ).status).toBe("not_started");
 
     const correctValues = {
       "response-tokens": "25,27",
@@ -910,7 +1178,7 @@ describe("progress v2 completion", () => {
     ).toMatchObject({ attempt_count: 3, passed: true, passed_at: LATEST });
   });
 
-  it("keeps v7 chapter-six progress review-required until the v8 writeback exercise starts", () => {
+  it("treats v7 chapter-six progress as not started in the v8 lesson", () => {
     const revisionEightManifest: ProgressCompletionManifest = {
       ...sampleToGenerationProgressManifest,
       lesson_revision: 8,
@@ -1010,7 +1278,7 @@ describe("progress v2 completion", () => {
     });
     expect(
       evaluateLessonProgressV2(oldLesson, revisionEightManifest).status,
-    ).toBe("review_required");
+    ).toBe("not_started");
     expect(
       revisionEightManifest.completion.required_exercise_ids,
     ).not.toContain("stg.chapter-6-gate");
@@ -1112,7 +1380,7 @@ describe("progress v2 completion", () => {
     ).toMatchObject({ attempt_count: 3, passed: true, passed_at: LATEST });
   });
 
-  it("keeps all six chapter records while a v1 terminal assessment is reviewed and replaced by v2", () => {
+  it("drops all six chapter records when a v1 terminal assessment is replaced by v2", () => {
     const legacyQuestionIds = Array.from(
       { length: 8 },
       (_, index) => `stg.final-q${index + 1}`,
@@ -1183,7 +1451,7 @@ describe("progress v2 completion", () => {
     );
     expect(
       evaluateLessonProgressV2(legacyLesson, sampleToGenerationProgressManifest).status,
-    ).toBe("review_required");
+    ).toBe("not_started");
 
     expect(() =>
       applyLessonProgressEvent(
@@ -1213,7 +1481,8 @@ describe("progress v2 completion", () => {
     const v2Lesson = submittedV2.lessons["core.sample-to-generation"];
     expect(v2Lesson).toMatchObject({
       lesson_revision: sampleToGenerationProgressManifest.lesson_revision,
-      visited_sections: [...sampleToGenerationProgressManifest.completion.required_section_ids],
+      visited_sections: [],
+      exercise_attempts: {},
       final_assessment: {
         assessment_version: 2,
         attempt_count: 1,
@@ -1222,12 +1491,9 @@ describe("progress v2 completion", () => {
         passed_at: LATER,
       },
     });
-    expect(Object.keys(v2Lesson?.exercise_attempts ?? {}).sort()).toEqual(
-      [...sampleToGenerationProgressManifest.completion.required_exercise_ids].sort(),
-    );
     expect(
       evaluateLessonProgressV2(v2Lesson, sampleToGenerationProgressManifest),
-    ).toMatchObject({ status: "completed", completed: true });
+    ).toMatchObject({ status: "in_progress", completed: false });
 
     const missingRequiredOnRetry = sampleToGenerationProgressManifest.completion.final_assessment.question_ids.filter(
       (questionId) => questionId !== "stg.final-q2-v2",
@@ -1257,7 +1523,7 @@ describe("progress v2 completion", () => {
         stickyPass.lessons["core.sample-to-generation"],
         sampleToGenerationProgressManifest,
       ),
-    ).toMatchObject({ status: "completed", completed: true });
+    ).toMatchObject({ status: "in_progress", completed: false });
   });
 });
 

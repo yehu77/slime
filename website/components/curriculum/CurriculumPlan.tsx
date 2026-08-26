@@ -22,7 +22,7 @@ const learnerStatusLabels: Record<CurriculumLearnerStatus, string> = {
   not_started: "尚未开始",
   in_progress: "学习中",
   completed: "已完成",
-  review_required: "内容已修订 · 建议复习",
+  review_required: "尚未开始",
 };
 
 function stageStateLabel(
@@ -42,7 +42,6 @@ function stageStateLabel(
 }
 
 function stageActionLabel(stage: CurriculumStage, learnerStatus?: CurriculumLearnerStatus) {
-  if (learnerStatus === "review_required") return "按新版本复习";
   if (learnerStatus === "completed") return "重新阅读";
   if (learnerStatus === "in_progress") return "继续学习";
   if (stage.id === "preflight") return "做可选诊断";
@@ -51,7 +50,6 @@ function stageActionLabel(stage: CurriculumStage, learnerStatus?: CurriculumLear
 }
 
 function courseActionLabel(course: CurriculumCourse, learnerStatus?: CurriculumLearnerStatus) {
-  if (learnerStatus === "review_required") return "按新版本复习";
   if (learnerStatus === "completed") return "重新阅读";
   if (learnerStatus === "in_progress") return "继续学习";
   if (course.id === "core.sample-to-generation") return "进入首门机制课";

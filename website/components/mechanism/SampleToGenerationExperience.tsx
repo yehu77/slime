@@ -18,6 +18,7 @@ import {
 } from "../../core/sample-to-generation";
 import {
   evaluateLessonProgressV2,
+  isLessonProgressCurrentV2,
   recordLearningProgress,
   useLearningProgress,
   type ProgressEvent,
@@ -182,7 +183,7 @@ function statusLabel(status: ReturnType<typeof evaluateLessonProgressV2>["status
     case "not_started": return "尚未开始";
     case "in_progress": return "学习中";
     case "completed": return "已完成";
-    case "review_required": return "内容已修订 · 建议复习";
+    case "review_required": return "尚未开始";
   }
 }
 
@@ -350,10 +351,7 @@ export function SampleToGenerationExperience({
   }, []);
 
   const recordExplicit = useCallback((events: readonly ProgressEvent[]) => {
-    recordLearningProgress(course.metadata.id, progressManifest, [
-      { type: "revision-started" },
-      ...events,
-    ]);
+    recordLearningProgress(course.metadata.id, progressManifest, events);
   }, []);
 
   const scrollToPhase = useCallback((slug: string, phaseId: LearningCompassPhaseId, focusTitle = false) => {
@@ -448,7 +446,13 @@ export function SampleToGenerationExperience({
     return () => window.removeEventListener("popstate", syncFromLocation);
   }, [scrollToPhase]);
 
-  const lessonProgress = progress.lessons[course.metadata.id];
+  const storedLessonProgress = progress.lessons[course.metadata.id];
+  const lessonProgress = isLessonProgressCurrentV2(
+    storedLessonProgress,
+    progressManifest,
+  )
+    ? storedLessonProgress
+    : undefined;
   const evaluation = evaluateLessonProgressV2(lessonProgress, progressManifest);
   const continueChapter = useMemo(() => {
     const resume = lessonProgress?.resume;
@@ -720,27 +724,6 @@ export function SampleToGenerationExperience({
   return (
     <div className="mechanism-course">
       <div className="mechanism-course-content">
-        {evaluation.status === "review_required" ? (
-          <div className="mechanism-review-notice" role="status">
-            <p>这门课已经更新。旧完成记录仍被保留；浏览章节不会覆盖它。提交练习会直接记录新版进度。</p>
-            <button
-              type="button"
-              onClick={() => {
-                const chapterId = chapter?.id ?? assessmentSlug;
-                record([
-                  { type: "revision-started" },
-                  ...(chapter ? [{ type: "section-visited", section_id: chapter.id } as const] : []),
-                  {
-                    type: "resume-updated",
-                    resume: { kind: "chaptered", chapter_id: chapterId, section_id: activePhaseId },
-                  },
-                ]);
-              }}
-            >
-              按新版学习
-            </button>
-          </div>
-        ) : null}
         {persistenceUnavailable ? (
           <p className="mechanism-query-notice" role="status">
             当前浏览器无法保存本地进度；课程仍可完整阅读与练习。

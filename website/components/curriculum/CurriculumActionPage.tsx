@@ -17,7 +17,7 @@ const statusLabels: Record<CurriculumRecommendation["status"], string> = {
   not_started: "尚未开始",
   in_progress: "学习中",
   completed: "已完成",
-  review_required: "内容已修订",
+  review_required: "尚未开始",
 };
 
 function RecommendationSheet({
@@ -25,12 +25,11 @@ function RecommendationSheet({
   kind,
 }: {
   recommendation: CurriculumRecommendation;
-  kind: "continue" | "next" | "review";
+  kind: "continue" | "next";
 }) {
   const indexLabel = {
     continue: "CONTINUE",
     next: "NEXT",
-    review: "REVIEW",
   }[kind];
   return (
     <article className={`curriculum-recommendation is-${kind}`}>
@@ -70,7 +69,7 @@ export function CurriculumActionPage({
         <div>
           <h1 id="curriculum-action-title">先确认手里的这一页，再向前走。</h1>
           <p>
-            继续上次学习、顺序中的下一项与内容修订在这里分开呈现。待复习不会打断当前课程，也不会再被叫作“下一步”。
+            这里分别显示上次学习位置与顺序中的下一项。课程更新时，旧修订进度会自动清除，不再要求你处理版本兼容。
           </p>
         </div>
         <dl aria-label="学习路线原则">
@@ -101,7 +100,7 @@ export function CurriculumActionPage({
               <p>
                 {recommendations.continue
                   ? "先沿左侧精确位置继续；后续课程开放后会出现在这里。"
-                  : "当前已开放内容均已完成；可以查看待复习项目或展开完整路线。"}
+                  : "当前已开放内容均已完成；可以重新阅读课程或展开完整路线。"}
               </p>
             </div>
           )}
@@ -110,27 +109,6 @@ export function CurriculumActionPage({
           </a>
         </section>
       </div>
-
-      {recommendations.reviews.length ? (
-        <section className="curriculum-review-queue" aria-labelledby="curriculum-review-title">
-          <header>
-            <div>
-              <h2 id="curriculum-review-title">待复习</h2>
-              <p>这些内容已有修订，但旧进度仍被保留。你可以稍后回来，不必从当前课程倒退。</p>
-            </div>
-            <strong>{recommendations.reviews.length} 项可选复习</strong>
-          </header>
-          <div className="curriculum-review-list">
-            {recommendations.reviews.map((recommendation) => (
-              <RecommendationSheet
-                key={recommendation.id}
-                kind="review"
-                recommendation={recommendation}
-              />
-            ))}
-          </div>
-        </section>
-      ) : null}
 
       <details className="curriculum-later">
         <summary>
