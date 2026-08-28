@@ -5,7 +5,13 @@ const routes = [
   ["/", /可验证系统模型/],
   ["/start", /如何转化为参数更新/],
   ["/learn", /先把一条 Sample 的机制弄通/],
-  ["/learn/sample-journey", /同样答对，为什么一个 Sample 完全不学习/],
+  ["/learn/sample-journey", /训练完成，生成侧仍报告 actor@0/],
+  ["/learn/sample-journey?unit=loop-boundary", /训练完成，生成侧仍报告 actor@0/],
+  ["/learn/sample-journey?unit=stable-skeleton", /稳定交接骨架/],
+  ["/learn/sample-journey?unit=backend-roles", /Megatron、SGLang 与 Ray 为什么不能画成一个方框/],
+  ["/learn/sample-journey?unit=placement-and-time", /资源放置与时间重叠是两道不同的问题/],
+  ["/learn/sample-journey?unit=sample-probe", /七站 Sample 观测路径/],
+  ["/learn/sample-journey?unit=architecture-reconstruction", /从事故记录重建架构边界/],
   ["/learn/sample-to-generation", /Sample 如何得到回答/],
   ["/learn/sample-to-generation?chapter=row-to-sample", /一行数据怎样成为 Sample/],
   ["/learn/sample-to-generation?chapter=field-ownership", /字段生命周期接力台/],
@@ -44,27 +50,28 @@ for (const [route, expected] of routes) {
     assert.doesNotMatch(html, /codex-preview|Your site is taking shape|react-loading-skeleton/i);
     if (route === "/start") {
       assert.match(html, /slime 是用于大语言模型强化学习后训练的框架/);
-      assert.match(html, /这是入课前唯一一张完整总览/);
+      assert.match(html, /先辨认生成、评价整理、训练发布三个阶段/);
       assert.match(html, /3 分钟课前诊断/);
-      assert.match(html, /开始首课/);
+      assert.match(html, /进入系统导论/);
       assert.doesNotMatch(html, /下面先建立最小因果链，再进入字段与源码/);
     }
-    if (route === "/learn/sample-journey") {
-      assert.match(html, /核心阅读/);
-      assert.match(html, /完整研究/);
-      assert.match(html, /播放前先预测/);
-      assert.match(html, /Sample 是统一中间表示，不是训练 batch/);
-      assert.match(html, /同组候选由下一幕构造/);
-      assert.match(html, /本幕产生的状态变化/);
-      assert.match(html, /本幕术语/);
-      assert.match(html, /深入证据/);
-      assert.match(html, /完整路线，不在一门课里塞完/);
-      assert.match(html, /七幕曝光轨/);
-      assert.match(html, /上一事件/);
-      assert.match(html, /下一事件/);
-      assert.match(renderedText, /继续第 2 幕/);
-      assert.match(html, /分组/);
+    if (route.startsWith("/learn/sample-journey")) {
+      assert.match(html, /HYPOTHETICAL \/ 非真实运行日志/);
+      assert.match(html, /稳定交接骨架/);
+      assert.match(html, /固定异步入口不支持/);
+      assert.match(html, /Sample 是观测探针，不是整套分布式系统的快照/);
+      assert.match(html, /七站 Sample 观测路径/);
+      assert.match(html, /打开 Sample 显微镜/);
+      assert.match(html, /综合终测：让证据替组件名说话/);
+      assert.match(html, /进入第一门机制课/);
+      assert.match(html, /作者资料解释设计目的，固定 commit 约束实现事实/);
+      assert.match(html, /固定源码/);
+      assert.match(html, /作者意图/);
+      assert.match(html, /教学推论/);
+      assert.doesNotMatch(html, /同样答对，为什么一个 Sample 完全不学习/);
+      assert.doesNotMatch(html, /七幕曝光轨/);
       assert.doesNotMatch(html, /3 分钟课前诊断/);
+      assert.equal((html.match(/<main\b/g) ?? []).length, 1);
     }
     if (route === "/learn/sample-to-generation?chapter=row-to-sample") {
       assert.match(renderedText, /Trace passport/);

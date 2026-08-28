@@ -76,17 +76,17 @@ export const startRouteCopy = {
   answer: "slime 是用于大语言模型强化学习后训练的框架。",
   summary:
     "它把高性能训练与可定制的数据生成连接在同一条 RL 数据流中：SGLang 负责 rollout，Megatron 更新 actor；中间的 Sample 保存生成、评价与训练所需状态。",
-  scrollCue: "下面只保留一张闭环总览；每个术语会在首课中按需解释",
-  facts: ["核心阅读 25–30 分钟", "完整研究模式约 60 分钟", "无需 GPU", "固定源码基线"],
+  scrollCue: "下面先看闭环轮廓；系统导论会从训练侧与生成侧的边界开始装配",
+  facts: ["核心阅读 35–45 分钟", "研究模式约 60 分钟", "无需 GPU", "固定源码基线"],
   primaryCta: {
-    label: "开始首课",
+    label: "进入系统导论",
     href: "/learn/sample-journey",
   },
-  imageCaption: "同一条 Sample 在不同系统边界上获得新的字段、身份与版本信息。",
+  imageCaption: "生成、训练与权重发布构成闭环，但它们不是同一个完成信号。",
   roleMap: {
-    title: "七幕，只回答一个问题：每个系统边界改变了什么？",
+    title: "闭环轮廓：三个阶段怎样接力",
     introduction:
-      "这是入课前唯一一张完整总览。先看每个组件接收什么、产生什么以及把结果交给谁；进入课程后，我们不再重复这张图，而是逐幕检查 Sample 的状态变化。",
+      "先辨认生成、评价整理、训练发布三个阶段。进入系统导论后，再分别核对控制骨架、后端职责、空间与时间，以及 Sample 能观察到的部分。",
   },
   phases: [
     {
@@ -110,10 +110,10 @@ export const startRouteCopy = {
   ],
   sampleExplanation: {
     label: "核心观察对象",
-    title: "全课持续跟踪同一条 Sample",
+    title: "Sample 是第五单元才启用的观测探针",
     bodyBefore:
       "在 slime 中，生成结果及其身份、token、评价与版本信息保存在统一记录中。源码将这一数据对象定义为",
     codeLabel: "Sample",
-    bodyAfter: "。首课将逐一说明它在各系统边界上的字段变化。",
+    bodyAfter: "。它能核对数据交接，却不能替代资源布局、控制等待和权重发布记录。",
   },
 } as const;

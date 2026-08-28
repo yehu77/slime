@@ -63,11 +63,14 @@ function HeaderContent() {
     }
     if (lessonId === "core.sample-journey" && resume?.kind === "sample-journey") {
       const params = new URLSearchParams({
-        event: resume.event_id,
-        sample: resume.selected_sample_id,
-        timeline: resume.timeline_mode,
+        unit: resume.unit_id ?? "sample-probe",
       });
-      return `/learn/sample-journey?${params.toString()}`;
+      if ((resume.unit_id ?? "sample-probe") === "sample-probe") {
+        params.set("event", resume.event_id);
+        params.set("sample", resume.selected_sample_id);
+        params.set("timeline", resume.timeline_mode);
+      }
+      return `/learn/sample-journey?${params.toString()}#${resume.phase_id ?? "orient"}`;
     }
     return null;
   })();

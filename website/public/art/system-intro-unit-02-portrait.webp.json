@@ -1,0 +1,14 @@
+{
+  "prompt": "No generative prompt. Deterministic derivative of the user's local image library.",
+  "sourceLibraryPath": "anime7000/00664_wallspic_11859-mecha-machine-cartoon-character-fiction-1920x1080.jpg",
+  "rightsConfirmation": "The user confirmed that the images in this local library are open source, have no copyright issue for this use, and may be used on the public website. No specific license name was provided.",
+  "assetRole": "Unit 02 assembly metaphor: the mobile crop concentrates on the constructed machine; the architecture itself is expressed by HTML and source evidence.",
+  "alt": "橙金色机械体的头部与层叠装甲占据画面",
+  "focalPoint": { "x": 0.22, "y": 0.42, "description": "mechanical head and layered armor" },
+  "focalCrop": { "source": { "x": 0, "y": 0, "width": 864, "height": 1080 }, "strategy": "left-aligned 4:5 crop retaining the machine as the stable-skeleton metaphor" },
+  "processing": "cwebp 1.6.0 JPEG decode; crop source rectangle x=0,y=0,w=864,h=1080; resize to 800x1000; WebP quality=88, method=6, metadata stripped. No generative editing, text overlay, or color manipulation.",
+  "deterministicProcessing": true,
+  "generativeEditing": false,
+  "output": { "width": 800, "height": 1000, "format": "webp" },
+  "createdAt": "2026-08-28"
+}

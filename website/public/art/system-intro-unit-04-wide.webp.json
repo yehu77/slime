@@ -1,0 +1,14 @@
+{
+  "prompt": "No generative prompt. Deterministic derivative of the user's local image library.",
+  "sourceLibraryPath": "anime7000/02248_wallpapersmug_anime-girl-railway-crossing-landscape.jpg",
+  "rightsConfirmation": "The user confirmed that the images in this local library are open source, have no copyright issue for this use, and may be used on the public website. No specific license name was provided.",
+  "assetRole": "Unit 04 crossing metaphor: separate paths intersect at a railway crossing; the supported placement/time combinations are expressed by the adjacent technical matrix.",
+  "alt": "林间铁路道口的多条路径交会，一名角色站在中央",
+  "focalPoint": { "x": 0.58, "y": 0.53, "description": "central figure framed by the crossing signs and receding path" },
+  "focalCrop": { "source": { "x": 0, "y": 0, "width": 1600, "height": 900 }, "strategy": "full-frame 16:9" },
+  "processing": "cwebp 1.6.0 JPEG decode; resize to 1600x900; WebP quality=88, method=6, metadata stripped. No generative editing, text overlay, or color manipulation.",
+  "deterministicProcessing": true,
+  "generativeEditing": false,
+  "output": { "width": 1600, "height": 900, "format": "webp" },
+  "createdAt": "2026-08-28"
+}

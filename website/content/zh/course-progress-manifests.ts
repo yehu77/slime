@@ -1,21 +1,17 @@
 import type { ProgressCompletionManifest } from "../../core/progress";
-import { sampleJourneyLesson } from "./lessons/sample-journey";
 import { sampleToGenerationCourse } from "./lessons/sample-to-generation";
+import { systemIntroManifest } from "./lessons/system-intro";
 
 export const sampleJourneyProgressManifest = {
-  lesson_revision: sampleJourneyLesson.metadata.lessonRevision,
+  lesson_revision: systemIntroManifest.lessonRevision,
   completion: {
-    required_section_ids: sampleJourneyLesson.metadata.completion.requiredActs.map(
-      (act) => `act-${act}`,
-    ),
+    required_section_ids: systemIntroManifest.units.map((unit) => unit.id),
     required_exercise_ids: [],
     final_assessment: {
-      assessment_version: sampleJourneyLesson.assessment.version,
-      question_ids: sampleJourneyLesson.assessment.questions.map((question) => question.id),
-      min_correct: sampleJourneyLesson.assessment.completion.minCorrect,
-      required_question_ids: [
-        ...sampleJourneyLesson.assessment.completion.requiredQuestionIds,
-      ],
+      assessment_version: systemIntroManifest.finalAssessment.version,
+      question_ids: systemIntroManifest.finalAssessment.exercises.map((exercise) => exercise.id),
+      min_correct: systemIntroManifest.finalAssessment.completion.minCorrect,
+      required_question_ids: [...systemIntroManifest.finalAssessment.completion.requiredQuestionIds],
     },
   },
 } satisfies ProgressCompletionManifest;

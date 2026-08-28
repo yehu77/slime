@@ -1,0 +1,14 @@
+{
+  "prompt": "No generative prompt. Deterministic derivative of the user's local image library.",
+  "sourceLibraryPath": "anime7000/04885_wallpaperscraft_girl_dog_airport_224749_1600x900.jpg",
+  "rightsConfirmation": "The user confirmed that the images in this local library are open source, have no copyright issue for this use, and may be used on the public website. No specific license name was provided.",
+  "assetRole": "Unit 03 orchestration atmosphere: an operator in front of server racks; it is not a literal depiction of Megatron, SGLang, or Ray.",
+  "alt": "一名角色站在成排服务器机柜前",
+  "focalPoint": { "x": 0.47, "y": 0.47, "description": "operator centered against the repeating server-rack field" },
+  "focalCrop": { "source": { "x": 0, "y": 0, "width": 1600, "height": 900 }, "strategy": "full-frame 16:9" },
+  "processing": "cwebp 1.6.0 JPEG decode; resize to 1600x900; WebP quality=88, method=6, metadata stripped. No generative editing, text overlay, or color manipulation.",
+  "deterministicProcessing": true,
+  "generativeEditing": false,
+  "output": { "width": 1600, "height": 900, "format": "webp" },
+  "createdAt": "2026-08-28"
+}

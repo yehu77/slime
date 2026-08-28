@@ -3,6 +3,7 @@ import {
   sampleJourneyMessages,
   sampleToGenerationCourse,
   slimeCurriculum,
+  systemIntroManifest,
   type Curriculum,
   type CurriculumLearnerStatusMap,
   type CurriculumRecommendation,
@@ -54,22 +55,31 @@ function introRecommendation(
     ? undefined
     : progress.lessons["core.sample-journey"];
   const resume = lesson?.resume?.kind === "sample-journey" ? lesson.resume : null;
+  const unitId = resume?.unit_id ?? "loop-boundary";
+  const unit = systemIntroManifest.units.find((candidate) => candidate.id === unitId);
   const route = resume
-    ? appendQueryAndHash("/learn/sample-journey", {
-        event: resume.event_id,
-        sample: resume.selected_sample_id,
-        timeline: resume.timeline_mode,
-      })
+    ? appendQueryAndHash(
+        "/learn/sample-journey",
+        unitId === "sample-probe"
+          ? {
+              unit: unitId,
+              event: resume.event_id,
+              sample: resume.selected_sample_id,
+              timeline: resume.timeline_mode,
+            }
+          : { unit: unitId },
+        resume.phase_id ?? "orient",
+      )
     : "/learn/sample-journey";
-  const eventTitle = resume
+  const eventTitle = resume && unitId === "sample-probe"
     ? sampleJourneyMessages[`sample-journey.event.${resume.event_id}.title`]
     : null;
   return {
     id: "system-intro",
     stageId: "system-intro",
-    title: "系统导论：一条 Sample 的七幕旅程",
-    description: "先建立完整闭环地图，知道生成、评价、训练与权重发布各自接住什么。",
-    position: eventTitle ? `上次停在：${eventTitle}` : "从第一幕建立全局坐标",
+    title: "系统导论：为什么 slime 不是一条训练脚本",
+    description: "先区分控制骨架、后端职责、空间与时间，再用 Sample trace 核对系统边界。",
+    position: eventTitle ? `上次停在：${eventTitle}` : unit ? `上次停在：${unit.title}` : "从一次权重版本事故建立系统边界",
     actionLabel: status === "in_progress" ? "继续系统导论" : "进入系统导论",
     route,
     status,
