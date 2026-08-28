@@ -94,6 +94,16 @@
     },
     {
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 117,
+      "id": "ray.placement-layout",
+      "path": "slime/ray/placement_group.py",
+      "snippet_sha256": "b8c132515b6016a45253ed4184201b1240213eaa6fab0332061c1d8fa8c981a8",
+      "start_line": 100,
+      "symbol": "_get_placement_group_layout",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/ray/placement_group.py#L100-L117"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
       "end_line": 826,
       "guided_excerpt": {
         "code": "        # loss mask\n        # TODO: compress the loss mask\n        loss_masks = []\n        for sample in samples:\n            # always instantiate loss_mask if not provided\n            if sample.loss_mask is None:\n                sample.loss_mask = [1] * sample.response_length\n\n            assert (\n                len(sample.loss_mask) == sample.response_length\n            ), f\"loss mask length {len(sample.loss_mask)} != response length {sample.response_length}\"\n            if sample.remove_sample:\n                sample.loss_mask = [0] * sample.response_length\n            loss_masks.append(sample.loss_mask)\n        train_data[\"loss_masks\"] = loss_masks",
@@ -300,6 +310,22 @@
     },
     {
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 478,
+      "guided_excerpt": {
+        "code": "        rollout_init_handles: list[Any] = []\n        if self.args.debug_train_only:\n            self.servers: dict[str, Any] = {}\n        else:\n            init_http_client(args)\n            self.servers, rollout_init_handles = start_rollout_servers(args, pg)\n\n        data_source_cls = load_function(self.args.data_source_path)\n        self.data_source = data_source_cls(args)\n\n        self.generate_rollout = load_function(self.args.rollout_function_path)\n        self.eval_generate_rollout = load_function(self.args.eval_function_path)",
+        "end_line": 448,
+        "snippet_sha256": "f26257f6c0f97119c35101f6534185283ac977c3a3d3d6755bdad166713111e6",
+        "start_line": 437
+      },
+      "id": "rollout.manager-init",
+      "path": "slime/ray/rollout.py",
+      "snippet_sha256": "92cc81e804c592fe945ed77dd042f7229b53f4c5fca78cbf84e756cb2e195699",
+      "start_line": 431,
+      "symbol": "RolloutManager.__init__",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/ray/rollout.py#L431-L478"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
       "end_line": 710,
       "id": "rollout.post-process-rewards",
       "path": "slime/ray/rollout.py",
@@ -323,6 +349,16 @@
       "start_line": 42,
       "symbol": "_prepare_prompt_ids",
       "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/rollout/sglang_rollout.py#L42-L61"
+    },
+    {
+      "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
+      "end_line": 1231,
+      "id": "rollout.server-start",
+      "path": "slime/ray/rollout.py",
+      "snippet_sha256": "124ddc01027edff1df55f3a2ac86b29b3f0fd3b6c548eaa37f1c8d1ac111caf4",
+      "start_line": 1092,
+      "symbol": "start_rollout_servers",
+      "url": "https://github.com/THUDM/slime/blob/06ffdbe22be068b52f9ed0fc318c473f7030197e/slime/ray/rollout.py#L1092-L1231"
     },
     {
       "commit": "06ffdbe22be068b52f9ed0fc318c473f7030197e",
