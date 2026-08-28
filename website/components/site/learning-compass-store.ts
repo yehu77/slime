@@ -43,7 +43,7 @@ export type LearningCompassManifest = {
   course: { label: string; href: string; durationMinutes: number; position: number };
   chapters: readonly LearningCompassChapter[];
   chapterCount: number;
-  chapterNoun?: "章" | "幕";
+  chapterNoun?: "章" | "幕" | "单元";
 };
 
 export type LearningCompassRegistration = LearningCompassManifest & {

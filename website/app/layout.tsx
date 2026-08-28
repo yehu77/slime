@@ -21,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
       template: "%s · slime Lab",
     },
     description:
-      "用交互式闭环、Sample 字段追踪、源码锚点和可验证实验，深入理解 slime。",
+      "用架构边界、Sample 观测、源码锚点和可验证练习，建立对 slime 的系统理解。",
     applicationName: "slime Lab",
     keywords: ["slime", "RL", "强化学习", "SGLang", "Megatron", "教程"],
     openGraph: {
@@ -29,13 +29,13 @@ export async function generateMetadata(): Promise<Metadata> {
       locale: "zh_CN",
       siteName: "slime Lab",
       title: "slime Lab — 从训练脚本建立可验证系统模型",
-      description: "沿一条 Sample 的状态变化，理解 rollout、训练与权重发布边界。",
+      description: "从系统边界到 Sample 状态变化，理解 rollout、训练与权重发布如何接成闭环。",
       images: [{ url: socialImage, width: 1731, height: 909, alt: "slime Lab 训练闭环" }],
     },
     twitter: {
       card: "summary_large_image",
       title: "slime Lab",
-      description: "沿一条 Sample 的状态变化，理解 slime 的完整训练闭环。",
+      description: "从系统边界到 Sample 状态变化，建立可由源码核验的 slime 训练闭环模型。",
       images: [socialImage],
     },
   };
@@ -50,14 +50,14 @@ export default function RootLayout({
     <html lang="zh-CN">
       <body>
         <template
-          data-impeccable-contract="5bc72fe8"
+          data-impeccable-contract="1f848e47"
           dangerouslySetInnerHTML={{
             __html: `<!--
-THESIS: 一条 Sample 作为固定观察对象贯穿七张关键原画；拒绝通用文档站的英雄区与圆角卡片阵列。
-OWN-WORLD: 原画纸白、蓝图海军蓝、校正红、注册蓝与状态黄；界面由曝光表、赛璐璐层、装订孔和铅笔批注组成。
-STORY: 初学者先看见完整闭环，再检查同一条 Sample 的状态演化，并能回到字段与源码核对。
-FIRST VIEWPORT: 左侧标题原画纸与右侧关键 cel 等高相邻，唯一主操作嵌入 Act 01；下方七幕曝光表完整贯通并露出课程第二折，首课收为单一阅读舞台与可唤出的 Sample 透写台。
-FORM: 七幕原画台，方向候选第 1 位，seed 5bc72fe8。
+THESIS: slime Lab 用可核验的系统边界组织课程；Sample 是观察探针，不是整套架构的替身。
+OWN-WORLD: 原画纸白、深海军蓝、校正红、注册蓝与状态黄；页面像一张正在装配和审读的动画工程长卷。
+STORY: 初学者从 actor@0 事故进入，依次装配骨架、角色、两条轴与 Sample 探针，最后用陌生日志重建边界。
+FIRST VIEWPORT: 雨窗关键帧与事故案卷正面碰撞；版本线和悬而未决的问题把唯一动作指向循环边界。
+FORM: 架构装配长卷，代码原生方向，seed 1f848e47。
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 -->`,
           }}

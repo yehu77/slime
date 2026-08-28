@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { JourneyExperience } from "../../../components/journey";
-import { sampleJourneyLesson } from "../../../content/zh";
+import { SystemIntroExperience } from "../../../components/journey";
+import { systemIntroManifest } from "../../../content/zh";
 
 export const metadata: Metadata = {
-  title: sampleJourneyLesson.metadata.title,
-  description: sampleJourneyLesson.metadata.summary,
+  title: systemIntroManifest.title,
+  description: systemIntroManifest.summary,
 };
 
 export default function SampleJourneyPage() {
-  return <JourneyExperience />;
+  return <SystemIntroExperience />;
 }

@@ -1,0 +1,14 @@
+{
+  "prompt": "No generative prompt. Deterministic derivative of the user's local image library.",
+  "sourceLibraryPath": "anime7000/02219_wallpapersmug_window-glass-surface-water-drops-city.jpg",
+  "rightsConfirmation": "The user confirmed that the images in this local library are open source, have no copyright issue for this use, and may be used on the public website. No specific license name was provided.",
+  "assetRole": "Unit 01 incident atmosphere: unresolved system state behind rain-streaked glass; not a technical diagram or source of factual evidence.",
+  "alt": "雨滴覆在窗玻璃上，远处城市笼罩在暮色中",
+  "focalPoint": { "x": 0.5, "y": 0.5, "description": "central skyline and foreground rain droplets" },
+  "focalCrop": { "source": { "x": 440, "y": 0, "width": 720, "height": 900 }, "strategy": "centered 4:5 crop retaining skyline and raindrop field" },
+  "processing": "cwebp 1.6.0 JPEG decode; crop source rectangle x=440,y=0,w=720,h=900; resize to 800x1000; WebP quality=88, method=6, metadata stripped. No generative editing, text overlay, or color manipulation.",
+  "deterministicProcessing": true,
+  "generativeEditing": false,
+  "output": { "width": 800, "height": 1000, "format": "webp" },
+  "createdAt": "2026-08-28"
+}

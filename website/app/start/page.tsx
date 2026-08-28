@@ -6,14 +6,14 @@ import "../studio.css";
 
 export const metadata: Metadata = {
   title: "开始学习",
-  description: "先用一张七幕总览理解 slime，再通过可选课前诊断进入 Sample 状态演化首课。",
+  description: "先建立 slime 的训练、生成与权重发布边界，再按需完成三分钟课前诊断。",
 };
 
 const reviewRoutes: Record<string, { href: string; label: string }> = {
-  "pre-1": { href: "/learn/sample-journey?event=group_built&sample=a0&timeline=sync", label: "进入第二幕：分组" },
-  "pre-2": { href: "/learn/sample-journey?event=generating&sample=a0&timeline=sync", label: "进入第三幕：生成" },
-  "pre-3": { href: "/learn/sample-journey?event=train_data_built&sample=a0&timeline=sync", label: "进入第五幕：转换与排程" },
-  "pre-4": { href: "/learn/sample-journey?event=rewarded_collected&sample=a0&timeline=sync", label: "进入第四幕：评价与收集" },
+  "pre-1": { href: "/learn/sample-journey?unit=sample-probe&event=group_built&sample=a0&timeline=sync#verify", label: "到 Sample 探针核对分组" },
+  "pre-2": { href: "/learn/sample-journey?unit=sample-probe&event=generating&sample=a0&timeline=sync#verify", label: "到 Sample 探针核对生成" },
+  "pre-3": { href: "/learn/sample-journey?unit=sample-probe&event=train_data_built&sample=a0&timeline=sync#verify", label: "到 Sample 探针核对训练数据交接" },
+  "pre-4": { href: "/learn/sample-journey?unit=sample-probe&event=rewarded_collected&sample=a0&timeline=sync#verify", label: "到 Sample 探针核对评价" },
 } as const;
 
 export default function StartPage() {

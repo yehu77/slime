@@ -12,6 +12,8 @@ export const sourceActLabels: Readonly<Record<string, string>> = {
   "act-5": "第五幕 / 转换与排程",
   "act-6": "第六幕 / 训练",
   "act-7": "第七幕 / 权重发布",
+  "system-intro.backends-and-ray": "系统导论 / 后端与编排",
+  "system-intro.resource-and-time": "系统导论 / 资源与时间",
   "source-map": "契约测试",
 };
 
@@ -109,6 +111,21 @@ export const sourceRefLabels: Readonly<Record<string, SourceRefLabel>> = {
   "rollout.generate-async": {
     title: "按完整 group 收集与过滤",
     symbol: "generate_rollout_async",
+    evidenceTypeLabel: "生产源码",
+  },
+  "ray.placement-layout": {
+    title: "计算训练与 rollout 的资源布局",
+    symbol: "_get_placement_group_layout",
+    evidenceTypeLabel: "生产源码",
+  },
+  "rollout.manager-init": {
+    title: "装配 servers、Data Source 与 rollout function",
+    symbol: "RolloutManager.__init__",
+    evidenceTypeLabel: "生产源码",
+  },
+  "rollout.server-start": {
+    title: "建立 router 与 SGLang server groups",
+    symbol: "start_rollout_servers",
     evidenceTypeLabel: "生产源码",
   },
   "rollout.manager-generate": {

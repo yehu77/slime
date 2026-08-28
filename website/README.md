@@ -1,6 +1,14 @@
 # slime Lab
 
-slime Lab 是一个面向研究者与工程师的中文交互式学习站。「一条 Sample 的状态演化」负责建立系统地图；第一门完整机制课「Sample 如何得到回答」沿固定源码基线，逐边界解释 Dataset row、Sample、DataSource 与 SGLang 写回。教学顺序坚持先讲透机制，再运行实验。
+slime Lab 是一个面向研究者与工程师的中文交互式学习站。系统导论先从训练侧与生成侧的权重可见性矛盾建立架构地图，再用一条 Sample trace 核对数据边界；第一门完整机制课「Sample 如何得到回答」沿固定源码基线，逐边界解释 Dataset row、Sample、DataSource 与 SGLang 写回。教学顺序坚持先讲透机制，再运行实验。
+
+## 共享文档
+
+- [产品原则与教学边界](../PRODUCT.md)
+- [视觉设计系统](../DESIGN.md)
+- [权威内容基线与课程重构蓝图](../CONTENT_AUTHORITY_BLUEPRINT.md)
+- [Stage 02 系统导论来源档案](content/zh/research/system-intro-source-dossier.md)
+- [Stage 02 系统导论无 UI 课程脚本](content/zh/research/system-intro-course-script.md)
 
 ## 本地运行
 
@@ -41,7 +49,7 @@ python3 scripts/generate-source-anchors.py
 - `core/journey/`：课程播放器的领域状态、reducer 与不变量。
 - `core/sample-to-generation/`：首门机制课的 2×2 trace、课程 copy-on-write 演示、生产原地写回边界、练习判分与不变量。
 - `core/progress/`：按 lesson ID 隔离的 v2 设备本地进度与 v1 迁移。
-- `components/journey/`：交互课程、显微镜、batch 计算器和同步/异步时间线。
+- `components/journey/`：六单元系统导论、七站 Sample 探针、显微镜与综合架构终测。
 - `components/mechanism/`：六章机制课、综合 trace 终测、状态账本、源码摘录与结构化练习。
 
 学习进度仅保存在访问者浏览器的 `localStorage` 中；M1 不采集账户或服务器端学习数据。

@@ -53,6 +53,36 @@ const manifest: LearningCompassManifest = {
   ],
 };
 
+const systemIntroUnitIds = [
+  "loop-boundary",
+  "stable-skeleton",
+  "backend-roles",
+  "placement-and-time",
+  "sample-probe",
+  "architecture-reconstruction",
+] as const;
+
+const systemIntroManifest: LearningCompassManifest = {
+  stage: { label: "系统导论", href: "/learn#stage-system-intro", position: 2 },
+  course: {
+    label: "为什么 slime 不是一条训练脚本",
+    href: "/learn/sample-journey",
+    durationMinutes: 45,
+    position: 1,
+  },
+  chapterCount: systemIntroUnitIds.length,
+  chapterNoun: "单元",
+  chapters: systemIntroUnitIds.map((unitId, index) => ({
+    id: unitId,
+    label: `单元 ${index + 1}`,
+    shortLabel: `${index + 1}/6`,
+    durationMinutes: 7,
+    href: `/learn/sample-journey?unit=${unitId}`,
+    phases,
+    position: index + 1,
+  })),
+};
+
 describe("global learning compass registry", () => {
   it("keeps the four stable phase ids in one fixed order", () => {
     expect(LEARNING_COMPASS_PHASES.map((phase) => phase.id)).toEqual([
@@ -160,6 +190,38 @@ describe("global learning compass registry", () => {
     ]);
   });
 
+  it("builds all six system-intro unit URLs and one continuous phase chain", () => {
+    expect(() => assertValidLearningCompassManifest(systemIntroManifest)).not.toThrow();
+    expect(systemIntroManifest.chapterNoun).toBe("单元");
+    expect(systemIntroManifest.chapters.map((unit) => unit.href)).toEqual(
+      systemIntroUnitIds.map(
+        (unitId) => `/learn/sample-journey?unit=${unitId}`,
+      ),
+    );
+
+    const chain = buildLearningCompassNextChain(systemIntroManifest);
+    expect(chain).toHaveLength(24);
+    expect(chain[0]).toEqual({
+      chapterId: "loop-boundary",
+      phaseId: "orient",
+      href: "/learn/sample-journey?unit=loop-boundary#orient",
+    });
+    expect(chain[3]).toMatchObject({
+      chapterId: "loop-boundary",
+      phaseId: "practice",
+    });
+    expect(chain[4]).toEqual({
+      chapterId: "stable-skeleton",
+      phaseId: "orient",
+      href: "/learn/sample-journey?unit=stable-skeleton#orient",
+    });
+    expect(chain.at(-1)).toEqual({
+      chapterId: "architecture-reconstruction",
+      phaseId: "practice",
+      href: "/learn/sample-journey?unit=architecture-reconstruction#practice",
+    });
+  });
+
   it("parses location and hash without treating an invalid hash as progress", () => {
     expect(
       resolveLearningCompassLocation(manifest, {
@@ -187,6 +249,38 @@ describe("global learning compass registry", () => {
       resolveLearningCompassLocation(manifest, {
         pathname: "/learn/sample-journey",
         search: "",
+        hash: "#model",
+      }),
+    ).toBeNull();
+  });
+
+  it("resolves system-intro unit deep links and falls back without crediting an invalid hash", () => {
+    expect(
+      resolveLearningCompassLocation(systemIntroManifest, {
+        pathname: "/learn/sample-journey",
+        search: "?unit=sample-probe&event=group-built&sample=a0&timeline=sync",
+        hash: "#verify",
+      }),
+    ).toEqual({
+      chapterId: "sample-probe",
+      phaseId: "verify",
+      hashWasValid: true,
+    });
+    expect(
+      resolveLearningCompassLocation(systemIntroManifest, {
+        pathname: "/learn/sample-journey",
+        search: "?unit=placement-and-time",
+        hash: "#act-4",
+      }),
+    ).toEqual({
+      chapterId: "placement-and-time",
+      phaseId: "orient",
+      hashWasValid: false,
+    });
+    expect(
+      resolveLearningCompassLocation(systemIntroManifest, {
+        pathname: "/learn/sample-journey",
+        search: "?unit=unknown",
         hash: "#model",
       }),
     ).toBeNull();

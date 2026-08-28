@@ -7,6 +7,23 @@ export {
   sampleJourneyOverview,
 } from "./lessons/sample-journey";
 export {
+  systemIntroFinalAssessment,
+  systemIntroManifest,
+  systemIntroTraceStations,
+} from "./lessons/system-intro";
+export type {
+  SystemIntroArchitectureCase,
+  SystemIntroAssessment,
+  SystemIntroClaim,
+  SystemIntroEvidenceKind,
+  SystemIntroManifest,
+  SystemIntroPhaseId,
+  SystemIntroSourceLink,
+  SystemIntroTraceStation,
+  SystemIntroUnit,
+  SystemIntroUnitId,
+} from "./lessons/system-intro";
+export {
   sampleToGenerationChapters,
   sampleToGenerationComprehensiveAssessment,
   sampleToGenerationCourse,

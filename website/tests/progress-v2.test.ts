@@ -153,6 +153,8 @@ describe("progress v2 schemas", () => {
         type: "resume-updated",
         resume: {
           kind: "sample-journey",
+          unit_id: "sample-probe",
+          phase_id: "verify",
           event_id: "group-built",
           selected_sample_id: "a0",
           timeline_mode: "sync",
@@ -162,6 +164,29 @@ describe("progress v2 schemas", () => {
       now,
     );
     expect(LocalProgressV2Schema.parse(progress)).toEqual(progress);
+    expect(progress.lessons["core.sample-to-generation"]?.resume).toMatchObject({
+      kind: "sample-journey",
+      unit_id: "sample-probe",
+      phase_id: "verify",
+    });
+
+    const legacyResume = {
+      ...progress,
+      lessons: {
+        ...progress.lessons,
+        "core.sample-to-generation": {
+          ...progress.lessons["core.sample-to-generation"]!,
+          resume: {
+            kind: "sample-journey" as const,
+            event_id: "group-built",
+            selected_sample_id: "a0",
+            timeline_mode: "sync" as const,
+            fixture_id: "math-2x2-v1",
+          },
+        },
+      },
+    };
+    expect(LocalProgressV2Schema.parse(legacyResume)).toEqual(legacyResume);
   });
 
   it("keeps the first submitted learning artifact immutable and lets a skip become one submission", () => {
@@ -312,6 +337,187 @@ describe("progress v2 completion", () => {
       visited_sections: ["chapter-1"],
     });
     expect(discardOutdatedLessonProgressV2(cleaned, registry)).toBe(cleaned);
+  });
+
+  it("silently discards only system intro revision 7 when revision 8 is current", () => {
+    const revisionSevenManifest = {
+      ...manifest,
+      lesson_revision: 7,
+      completion: {
+        ...manifest.completion,
+        final_assessment: {
+          ...manifest.completion.final_assessment,
+          assessment_version: 2,
+        },
+      },
+    } satisfies ProgressCompletionManifest;
+    const revisionEightManifest = {
+      ...revisionSevenManifest,
+      lesson_revision: 8,
+      completion: {
+        ...revisionSevenManifest.completion,
+        final_assessment: {
+          ...revisionSevenManifest.completion.final_assessment,
+          assessment_version: 3,
+        },
+      },
+    } satisfies ProgressCompletionManifest;
+
+    let progress = applyLessonProgressEvent(
+      createEmptyLocalProgressV2(),
+      "core.sample-journey",
+      revisionSevenManifest,
+      { type: "section-visited", section_id: "act-1" },
+      now,
+    );
+    progress = applyLessonProgressEvent(
+      progress,
+      "core.sample-journey",
+      revisionSevenManifest,
+      {
+        type: "assessment-submitted",
+        correct_question_ids: ["q1", "q2"],
+      },
+      now,
+    );
+    progress = applyLessonProgressEvent(
+      progress,
+      "core.sample-to-generation",
+      manifest,
+      { type: "section-visited", section_id: "chapter-1" },
+      now,
+    );
+
+    const { storage } = createStorage({
+      [LOCAL_PROGRESS_V2_STORAGE_KEY]: JSON.stringify(progress),
+    });
+    const reconciliation = reconcileStoredProgressV2(
+      storage,
+      {
+        "core.sample-journey": revisionEightManifest,
+        "core.sample-to-generation": manifest,
+      },
+      now,
+    );
+
+    expect(reconciliation.changed).toBe(true);
+    expect(reconciliation.progress.lessons["core.sample-journey"]).toBeUndefined();
+    expect(
+      reconciliation.progress.lessons["core.sample-to-generation"],
+    ).toMatchObject({
+      lesson_revision: manifest.lesson_revision,
+      visited_sections: ["chapter-1"],
+    });
+    expect(JSON.parse(storage.getItem(LOCAL_PROGRESS_V2_STORAGE_KEY)!)).toEqual(
+      reconciliation.progress,
+    );
+  });
+
+  it("silently discards system intro assessment 2 when assessment 3 is current", () => {
+    const assessmentTwoManifest = {
+      ...manifest,
+      lesson_revision: 8,
+      completion: {
+        ...manifest.completion,
+        final_assessment: {
+          ...manifest.completion.final_assessment,
+          assessment_version: 2,
+        },
+      },
+    } satisfies ProgressCompletionManifest;
+    const assessmentThreeManifest = {
+      ...assessmentTwoManifest,
+      completion: {
+        ...assessmentTwoManifest.completion,
+        final_assessment: {
+          ...assessmentTwoManifest.completion.final_assessment,
+          assessment_version: 3,
+        },
+      },
+    } satisfies ProgressCompletionManifest;
+    let progress = applyLessonProgressEvent(
+      createEmptyLocalProgressV2(),
+      "core.sample-journey",
+      assessmentTwoManifest,
+      { type: "section-visited", section_id: "act-1" },
+      now,
+    );
+    progress = applyLessonProgressEvent(
+      progress,
+      "core.sample-journey",
+      assessmentTwoManifest,
+      { type: "assessment-submitted", correct_question_ids: ["q1"] },
+      now,
+    );
+    progress = applyLessonProgressEvent(
+      progress,
+      "core.sample-to-generation",
+      manifest,
+      { type: "section-visited", section_id: "chapter-1" },
+      now,
+    );
+
+    const cleaned = discardOutdatedLessonProgressV2(progress, {
+      "core.sample-journey": assessmentThreeManifest,
+      "core.sample-to-generation": manifest,
+    });
+    expect(cleaned.lessons["core.sample-journey"]).toBeUndefined();
+    expect(cleaned.lessons["core.sample-to-generation"]).toBeDefined();
+  });
+
+  it("preserves future system intro revisions and assessment versions during rollback", () => {
+    const currentManifest = {
+      ...manifest,
+      lesson_revision: 8,
+      completion: {
+        ...manifest.completion,
+        final_assessment: {
+          ...manifest.completion.final_assessment,
+          assessment_version: 3,
+        },
+      },
+    } satisfies ProgressCompletionManifest;
+    const futureManifest = {
+      ...currentManifest,
+      completion: {
+        ...currentManifest.completion,
+        final_assessment: {
+          ...currentManifest.completion.final_assessment,
+          assessment_version: 4,
+        },
+      },
+    } satisfies ProgressCompletionManifest;
+    let futureProgress = applyLessonProgressEvent(
+      createEmptyLocalProgressV2(),
+      "core.sample-journey",
+      futureManifest,
+      { type: "section-visited", section_id: "loop-boundary" },
+      now,
+    );
+    futureProgress = applyLessonProgressEvent(
+      futureProgress,
+      "core.sample-journey",
+      futureManifest,
+      { type: "assessment-submitted", correct_question_ids: ["q1"] },
+      now,
+    );
+    const storedLesson = futureProgress.lessons["core.sample-journey"];
+
+    expect(
+      discardOutdatedLessonProgressV2(futureProgress, {
+        "core.sample-journey": currentManifest,
+      }),
+    ).toBe(futureProgress);
+    expect(
+      applyLessonProgressEvent(
+        futureProgress,
+        "core.sample-journey",
+        currentManifest,
+        { type: "section-visited", section_id: "stable-skeleton" },
+        () => LATER,
+      ),
+    ).toBe(futureProgress);
+    expect(futureProgress.lessons["core.sample-journey"]).toBe(storedLesson);
   });
 
   it("persists obsolete cleanup once and does not echo a cross-tab storage event", () => {

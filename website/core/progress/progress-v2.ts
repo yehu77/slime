@@ -53,6 +53,8 @@ export const LessonResumeSchema = z.discriminatedUnion("kind", [
   z
     .object({
       kind: z.literal("sample-journey"),
+      unit_id: StableIdSchema.optional(),
+      phase_id: z.enum(["orient", "model", "verify", "practice"]).optional(),
       event_id: StableIdSchema,
       selected_sample_id: StableIdSchema,
       timeline_mode: z.enum(["sync", "async"]),

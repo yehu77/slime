@@ -396,6 +396,43 @@
       "lesson_uses": ["act-4"]
     },
     {
+      "id": "ray.placement-layout",
+      "kind": "production-source",
+      "path": "slime/ray/placement_group.py",
+      "symbol": "_get_placement_group_layout",
+      "symbol_kind": "function",
+      "claim": "固定版本根据训练、rollout、debug、external 与 colocate 配置计算 placement group 的 GPU 总量和 rollout offset。",
+      "concept_ids": ["resource-placement"],
+      "lesson_uses": ["system-intro.resource-and-time"],
+      "caveat": "该函数只证明资源布局的分支规则；同步或异步关系由训练入口中的远程调用与等待位置决定。"
+    },
+    {
+      "id": "rollout.manager-init",
+      "kind": "production-source",
+      "path": "slime/ray/rollout.py",
+      "symbol": "RolloutManager.__init__",
+      "symbol_kind": "method",
+      "claim": "RolloutManager 在固定版本中装配 SGLang servers、Data Source、训练/eval rollout function 与可选转换钩子。",
+      "concept_ids": ["rollout-orchestration"],
+      "lesson_uses": ["system-intro.backends-and-ray"],
+      "caveat": "装配关系不意味着所有任务必须使用默认 rollout function；固定版本显式加载用户配置的函数路径。",
+      "guided_excerpt": {
+        "start_contains": "rollout_init_handles: list[Any] = []",
+        "end_contains": "self.eval_generate_rollout = load_function(self.args.eval_function_path)"
+      }
+    },
+    {
+      "id": "rollout.server-start",
+      "kind": "production-source",
+      "path": "slime/ray/rollout.py",
+      "symbol": "start_rollout_servers",
+      "symbol_kind": "function",
+      "claim": "固定版本为配置中的模型建立 router 与 SGLang server groups，并把每个模型的 router 地址暴露给 rollout 逻辑。",
+      "concept_ids": ["rollout-server"],
+      "lesson_uses": ["system-intro.backends-and-ray"],
+      "caveat": "该符号包含多模型、PD/encoder disaggregation 等支线；系统导论只使用默认 server-based generation 这一最小结论。"
+    },
+    {
       "id": "rollout.manager-generate",
       "kind": "production-source",
       "path": "slime/ray/rollout.py",
